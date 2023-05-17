@@ -227,27 +227,99 @@ Section intro.
     [:: AI_basic (BI_block (Tf [:: T_i32] [:: T_i32]) [:: BI_loop (Tf [:: T_i32] [:: T_i32]) loop_body ]);
      AI_basic (BI_get_local 1)].
 
-  Definition result_place_holder : Z -> seq administrative_instruction :=
-    fun n => [:: AI_basic (BI_const (i32_of_Z ( (n*(n+1))/2 )))].
+(*Definition result_place_holder : Z -> seq administrative_instruction :=
+    fun n => [:: AI_basic (BI_const (i32_of_Z ( (n*(n+1))/2 )))].*)
+  Definition result_place_holder : seq administrative_instruction :=
+    [::
+      AI_basic (BI_get_local 0); (*AI_basic (BI_const (i32_of_Z n));*)
+      (* [n] *)
+      AI_basic (BI_const (i32_of_Z 1));
+      (* [n 1] *)
+      AI_basic (BI_binop T_i32 (Binop_i BOI_add));
+      (* [n 1 +] => n+1 *)
+      AI_basic (BI_get_local 0); (*AI_basic (BI_const (i32_of_Z n));*)
+      (* [n+1 n] *)
+      AI_basic (BI_binop T_i32 (Binop_i BOI_mul));
+      (* [n+1 n *] => (n+1)*n *)
+      AI_basic (BI_const (i32_of_Z 2));
+      (* [(n+1)*n 2] *)
+      AI_basic (BI_binop T_i32 (Binop_i (BOI_div SX_U)));
+      (* [(n+1)*n 2 /] => ((n+1)*n)/2 *)
+      AI_basic (BI_set_local 1)
+    ].
+  
+  Definition result_place_holder' : seq administrative_instruction :=
+    [::AI_label 4 [::]
+      [:: AI_basic
+      (BI_loop (Tf [:: T_i32] [:: T_i32]) loop_body)]
+    ].
+
+  Definition result_place_holder'' : seq administrative_instruction :=
+    [::].
+  
+  (*Lemma reduce_trans_to_same: forall hs1 s1 f1 es1 hs2 s2 f2 es2 hs3 s3 f3 es3,
+    reduce_trans (hs1, s1, f1, es1) (hs3, s3, f3, es3) ->
+    reduce_trans (hs2, s2, f2, es2) (hs3, s3, f3, es3) ->
+    reduce_trans (hs1, s1, f1, es1) (hs2, s2, f2, es2).
+  Proof.
+    intros.
+    (* Not correct since the relation is not symmetric *)
+    (* "reduce" is short prefix for "reduces to" infix *)
+  Admitted.*)
   
   (* Try to work out what it does under the given premises,
       and fill in the above definition that specifies the execution result.
       Proving the reduction might be actually very tedious. *)
-    Lemma opsem_reduce_loop: forall hs s f (z:Z),
-      (z >= 0)%Z ->
-      f.(f_locs) = [:: i32_of_Z z; i32_of_Z 0] ->
-      exists f', reduce_trans (hs, s, f, code) (hs, s, f', result_place_holder z).
+  Lemma opsem_reduce_loop: forall hs s f (z:Z),
+    (z >= 0)%Z ->
+    f.(f_locs) = [:: i32_of_Z z; i32_of_Z 0] ->
+    exists f', reduce_trans (hs, s, f, code) (hs, s, f', result_place_holder'').
   Proof.
     intros. rename H into Hzpos. rename H0 into Hstore.
-  (*destruct f as [ff_locs ff_inst].
+    destruct f as [ff_locs ff_inst].
     exists {|
-      f_locs := [:: i32_of_Z _; i32_of_Z 0];
+      f_locs := [:: i32_of_Z (((z+1)*z)/2); i32_of_Z 0];
       f_inst := ff_inst
-    |}.*)
-    exists f. (* Same initialisation since equivalent code *)
+    |}.
+  (*exists f. (* Same initialisation since equivalent code *)*)
   (*unfold reduce_trans. unfold opsem.reduce_trans.*)
   (*unfold result_place_holder. unfold code. unfold loop_body.*)
+    apply Relations.Relation_Operators.rt_step.
+    unfold result_place_holder''. unfold code. admit.
+  (*eapply r_label; eauto. (* yields same goal as before *)*)
+    
+    (* Attempt to:
+     * reduce start code start result
+     * ->
+     * reduce end [::] end [::]
+     *)
+    (* Cannot do this step-by step on both sides *)
+    
+    (* reduce start code start' code[1:]
+     *  repeat until reduce end' code[:-1] end [::]?
+     *)
+    
+  (*eapply reduce_composition.
+    eapply rs_binop_success.*)
   Admitted.
-  
 
+  Lemma reduce_my: forall f z hs s,
+    f.(f_locs) = [:: i32_of_Z z; i32_of_Z 0] ->
+    exists f', reduce_trans (hs, s, f, result_place_holder) (hs, s, f', [::] ++ [::]).
+  Proof.
+    intros. rename H into H_f.
+    destruct f as [ff_locs ff_inst].
+    exists {|
+      f_locs := [:: i32_of_Z (((z+1)*z)/2); i32_of_Z 0];
+      f_inst := ff_inst
+    |}.
+
+    apply Relations.Relation_Operators.rt_step.
+  (*replace result_place_holder with
+      (take (size result_place_holder - 1) result_place_holder
+      ++ drop (size result_place_holder - 1) result_place_holder). simpl.*)
+    
+    unfold result_place_holder.
+
+    eapply reduce_composition_right.
 End intro.

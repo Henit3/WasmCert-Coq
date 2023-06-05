@@ -879,6 +879,45 @@ Proof.
     by apply v_to_e_is_const_list.
 Qed. 
 
+
+(*****)
+Lemma t_progress_be_if: forall C bes ts1 ts2 vcs lab ret s f hs,
+    store_typing s ->
+    inst_typing s f.(f_inst) C ->
+    be_typing (upd_label (upd_local_return C (map typeof f.(f_locs)) ret) lab) bes (Tf ts1 ts2) ->
+    map typeof vcs = ts1 ->  
+    not_lf_br (to_e_list bes) 0 ->
+    not_lf_return (to_e_list bes) 0 ->
+    exists tn tm es1 es2, [:: BI_if (Tf tn tm) es1 es2] = bes ->
+    const_list (to_e_list bes) \/
+    exists s' f' es' hs', reduce hs s f (v_to_e_list vcs ++ to_e_list bes) hs' s' f' es'.
+Proof.
+  move => C bes ts1 ts2 vcs lab ret s f hs HST HIT HType HConstType HNBI_br HNRet.
+  generalize dependent vcs.
+  gen_ind HType;
+  try by (exists [::], [::], [::], [::]; intro H_match; inversion H_match).
+  2: {(* Composition *) admit. }
+  2: {(* Weakening *) admit. }
+
+  exists tn, tm, es1, es2.
+  right.
+  apply typeof_append in HConstType.
+  destruct HConstType as [v [Ha [Hb Hc]]].
+  rewrite Ha. rewrite -v_to_e_cat.
+  rewrite -catA.
+  destruct v => //=.
+  destruct (s0 == Wasm_int.int_zero i32m) eqn:Heq0; move/eqP in Heq0.
+  + exists s, f, (v_to_e_list (take (size tn) vcs) ++ [::AI_basic (BI_block (Tf tn ts2) es2)]), hs.
+    apply reduce_composition_left; first by apply v_to_e_is_const_list.
+    apply r_simple. by eapply rs_if_false.
+  + exists s, f, (v_to_e_list (take (size tn) vcs) ++ [::AI_basic (BI_block (Tf tn ts2) es1)]), hs.
+    apply reduce_composition_left; first by apply v_to_e_is_const_list.
+    by apply r_simple; eauto.
+Admitted.
+(*****)
+
+
+
 (*
 Traceback:
   WTP: config_typing i s vs es ts <=

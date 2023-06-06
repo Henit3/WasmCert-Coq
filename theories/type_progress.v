@@ -888,7 +888,7 @@ Lemma t_progress_be_if: forall C bes ts1 ts2 vcs lab ret s f hs,
     map typeof vcs = ts1 ->  
     not_lf_br (to_e_list bes) 0 ->
     not_lf_return (to_e_list bes) 0 ->
-    exists tn tm es1 es2, [:: BI_if (Tf tn tm) es1 es2] = bes ->
+    exists es1 es2, [:: BI_if (Tf ts1 ts2) es1 es2] = bes ->
     const_list (to_e_list bes) \/
     exists s' f' es' hs', reduce hs s f (v_to_e_list vcs ++ to_e_list bes) hs' s' f' es'.
 Proof.
@@ -899,7 +899,7 @@ Proof.
   2: {(* Composition *) admit. }
   2: {(* Weakening *) admit. }
 
-  exists tn, tm, es1, es2.
+  exists es1, es2.
   right.
   apply typeof_append in HConstType.
   destruct HConstType as [v [Ha [Hb Hc]]].

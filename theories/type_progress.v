@@ -206,7 +206,7 @@ Qed.
 
 (* TODO: fix the rest of progress *)
 
-(*
+(* TODO: tc_func_t as tc_func? Remember fails; inspect previous version.
 Lemma func_context_store: forall s i C j x,
     inst_typing s i C ->
     j < length (tc_func_t C) ->
@@ -283,7 +283,9 @@ Proof.
   unfold memi_agree in H4.
   by remove_bools_options.
 Qed.
+*)
 
+(* TODO: stab_addr?
 Lemma store_typing_stabaddr: forall s f C c a,
   stab_addr s f c = Some a ->
   inst_typing s f.(f_inst) C ->
@@ -318,6 +320,7 @@ Proof.
   destruct (List.nth_error s_funcs a) eqn:HNth => //.
   by eexists.
 Qed.
+*)
 
 (*
   Except [::BI_br i] or [::Return], every other basic instruction can be
@@ -327,6 +330,7 @@ Qed.
     entire lfilled proposition as a condition due to composition.
  *)
 
+(* TODO: lfilled definition changed
 Definition not_lf_br (es: seq administrative_instruction) (n: nat) :=
   forall k lh, ~ lfilled n lh [::AI_basic (BI_br k)] es.
 

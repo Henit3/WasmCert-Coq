@@ -58,7 +58,6 @@ Proof.
 Qed.
 
 (* TODO: fix preservation *)
-(*
 
 (*
   These proofs are largely similar.
@@ -66,9 +65,65 @@ Qed.
   However, some of the proofs depend on the previous ones...
 *)
 
+
+(*
+  Perhaps have some inductive containing const_num | const_vec?
+  No guarantee of mapping between same type (unless hardcoded)
+  
+  Inductive basic_constant : Type :=
+    | [::BI_const_num econst_num]
+    | [::BI_const_vec econst_vec]
+*)
+
+(*
 Lemma BI_const_typing: forall C econst t1s t2s,
-    be_typing C [::BI_const econst] (Tf t1s t2s) ->
-    t2s = t1s ++ [::typeof econst].
+be_typing C [::BI_const econst] (Tf t1s t2s) ->
+t2s = t1s ++ [::typeof econst].
+Proof.
+move => C econst t1s t2s HType.
+gen_ind_subst HType => //.
+- apply extract_list1 in H1; inversion H1; subst.
+apply empty_typing in HType1; subst.
+by eapply IHHType2.
+- rewrite - catA. f_equal.
++ intros. by subst.
++ by eapply IHHType.
+Qed.
+*)
+
+(*
+  Perhaps have some tactic to solve these (same form)
+
+  Ltac BI_const_typing_solve :=
+    move => C econst t1s t2s HType;
+    gen_ind_subst HType => //;
+    [ apply extract_list1 in H1; inversion H1; subst;
+      apply empty_typing in HType1; subst;
+      by eapply IHHType2 |];
+      [ rewrite catA; f_equal ];
+      [ intros; by subst | by eapply IHHType ].
+*)
+
+Definition BI_const_num_typing_stmt C econst t1s t2s: Prop :=
+  be_typing C [::BI_const_num econst] (Tf t1s t2s) ->
+  t2s = t1s ++ [::T_num (typeof_num econst)].
+Lemma BI_const_num_typing: forall C econst t1s t2s,
+  BI_const_num_typing_stmt C econst t1s t2s.
+Proof.
+move => C econst t1s t2s HType.
+gen_ind_subst HType => //.
+- apply extract_list1 in H1; inversion H1; subst.
+apply empty_typing in HType1; subst.
+by eapply IHHType2.
+- rewrite - catA. f_equal.
++ intros. by subst.
++ by eapply IHHType.
+Qed.
+Definition BI_const_vec_typing_stmt C econst t1s t2s: Prop :=
+  be_typing C [::BI_const_vec econst] (Tf t1s t2s) ->
+  t2s = t1s ++ [::T_vec (typeof_vec econst)].
+Lemma BI_const_vec_typing: forall C econst t1s t2s,
+  BI_const_vec_typing_stmt C econst t1s t2s.
 Proof.
   move => C econst t1s t2s HType.
   gen_ind_subst HType => //.
@@ -80,6 +135,30 @@ Proof.
     + by eapply IHHType.
 Qed.
 
+Lemma BI_const_typing: forall C econst_num econst_vec t1s t2s,
+  BI_const_num_typing_stmt C econst_num t1s t2s
+  /\ BI_const_vec_typing_stmt C econst_vec t1s t2s.
+Proof.
+  split;
+  [ apply BI_const_num_typing
+  | apply BI_const_vec_typing].
+Qed.
+
+(*
+Lemma BI_const_typing_alt: forall C econst_num econst_vec t1s t2s,
+  BI_const_num_typing_stmt C econst_num t1s t2s
+  /\ BI_const_vec_typing_stmt C econst_vec t1s t2s.
+Proof.
+  intros.
+  split;
+  [ unfold BI_const_num_typing_stmt
+  | unfold BI_const_vec_typing_stmt];
+  intros; gen_ind_subst H => //.
+  (*...*)
+Qed.
+*)
+
+(*
 Lemma BI_const2_typing: forall C econst1 econst2 t1s t2s,
     be_typing C [::BI_const econst1; BI_const econst2] (Tf t1s t2s) ->
     t2s = t1s ++ [::typeof econst1; typeof econst2].
@@ -94,7 +173,89 @@ Proof.
     + intros. by subst.
     + by eapply IHHType.
 Qed.
+*)
 
+(* Can apply BI_const_typing generally but requires work later *)
+(* The ltac for this would need to id or get lemma for each const? *)
+
+Definition BI_const2_nn_typing_stmt C econst1 econst2 t1s t2s: Prop :=
+  be_typing C [::BI_const_num econst1; BI_const_num econst2] (Tf t1s t2s) ->
+  t2s = t1s ++ [::T_num (typeof_num econst1); T_num (typeof_num econst2)].
+Lemma BI_const2_nn_typing: forall C econst1 econst2 t1s t2s,
+  BI_const2_nn_typing_stmt C econst1 econst2 t1s t2s.
+Proof.
+move => C econst1 econst2 t1s t2s HType.
+gen_ind_subst HType => //.
+- apply extract_list2 in H1; inversion H1; subst.
+apply BI_const_num_typing in HType1; subst.
+apply BI_const_num_typing in HType2; subst.
+by rewrite -catA.
+- rewrite - catA. f_equal.
++ intros. by subst.
++ by eapply IHHType.
+Qed.
+Definition BI_const2_nv_typing_stmt C econst1 econst2 t1s t2s: Prop :=
+  be_typing C [::BI_const_num econst1; BI_const_vec econst2] (Tf t1s t2s) ->
+  t2s = t1s ++ [::T_num (typeof_num econst1); T_vec (typeof_vec econst2)].
+Lemma BI_const2_nv_typing: forall C econst1 econst2 t1s t2s,
+  BI_const2_nv_typing_stmt C econst1 econst2 t1s t2s.
+Proof.
+move => C econst1 econst2 t1s t2s HType.
+gen_ind_subst HType => //.
+- apply extract_list2 in H1; inversion H1; subst.
+apply BI_const_num_typing in HType1; subst.
+apply BI_const_vec_typing in HType2; subst.
+by rewrite -catA.
+- rewrite - catA. f_equal.
++ intros. by subst.
++ by eapply IHHType.
+Qed.
+Definition BI_const2_vn_typing_stmt C econst1 econst2 t1s t2s: Prop :=
+  be_typing C [::BI_const_vec econst1; BI_const_num econst2] (Tf t1s t2s) ->
+  t2s = t1s ++ [::T_vec (typeof_vec econst1); T_num (typeof_num econst2)].
+Lemma BI_const2_vn_typing: forall C econst1 econst2 t1s t2s,
+  BI_const2_vn_typing_stmt C econst1 econst2 t1s t2s.
+Proof.
+  move => C econst1 econst2 t1s t2s HType.
+  gen_ind_subst HType => //.
+  - apply extract_list2 in H1; inversion H1; subst.
+    apply BI_const_vec_typing in HType1; subst.
+    apply BI_const_num_typing in HType2; subst.
+    by rewrite -catA.
+  - rewrite - catA. f_equal.
+    + intros. by subst.
+    + by eapply IHHType.
+Qed.
+Definition BI_const2_vv_typing_stmt C econst1 econst2 t1s t2s: Prop :=
+  be_typing C [::BI_const_vec econst1; BI_const_vec econst2] (Tf t1s t2s) ->
+  t2s = t1s ++ [::T_vec (typeof_vec econst1); T_vec (typeof_vec econst2)].
+Lemma BI_const2_vv_typing: forall C econst1 econst2 t1s t2s,
+  BI_const2_vv_typing_stmt C econst1 econst2 t1s t2s.
+Proof.
+  move => C econst1 econst2 t1s t2s HType.
+  gen_ind_subst HType => //.
+  - apply extract_list2 in H1; inversion H1; subst.
+    apply BI_const_vec_typing in HType1; subst.
+    apply BI_const_vec_typing in HType2; subst.
+    by rewrite -catA.
+  - rewrite - catA. f_equal.
+    + intros. by subst.
+    + by eapply IHHType.
+Qed.
+
+Lemma BI_const2_typing: forall C econst1_num econst2_num econst1_vec econst2_vec t1s t2s,
+  BI_const2_nn_typing_stmt C econst1_num econst2_num t1s t2s
+  /\ BI_const2_nv_typing_stmt C econst1_num econst2_vec t1s t2s
+  /\ BI_const2_vn_typing_stmt C econst1_vec econst2_num t1s t2s
+  /\ BI_const2_vv_typing_stmt C econst1_vec econst2_vec t1s t2s.
+Proof.
+  split; [ apply BI_const2_nn_typing |].
+  split; [ apply BI_const2_nv_typing |].
+  split; [ apply BI_const2_vn_typing
+         | apply BI_const2_vv_typing ].
+Qed.
+
+(*
 Lemma BI_const3_typing: forall C econst1 econst2 econst3 t1s t2s,
     be_typing C [::BI_const econst1; BI_const econst2; BI_const econst3] (Tf t1s t2s) ->
     t2s = t1s ++ [::typeof econst1; typeof econst2; typeof econst3].
@@ -109,7 +270,169 @@ Proof.
     + intros. by subst.
     + by eapply IHHType.
 Qed.
+*)
 
+(* 8 cases following the previous pattern (is this correct?) *)
+
+Definition BI_const3_nnn_typing_stmt C econst1 econst2 econst3 t1s t2s: Prop :=
+  be_typing C [::BI_const_num econst1; BI_const_num econst2; BI_const_num econst3] (Tf t1s t2s) ->
+  t2s = t1s ++ [::T_num (typeof_num econst1); T_num (typeof_num econst2); T_num (typeof_num econst3)].
+Lemma BI_const3_nnn_typing: forall C econst1 econst2 econst3 t1s t2s,
+  BI_const3_nnn_typing_stmt C econst1 econst2 econst3 t1s t2s.
+Proof.
+  move => C econst1 econst2 econst3 t1s t2s HType.
+  gen_ind_subst HType => //.
+  - apply extract_list3 in H1; inversion H1; subst.
+    apply BI_const2_nn_typing in HType1; subst.
+    apply BI_const_num_typing in HType2; subst.
+    by rewrite -catA.
+  - rewrite - catA. f_equal.
+    + intros. by subst.
+    + by eapply IHHType.
+Qed.
+Definition BI_const3_nnv_typing_stmt C econst1 econst2 econst3 t1s t2s: Prop :=
+  be_typing C [::BI_const_num econst1; BI_const_num econst2; BI_const_vec econst3] (Tf t1s t2s) ->
+  t2s = t1s ++ [::T_num (typeof_num econst1); T_num (typeof_num econst2); T_vec (typeof_vec econst3)].
+Lemma BI_const3_nnv_typing: forall C econst1 econst2 econst3 t1s t2s,
+  BI_const3_nnv_typing_stmt C econst1 econst2 econst3 t1s t2s.
+Proof.
+  move => C econst1 econst2 econst3 t1s t2s HType.
+  gen_ind_subst HType => //.
+  - apply extract_list3 in H1; inversion H1; subst.
+    apply BI_const2_nn_typing in HType1; subst.
+    apply BI_const_vec_typing in HType2; subst.
+    by rewrite -catA.
+  - rewrite - catA. f_equal.
+    + intros. by subst.
+    + by eapply IHHType.
+Qed.
+Definition BI_const3_nvn_typing_stmt C econst1 econst2 econst3 t1s t2s: Prop :=
+  be_typing C [::BI_const_num econst1; BI_const_vec econst2; BI_const_num econst3] (Tf t1s t2s) ->
+  t2s = t1s ++ [::T_num (typeof_num econst1); T_vec (typeof_vec econst2); T_num (typeof_num econst3)].
+Lemma BI_const3_nvn_typing: forall C econst1 econst2 econst3 t1s t2s,
+  BI_const3_nvn_typing_stmt C econst1 econst2 econst3 t1s t2s.
+Proof.
+  move => C econst1 econst2 econst3 t1s t2s HType.
+  gen_ind_subst HType => //.
+  - apply extract_list3 in H1; inversion H1; subst.
+    apply BI_const2_nv_typing in HType1; subst.
+    apply BI_const_num_typing in HType2; subst.
+    by rewrite -catA.
+  - rewrite - catA. f_equal.
+    + intros. by subst.
+    + by eapply IHHType.
+Qed.
+Definition BI_const3_nvv_typing_stmt C econst1 econst2 econst3 t1s t2s: Prop :=
+  be_typing C [::BI_const_num econst1; BI_const_vec econst2; BI_const_vec econst3] (Tf t1s t2s) ->
+  t2s = t1s ++ [::T_num (typeof_num econst1); T_vec (typeof_vec econst2); T_vec (typeof_vec econst3)].
+Lemma BI_const3_nvv_typing: forall C econst1 econst2 econst3 t1s t2s,
+  BI_const3_nvv_typing_stmt C econst1 econst2 econst3 t1s t2s.
+Proof.
+  move => C econst1 econst2 econst3 t1s t2s HType.
+  gen_ind_subst HType => //.
+  - apply extract_list3 in H1; inversion H1; subst.
+    apply BI_const2_nv_typing in HType1; subst.
+    apply BI_const_vec_typing in HType2; subst.
+    by rewrite -catA.
+  - rewrite - catA. f_equal.
+    + intros. by subst.
+    + by eapply IHHType.
+Qed.
+Definition BI_const3_vnn_typing_stmt C econst1 econst2 econst3 t1s t2s: Prop :=
+  be_typing C [::BI_const_vec econst1; BI_const_num econst2; BI_const_num econst3] (Tf t1s t2s) ->
+  t2s = t1s ++ [::T_vec (typeof_vec econst1); T_num (typeof_num econst2); T_num (typeof_num econst3)].
+Lemma BI_const3_vnn_typing: forall C econst1 econst2 econst3 t1s t2s,
+  BI_const3_vnn_typing_stmt C econst1 econst2 econst3 t1s t2s.
+Proof.
+  move => C econst1 econst2 econst3 t1s t2s HType.
+  gen_ind_subst HType => //.
+  - apply extract_list3 in H1; inversion H1; subst.
+    apply BI_const2_vn_typing in HType1; subst.
+    apply BI_const_num_typing in HType2; subst.
+    by rewrite -catA.
+  - rewrite - catA. f_equal.
+    + intros. by subst.
+    + by eapply IHHType.
+Qed.
+Definition BI_const3_vnv_typing_stmt C econst1 econst2 econst3 t1s t2s: Prop :=
+  be_typing C [::BI_const_vec econst1; BI_const_num econst2; BI_const_vec econst3] (Tf t1s t2s) ->
+  t2s = t1s ++ [::T_vec (typeof_vec econst1); T_num (typeof_num econst2); T_vec (typeof_vec econst3)].
+Lemma BI_const3_vnv_typing: forall C econst1 econst2 econst3 t1s t2s,
+  BI_const3_vnv_typing_stmt C econst1 econst2 econst3 t1s t2s.
+Proof.
+  move => C econst1 econst2 econst3 t1s t2s HType.
+  gen_ind_subst HType => //.
+  - apply extract_list3 in H1; inversion H1; subst.
+    apply BI_const2_vn_typing in HType1; subst.
+    apply BI_const_vec_typing in HType2; subst.
+    by rewrite -catA.
+  - rewrite - catA. f_equal.
+    + intros. by subst.
+    + by eapply IHHType.
+Qed.
+Definition BI_const3_vvn_typing_stmt C econst1 econst2 econst3 t1s t2s: Prop :=
+  be_typing C [::BI_const_vec econst1; BI_const_vec econst2; BI_const_num econst3] (Tf t1s t2s) ->
+  t2s = t1s ++ [::T_vec (typeof_vec econst1); T_vec (typeof_vec econst2); T_num (typeof_num econst3)].
+Lemma BI_const3_vvn_typing: forall C econst1 econst2 econst3 t1s t2s,
+  BI_const3_vvn_typing_stmt C econst1 econst2 econst3 t1s t2s.
+Proof.
+  move => C econst1 econst2 econst3 t1s t2s HType.
+  gen_ind_subst HType => //.
+  - apply extract_list3 in H1; inversion H1; subst.
+    apply BI_const2_vv_typing in HType1; subst.
+    apply BI_const_num_typing in HType2; subst.
+    by rewrite -catA.
+  - rewrite - catA. f_equal.
+    + intros. by subst.
+    + by eapply IHHType.
+Qed.
+Definition BI_const3_vvv_typing_stmt C econst1 econst2 econst3 t1s t2s: Prop :=
+  be_typing C [::BI_const_vec econst1; BI_const_vec econst2; BI_const_vec econst3] (Tf t1s t2s) ->
+  t2s = t1s ++ [::T_vec (typeof_vec econst1); T_vec (typeof_vec econst2); T_vec (typeof_vec econst3)].
+Lemma BI_const3_vvv_typing: forall C econst1 econst2 econst3 t1s t2s,
+  BI_const3_vvv_typing_stmt C econst1 econst2 econst3 t1s t2s.
+Proof.
+  move => C econst1 econst2 econst3 t1s t2s HType.
+  gen_ind_subst HType => //.
+  - apply extract_list3 in H1; inversion H1; subst.
+    apply BI_const2_vv_typing in HType1; subst.
+    apply BI_const_vec_typing in HType2; subst.
+    by rewrite -catA.
+  - rewrite - catA. f_equal.
+    + intros. by subst.
+    + by eapply IHHType.
+Qed.
+
+Lemma BI_const3_typing: forall C econst1_num econst2_num econst3_num econst1_vec econst2_vec econst3_vec t1s t2s,
+  BI_const3_nnn_typing_stmt C econst1_num econst2_num econst3_num t1s t2s
+  /\ BI_const3_nnv_typing_stmt C econst1_num econst2_num econst3_vec t1s t2s
+  /\ BI_const3_nvn_typing_stmt C econst1_num econst2_vec econst3_num t1s t2s
+  /\ BI_const3_nvv_typing_stmt C econst1_num econst2_vec econst3_vec t1s t2s
+  /\ BI_const3_vnn_typing_stmt C econst1_vec econst2_num econst3_num t1s t2s
+  /\ BI_const3_vnv_typing_stmt C econst1_vec econst2_num econst3_vec t1s t2s
+  /\ BI_const3_vvn_typing_stmt C econst1_vec econst2_vec econst3_num t1s t2s
+  /\ BI_const3_vvv_typing_stmt C econst1_vec econst2_vec econst3_vec t1s t2s.
+Proof.
+  split; [ apply BI_const3_nnn_typing |].
+  split; [ apply BI_const3_nnv_typing |].
+  split; [ apply BI_const3_nvn_typing |].
+  split; [ apply BI_const3_nvv_typing |].
+  split; [ apply BI_const3_vnn_typing |].
+  split; [ apply BI_const3_vnv_typing |].
+  split; [ apply BI_const3_vvn_typing
+         | apply BI_const3_vvv_typing ].
+Qed.
+
+
+
+
+
+(* ----- *)
+
+
+
+
+(* TODO: bet_const
 Lemma Const_list_typing_empty: forall C vs,
     be_typing C (to_b_list (v_to_e_list vs)) (Tf [::] (vs_to_vts vs)).
 Proof.
@@ -122,6 +445,7 @@ Proof.
     eapply bet_composition'; eauto; first by apply bet_const.
     by apply bet_weakening_empty_1.
 Qed.
+*)
 
 Lemma Unop_typing: forall C t op t1s t2s,
     be_typing C [::BI_unop t op] (Tf t1s t2s) ->
@@ -267,7 +591,7 @@ Proof.
 Qed.
 
 
-
+(* TODO: if's new block typing, (BT_valtype bs)?
 Lemma If_typing: forall C t1s t2s e1s e2s ts ts',
     be_typing C [::BI_if (Tf t1s t2s) e1s e2s] (Tf ts ts') ->
     exists ts0, ts = ts0 ++ t1s ++ [::T_num T_i32] /\ ts' = ts0 ++ t2s /\
@@ -286,7 +610,9 @@ Proof.
     repeat rewrite -catA.
     repeat split => //=.
 Qed.
+*)
 
+(* TODO: plop2
 Lemma Br_if_typing: forall C ts1 ts2 i,
     be_typing C [::BI_br_if i] (Tf ts1 ts2) ->
     exists ts ts', ts2 = ts ++ ts' /\ ts1 = ts2 ++ [::T_i32] /\ i < length (tc_label C) /\ plop2 C i ts'.
@@ -324,7 +650,9 @@ Proof.
     split => //=.
     + repeat rewrite -catA. by f_equal => //=.
 Qed.
+*)
 
+(* TODO: tee? (bet_local_tee)?
 Lemma Tee_local_typing: forall C i ts1 ts2,
     be_typing C [::BI_tee_local i] (Tf ts1 ts2) ->
     exists ts t, ts1 = ts2 /\ ts1 = ts ++ [::t] /\ i < length (tc_local C) /\
@@ -342,7 +670,9 @@ Proof.
     repeat (try split => //=).
     by rewrite -catA.
 Qed.
+*)
 
+(* TODO: ref case
 Lemma Const_list_typing: forall C vs t1s t2s,
     be_typing C (to_b_list (v_to_e_list vs)) (Tf t1s t2s) ->
     t2s = t1s ++ (map typeof vs).
@@ -360,12 +690,36 @@ Proof.
     subst.
     by repeat rewrite catA.
 Qed.
+*)
+
+Lemma Const_list_typing: forall C vs t1s t2s,
+    be_typing C (to_b_list (v_to_e_list vs)) (Tf t1s t2s) ->
+    t2s = t1s ++ (map typeof vs).
+Proof.
+  move => C vs.
+  induction vs => //=; move => t1s t2s HType.
+  - apply empty_typing in HType. subst. by rewrite cats0.
+  - rewrite -cat1s in HType.
+    rewrite -cat1s.
+    apply composition_typing in HType.
+    destruct HType as [ts [ts1' [ts2' [ts3 [H1 [H2 [H3 H4]]]]]]].
+    subst.
+    destruct a;
+    [ apply BI_const_num_typing in H3
+    | apply BI_const_vec_typing in H3
+    | admit ].
+    apply IHvs in H4.
+    subst.
+    by repeat rewrite catA.
+Admitted.
+
 (*
   Unlike the above proofs which have a linear dependent structure therefore hard
     to factorize into a tactic, the following proofs are independent of each other
     and should therefore be easily refactorable.
 *)
 
+(* TODO: tee and previous proofs
 Ltac invert_be_typing:=
   repeat lazymatch goal with
   | H: (?es ++ [::?e])%list = [::_] |- _ =>
@@ -378,12 +732,40 @@ Ltac invert_be_typing:=
     extract_listn
   | H: be_typing _ [::] _ |- _ =>
     apply empty_typing in H; subst
-  | H: be_typing _ [:: BI_const _] _ |- _ =>
-    apply BI_const_typing in H; subst
-  | H: be_typing _ [:: BI_const _; BI_const _] _ |- _ =>
-    apply BI_const2_typing in H; subst
-  | H: be_typing _ [:: BI_const _; BI_const _; BI_const _] _ |- _ =>
-    apply BI_const3_typing in H; subst
+(*| H: be_typing _ [:: BI_const _] _ |- _ =>
+    apply BI_const_typing in H; subst*)
+  | H: be_typing _ [:: BI_const_num _] _ |- _ =>
+    apply BI_const_num_typing in H; subst
+  | H: be_typing _ [:: BI_const_vec _] _ |- _ =>
+    apply BI_const_vec_typing in H; subst
+(*| H: be_typing _ [:: BI_const _; BI_const _] _ |- _ =>
+    apply BI_const2_typing in H; subst*)
+  | H: be_typing _ [:: BI_const_num _; BI_const_num _] _ |- _ =>
+    apply BI_const2_nn_typing in H; subst
+  | H: be_typing _ [:: BI_const_num _; BI_const_vec _] _ |- _ =>
+    apply BI_const2_nv_typing in H; subst
+  | H: be_typing _ [:: BI_const_vec _; BI_const_num _] _ |- _ =>
+    apply BI_const2_vn_typing in H; subst
+  | H: be_typing _ [:: BI_const_vec _; BI_const_vec _] _ |- _ =>
+    apply BI_const2_vv_typing in H; subst
+(*| H: be_typing _ [:: BI_const _; BI_const _; BI_const _] _ |- _ =>
+    apply BI_const3_typing in H; subst*)
+  | H: be_typing _ [:: BI_const_num _; BI_const_num _; BI_const_num _] _ |- _ =>
+    apply BI_const3_nnn_typing in H; subst
+  | H: be_typing _ [:: BI_const_num _; BI_const_num _; BI_const_vec _] _ |- _ =>
+    apply BI_const3_nnv_typing in H; subst
+  | H: be_typing _ [:: BI_const_num _; BI_const_vec _; BI_const_num _] _ |- _ =>
+    apply BI_const3_nvn_typing in H; subst
+  | H: be_typing _ [:: BI_const_num _; BI_const_vec _; BI_const_vec _] _ |- _ =>
+    apply BI_const3_nvv_typing in H; subst
+  | H: be_typing _ [:: BI_const_vec _; BI_const_num _; BI_const_num _] _ |- _ =>
+    apply BI_const3_vnn_typing in H; subst
+  | H: be_typing _ [:: BI_const_vec _; BI_const_num _; BI_const_vec _] _ |- _ =>
+    apply BI_const3_vnv_typing in H; subst
+  | H: be_typing _ [:: BI_const_vec _; BI_const_vec _; BI_const_num _] _ |- _ =>
+    apply BI_const3_vvn_typing in H; subst
+  | H: be_typing _ [:: BI_const_vec _; BI_const_vec _; BI_const_vec _] _ |- _ =>
+    apply BI_const3_vvv_typing in H; subst
   | H: be_typing _ [::BI_unop _ _] _ |- _ =>
     let ts := fresh "ts" in
     let H1 := fresh "H1" in
@@ -438,14 +820,14 @@ Ltac invert_be_typing:=
     let H1 := fresh "H1" in
     let H2 := fresh "H2" in
     apply Br_table_typing in H; destruct H as [ts [ts' [H1 H2]]]; subst
-  | H: be_typing _ [::BI_tee_local _] _ |- _ =>
+(*| H: be_typing _ [::BI_tee_local _] _ |- _ =>
     let ts := fresh "ts" in
     let t := fresh "t" in
     let H1 := fresh "H1" in
     let H2 := fresh "H2" in
     let H3 := fresh "H3" in
     let H4 := fresh "H4" in
-    apply Tee_local_typing in H; destruct H as [ts [t [H1 [H2 [H3 H4]]]]]; subst
+    apply Tee_local_typing in H; destruct H as [ts [t [H1 [H2 [H3 H4]]]]]; subst*)
   | H: be_typing _ (_ ++ _) _ |- _ =>
     let ts1 := fresh "ts1" in
     let ts2 := fresh "ts2" in
@@ -465,7 +847,9 @@ Ltac invert_be_typing:=
   | H: _ ++ [::_] = _ ++ [::_] |- _ =>
     apply concat_cancel_last in H; destruct H; subst
   end.
+*)
 
+(* TODO
 Lemma app_binop_type_preserve: forall op v1 v2 v,
     app_binop op v1 v2 = Some v ->
     typeof v = typeof v1.
@@ -473,7 +857,9 @@ Proof.
   move => op v1 v2 v.
   by elim: op; elim: v1; elim: v2 => //=; move => c1 c2 op H; destruct op; remove_bools_options.
 Qed.
+*)
 
+(* TODO: const
 Lemma t_Unop_preserve: forall C v t op be tf,
     be_typing C [:: BI_const v; BI_unop t op] tf ->
     reduce_simple (to_e_list [::BI_const v; BI_unop t op]) (to_e_list [::be]) ->

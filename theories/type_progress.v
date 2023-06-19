@@ -206,11 +206,12 @@ Qed.
 
 (* TODO: fix the rest of progress *)
 
-(* TODO: tc_func_t as tc_func? Remember fails; inspect previous version.
+(* tc_func_t -> tc_func *)
+(* Remember fails: extra destructs. *)
 Lemma func_context_store: forall s i C j x,
     inst_typing s i C ->
-    j < length (tc_func_t C) ->
-    List.nth_error (tc_func_t C) j = Some x ->
+    j < length (tc_func C) ->
+    List.nth_error (tc_func C) j = Some x ->
     exists a, List.nth_error i.(inst_funcs) j = Some a.
 Proof.
   (* TODO: inst_funcs is a fragile name *)
@@ -219,7 +220,8 @@ Proof.
   unfold sfunc_ind.
   unfold inst_typing, typing.inst_typing in HIT.
   destruct i => //=. destruct C => //=.
-  destruct tc_local => //=. destruct tc_label => //=. destruct tc_return => //=.
+  destruct tc_elem => //=. destruct tc_data => //=. destruct tc_local => //=.
+  destruct tc_label => //=. destruct tc_return => //=. destruct tc_ref => //=.
   remove_bools_options.
   remember H3 as H4. clear HeqH4.
   apply all2_size in H3.
@@ -232,6 +234,10 @@ Proof.
   by eexists.
 Qed.
 
+(* inst_globs -> inst_globals *)
+(* globals_agree -> globali_agree
+   This no longer has the (n < length gs) condition that was used here
+*)
 Lemma glob_context_store: forall s i C j g,
     inst_typing s i C ->
     j < length (tc_global C) ->
@@ -244,7 +250,8 @@ Proof.
   unfold sglob_ind.
   unfold inst_typing, typing.inst_typing in HIT.
   destruct i => //=. destruct C => //=.
-  destruct tc_local => //=. destruct tc_label => //=. destruct tc_return => //=.
+  destruct tc_elem => //=. destruct tc_data => //=. destruct tc_local => //=.
+  destruct tc_label => //=. destruct tc_return => //=. destruct tc_ref => //=.
   remove_bools_options.
   remember H2 as H4. clear HeqH4.
   apply all2_size in H2.
@@ -253,59 +260,84 @@ Proof.
   rewrite -H2 in HLength.
   move/ltP in HLength.
   apply List.nth_error_Some in HLength.
-  destruct (List.nth_error inst_globs j) eqn:HN1 => //=.
+  destruct (List.nth_error inst_globals j) eqn:HN1 => //=.
   apply List.nth_error_Some.
-  unfold globals_agree in H4.
+  unfold globali_agree in H4.
   eapply all2_projection in H4; eauto.
   remove_bools_options.
-  by move/ltP in H4.
+  apply List.nth_error_Some.
+  unfold lookup_N in Hoption.
+  rewrite Hoption.
+  discriminate.
 Qed.
 
+
+(* expects (N.to_nat m) but given m *)
+(* Old disregarded N.to_nat n
 Lemma mem_context_store: forall s i C,
     inst_typing s i C ->
     tc_memory C <> [::] ->
     exists n, smem_ind s i = Some n /\
-              List.nth_error (s_mems s) n <> None.
+              List.nth_error (s_mems s) n <> None. *)
+Lemma mem_context_store: forall s i C,
+    inst_typing s i C ->
+    tc_memory C <> [::] ->
+    exists n, smem_ind s i = Some n /\
+              List.nth_error (s_mems s) (N.to_nat n) <> None.
 Proof.
   (* TODO: inst_memory is a fragile name *)
   move => s i C HIT HMemory.
   unfold inst_typing, typing.inst_typing in HIT.
   destruct i => //=. destruct C => //=.
-  destruct tc_local => //=. destruct tc_label => //=. destruct tc_return => //=.
+  destruct tc_elem => //=. destruct tc_data => //=. destruct tc_local => //=.
+  destruct tc_label => //=. destruct tc_return => //=. destruct tc_ref => //=.
   remove_bools_options.
   simpl in HMemory. unfold smem_ind. simpl.
   remember H0 as H4. clear HeqH4.
   apply all2_size in H0.
-  destruct inst_memory => //=; first by destruct tc_memory.
+  destruct inst_mems => //=; first by destruct tc_memory.
   exists m. split => //.
   destruct tc_memory => //.
   simpl in H4.
   unfold memi_agree in H4.
+  unfold option_map in H4.
+  unfold lookup_N in H4.
   by remove_bools_options.
 Qed.
-*)
 
-(* TODO: stab_addr?
+
+(* TODO: stab_addr mapping in restructure?  *)
+
+(*
 Lemma store_typing_stabaddr: forall s f C c a,
   stab_addr s f c = Some a ->
   inst_typing s f.(f_inst) C ->
   store_typing s ->
   exists cl, List.nth_error s.(s_funcs) a = Some cl.
+*)
+(*
+Lemma store_typing_stabaddr: forall s f C c a i,
+  stab_elem s f.(f_inst) c a = Some i ->
+  inst_typing s f.(f_inst) C ->
+  store_typing s ->
+  exists cl, List.nth_error s.(s_funcs) a = Some cl.
 Proof.
-  move => s f C c a HStab HIT HST.
+  move => s f C c a i HStab HIT HST.
   unfold inst_typing, typing.inst_typing in HIT.
   unfold store_typing, tab_agree, tabcl_agree in HST.
-  unfold stab_addr in HStab.
+  unfold stab_elem in HStab.
   destruct s => //=. destruct f => //=. destruct f_inst. destruct f_inst. destruct C => //=.
-  destruct tc_local => //=. destruct tc_label => //=. destruct tc_return => //=.
+  destruct tc_elem => //=. destruct tc_data => //=. destruct tc_local => //=.
+  destruct tc_label => //=. destruct tc_return => //=. destruct tc_ref => //=.
   remove_bools_options.
-  simpl in *. destruct inst_tab0 => //=.
-  unfold stab_index in HStab. unfold option_bind in HStab.
+  simpl in *. destruct inst_tables0 => //=.
+  unfold stab in Hoption. unfold option_bind in HStab.
   remove_bools_options.
   subst. simpl in *.
   destruct tc_table => //=.
   remove_bools_options.
   destruct HST.
+
   destruct H5.
   rewrite -> List.Forall_forall in H5.
   assert (HIN1: List.In t0 s_tables).
@@ -331,48 +363,55 @@ Qed.
  *)
 
 (* TODO: lfilled definition changed
+  Not lfilled at depth n with lholed for n-1 containing br, followed by es
+*)
 Definition not_lf_br (es: seq administrative_instruction) (n: nat) :=
-  forall k lh, ~ lfilled n lh [::AI_basic (BI_br k)] es.
+  forall k (lh : lholed n), ~ lfilled lh [::AI_basic (BI_br k)] es.
 
 Definition not_lf_return (es: seq administrative_instruction) (n: nat) :=
-  forall lh, ~ lfilled n lh [::AI_basic BI_return] es.
+  forall (lh : lholed n), ~ lfilled lh [::AI_basic BI_return] es.
 
-Lemma lf_composition: forall es es2 e0 lh n,
-    lfilled n lh e0 es ->
-    exists lh', lfilled n lh' e0 (es ++ es2).
+(* No lfilledP since only one lfilled representation now *)
+(* How to resolve patterns in fixpoint def (not inductive anymore)? *)
+Lemma lf_composition: forall es es2 e0 n (lh : lholed n),
+    lfilled lh e0 es ->
+    exists (lh' : lholed n), lfilled lh' e0 (es ++ es2).
 Proof.
-  move => es es2 e0 lh n HLF.
-  move/lfilledP in HLF.
-  inversion HLF; subst.
+  move => es es2 e0 n lh HLF.
+  (*inversion HLF; subst.*)
+  inversion lh as [vs es' | n0 vs l es' lh' es'']; subst.
   - exists (LH_base vs (es' ++ es2)).
-    apply/lfilledP.
     repeat rewrite -catA.
-    by apply LfilledBase.
-  - exists (LH_rec vs n0 es' lh' (es'' ++ es2)).
-    apply/lfilledP.
+    admit. (*by apply LfilledBase.*)
+  - exists (LH_rec vs l es' lh' (es'' ++ es2)).
     repeat rewrite -catA.
-    by apply LfilledRec.
-Qed.
+    admit. (*by apply LfilledRec.*)
+Admitted.
 
-Lemma lf_composition_left: forall cs es e0 lh n,
+(* lholed 0 now defined as vs -> ais -> lh instead of ais -> ais -> lh
+   May need e_to_v_list? This gives seq of option though
+
+   Definition e_to_v_list (es : list administrative_instruction) : seq (option value) :=
+    map e_to_v es.
+*)
+
+Lemma lf_composition_left: forall cs es e0 n (lh : lholed n),
     const_list cs ->
-    lfilled n lh e0 es ->
-    exists lh', lfilled n lh' e0 (cs ++ es).
-Proof.
-  move => cs es e0 lh n HConst HLF.
-  move/lfilledP in HLF.
-  inversion HLF; subst.
-  - exists (LH_base (cs ++ vs) es').
-    apply/lfilledP.
+    lfilled lh e0 es ->
+    exists (lh' : lholed n), lfilled lh' e0 (cs ++ es).
+Proof. admit. (*
+  move => cs es e0 n lh HConst HLF.
+  inversion lh as [vs es' | n0 vs l es' lh' es'']; subst.
+  - exists (LH_base ([(e_to_v_list cs)] ++ vs) es').
     rewrite (catA cs vs).
     apply LfilledBase.
     by apply const_list_concat.
   - exists (LH_rec (cs ++ vs) n0 es' lh' es'').
-    apply/lfilledP.
     rewrite (catA cs vs).
     apply LfilledRec => //.
     by apply const_list_concat.
-Qed.
+Qed. *) Admitted.
+
 
 Lemma nlfbr_right: forall es n es',
     not_lf_br (es ++ es') n ->
@@ -469,6 +508,8 @@ Ltac split_et_composition:=
     apply e_composition_typing in H;
     destruct H as [ts [t1s [t2s [t3s [H1 [H2 [H3 H4]]]]]]]; subst
   end.
+
+(* Label_typing result from type_preservation; blocks progress here.
 
 Ltac invert_e_typing:=
   repeat lazymatch goal with

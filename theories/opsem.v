@@ -74,7 +74,7 @@ to the spec *)
 | rs_ref_is_null_false:
   forall ref,
     (forall t, ref <> VAL_ref_null t) ->
-    reduce_simple [:: v_to_e (VAL_ref ref); AI_basic BI_ref_is_null] [::$VAN (VAL_int32 Wasm_int.Int32.one)]
+    reduce_simple [:: v_to_e (VAL_ref ref); AI_basic BI_ref_is_null] [::$VAN (VAL_int32 Wasm_int.Int32.zero)]
 (** control-flow operations **)
 | rs_unreachable :
   reduce_simple [::AI_basic BI_unreachable] [::AI_trap]

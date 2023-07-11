@@ -227,7 +227,8 @@ Proof.
   intros; by apply List.Forall_app.
 Qed.
 
-(* No longer holds *)
+(* No longer holds because AI_ref, AI_ref_extern are possible consts not in AI_basic *)
+(* Could technically create cases for these two every time this is invoked? *)
 (*
 Lemma const_list_is_basic: forall es,
     const_list es ->
@@ -239,7 +240,31 @@ Proof.
   apply List.Forall_cons => //.
   destruct a => //.
   by eexists.
+  (* AI_ref, AI_ref_extern *)
 Qed.
+*)
+(*
+Lemma const_num_list_is_basic: forall es f e,
+    const_list es ->
+    (exists es', (es = ([:: AI_ref f] ++ es')
+          \/ es = ([:: AI_ref_extern e] ++ es')) -> False)
+          \/ es_is_basic es
+          \/ es = [::].
+Proof.
+  intros es f e H. generalize dependent es. induction es; intro H.
+  simpl. right. right. reflexivity.
+  move/andP in H. destruct H as [H Hs].
+  apply IHes in Hs. destruct a eqn: E => //.
+  (* destruct Hs as [Hex | [Hbas | Hemp]]. left. apply Hex. *)
+  { right. left. simpl. apply List.Forall_cons => //.
+    unfold e_is_basic. exists b. reflexivity.
+    (* end up needing to prove es_is_basic basis?? *)
+    admit. }
+  { left. exists es. simpl. intro H'. destruct H'.
+    (* somehow use hypothesis to discount AI_ref case? *) admit. }
+  { left. exists es. simpl. intro H'. destruct H'.
+  (* somehow use hypothesis to discount AI_ref_exitern case? *) admit. }
+Admitted.
 *)
 
 Lemma to_b_list_rev: forall es : seq administrative_instruction,

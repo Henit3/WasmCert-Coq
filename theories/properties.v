@@ -939,9 +939,25 @@ Lemma empty_typing: forall C t1s t2s,
 Proof.
   move => C t1s t2s HType.
   gen_ind_subst HType => //.
-  - by destruct es.
+  - by destruct es. (* discriminate Enil. *)
   - f_equal. by eapply IHHType.
 Qed.
+
+(* attempted equivalent statement for AIs *)
+Lemma empty_e_typing: forall s C t1s t2s,
+    e_typing s C [::] (Tf t1s t2s) ->
+    t1s = t2s.
+Proof.
+  move => s C t1s t2s HType.
+  gen_ind_subst HType => //.
+  - induction bes.
+    inversion H; subst => //=. admit.
+      (* (es ++ [::e])%list = [::] -> discriminate H0? *)
+    by apply empty_typing in H.
+  - apply IHbes; inversion Enil.
+  - induction es. eapply IHHType1 => //=. discriminate Enil.
+  - f_equal. eapply IHHType => //=.
+Admitted.
 
 Lemma et_to_bet: forall s C es ts,
     es_is_basic es ->

@@ -18,7 +18,18 @@ Section Host.
    updates in the future. *)
 Definition lookup_N {T: Type} (l: list T) (n: N) : option T :=
   List.nth_error l (N.to_nat n).
-  
+
+Lemma lookup_N_Some: forall {T} (l: list T) i,
+  lookup_N l i <> None <->
+  (N.to_nat i) < length l.
+Proof.
+  intros T l i. split; intro H.
+  - apply List.nth_error_Some in H.
+    move/ltP in H => //=.
+  - unfold lookup_N. move/ltP in H.
+    apply List.nth_error_Some in H => //=.
+Qed.
+
 Variable host_function : eqType.
 
 Let function_closure := function_closure host_function.

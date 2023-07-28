@@ -790,7 +790,7 @@ Proof.
   gen_ind_subst HType.
   - exists [::], ts2. repeat split.
     (* N.to_nat i0 < length (tc_label C0) evident from lookup yielding Some ts2 *)
-    (* admit. *) apply H.
+    apply H.
   - apply extract_list1 in H1; destruct H1; subst.
     apply empty_typing in HType1; subst.
     by eapply IHHType2.
@@ -924,9 +924,9 @@ Ltac invert_be_typing_step:=
   | H: be_typing _ [:: BI_const_vec _] _ |- _ =>
     apply BI_const_vec_typing in H; subst
   | H: be_typing _ [:: BI_ref_null _] _ |- _ =>
-    apply BI_ref_null_typing_stmt in H; subst
+    apply BI_ref_null_typing in H; subst
   | H: be_typing _ [:: BI_ref_func _] _ |- _ =>
-    apply BI_ref_func_typing_stmt in H; subst
+    apply BI_ref_func_typing in H; subst
 (*| H: be_typing _ [:: BI_const _; BI_const _] _ |- _ =>
     apply BI_const2_typing in H; subst*)
   | H: be_typing _ [:: BI_const_num _; BI_const_num _] _ |- _ =>
@@ -1819,7 +1819,7 @@ Proof.
   - (* Select_false *)
     destruct ot.
     + eapply t_Select_num_some_preserve.
-      * (* instantiate (1 := v1).
+      * (*instantiate (1 := v1).
         remember [:: T_num T_i32] as ls. (* not general enough *)
         instantiate (2 := v2). instantiate (2 := v1).
         instantiate (1 := Wasm_int.Int32.zero).
@@ -2098,6 +2098,7 @@ Proof.
     (* induction t1s; induction t2s => //=; repeat split. [::v] = [::]? *)
     repeat split => //=.
   - apply extract_list1 in x; destruct x; subst. eapply IHHType2.
+    apply host.
     admit. (* use: let host := host host_function *)
     f_equal. f_equal. by apply empty_typing in HType1.
   - edestruct IHHType => //=.
@@ -2167,16 +2168,19 @@ Proof. admit. Admitted. *)
 
 Lemma Break_typing: forall n C t1s t2s,
     be_typing C [::BI_br n] (Tf t1s t2s) ->
-    exists ts ts0, n < size (tc_label C) /\
+    exists ts ts0, (N.to_nat n) < size (tc_label C) /\
                (* plop2 C n ts /\ *)
-               lookup_N (tc_label C) n = Some ts /\
+               lookup_N (tc_label C) (n) = Some ts /\
                t1s = ts0 ++ ts.
 Proof.
   move => n C t1s t2s HType.
   dependent induction HType => //=.
   - (* by exists ts, t1s0. *) exists ts, t1s0.
-    split. unfold lookup_N in H.
-    admit. (* n < size (tc_label C) *)
+    split.
+    assert (lookup_N (tc_label C) n <> None) as H'.
+    rewrite H => //=.
+    apply lookup_N_Some in H'.
+    rewrite length_is_size in H' => //=.
     split => //=.
   - invert_be_typing.
     by eapply IHHType2 => //=.
@@ -2185,7 +2189,7 @@ Proof.
     exists x, (ts ++ ts0).
     repeat split => //=.
     by rewrite -catA.
-Admitted. (* Qed. *)
+Qed.
 
 Ltac et_dependent_ind H :=
   let Ht := type of H in
@@ -2599,14 +2603,14 @@ Proof.
     try by apply ety_trap.
   (* Though only a few cases, these cases are expected to be much more difficult. *)
   { (* ref_is_null *)
+    (* problems arise partially due to bes being composed of two AIs instead of one *)
     et_dependent_ind HType => //.
     + (* ety_a *)
       assert (es_is_basic (operations.to_e_list bes)); first by apply to_e_list_basic.
       rewrite Hremes in H1.
-      (* replace ([:: v_to_e (VAL_ref ref); AI_basic BI_ref_is_null])
-         with ([:: v_to_e (VAL_ref ref)] ++ [:: AI_basic BI_ref_is_null]) in H1. 2: { admit. }
-      apply basic_concat in H1. destruct H1. basic_inversion'. *)
-      admit.
+      apply ety_a' => //; auto_basic.
+      eapply t_be_simple_preservation; try by eauto; auto_basic.
+      rewrite <- Hremes in H1 => //=.
     + (* ety_composition *)
       apply extract_list2 in Hremes. destruct Hremes. subst.
       apply et_to_bet in HType1 => //=;
@@ -2651,7 +2655,8 @@ Proof.
     et_dependent_ind HType => //.
     + (* ety_a *)
       assert (es_is_basic (operations.to_e_list bes)); first by apply to_e_list_basic.
-      rewrite Hremes in H1. by basic_inversion'.
+      rewrite Hremes in H1.
+      basic_inversion'.
     + (* ety_composition *)
       apply extract_list1 in Hremes. destruct Hremes. subst.
       apply et_to_bet in HType1 => //.
@@ -2678,13 +2683,16 @@ Proof.
       by eapply IHHType => //.
     + (* ety_label *)
       inversion Hremes; subst.
-      remember (N.to_nat i0) as x. assert (i0 = bin_of_nat x) as Hx. admit.
+      remember (N.to_nat i0) as x. assert (i0 = N.of_nat x) as Hx => //=.
+        rewrite Heqx => //=. symmetry. apply N2Nat.id.
       eapply et_composition' => //=.
       -- eapply Lfilled_break_typing => //=.
          ++ instantiate (4 := [::]). rewrite cat0s.
             by apply HType2.
          ++ by [].
-         ++ simpl. rewrite addn0. rewrite Hx in H1. by apply H1.
+         ++ simpl. rewrite addn0. rewrite Hx in H1.
+            assert (bin_of_nat x = N.of_nat x) as Hconv. admit.
+            rewrite <- Hconv in H1. by apply H1.
       -- by apply HType1.
   - (* Local_const *)
     et_dependent_ind HType => //.
@@ -3664,21 +3672,10 @@ Proof.
     + by apply IHHType.
 (* Defined. *) Admitted.
 
-(* ported over without update_list; why was this removed? *)
-Lemma update_list_at_is_set_nth: forall {X:Type} (l:list X) n x,
-  n < size l ->
-  set_nth x l n x = take n l ++ [::x] ++ List.skipn (n + 1) l.
-Proof.
-  move => X l n x. move: n. elim: l => //=.
-  move => a l IH n HLen. destruct n => //=.
-  simpl. f_equal. by apply IH.
-Qed.
-
 Lemma glob_extension_update_nth: forall sglobs n g g',
   List.nth_error sglobs n = Some g ->
   global_extension g g' ->
-  all2 global_extension sglobs
-    (take n sglobs ++ [::g'] ++ List.skipn (n + 1) sglobs).
+  all2 global_extension sglobs (set_nth g' sglobs n g').
 Proof.
   move => sglobs n.
   generalize dependent sglobs.
@@ -3687,14 +3684,11 @@ Proof.
     apply/andP; split => //=.
     by apply all2_global_extension_same.
   - assert ((n.+1 < length (g0 :: sglobs))%coq_nat); first by rewrite -List.nth_error_Some; rewrite HN.
-    rewrite -update_list_at_is_set_nth; last by lias.
     simpl.
     apply/andP. split.
     + unfold global_extension. apply/andP. split => //=.
       destruct (g_type g0) => //=. apply/orP. by right.
-    + rewrite update_list_at_is_set_nth.
-      * by eapply IHn; eauto.
-      * simpl in H. rewrite length_is_size in H. by lias.
+    + by eapply IHn; eauto.
 Qed.
 
 Lemma tc_reference_glob_type: forall s i C n m gt g,
@@ -3727,8 +3721,7 @@ Qed.
 Lemma mem_extension_update_nth: forall smems n m m',
   List.nth_error smems n = Some m ->
   mem_extension m m' ->
-  all2 mem_extension smems
-    (take n smems ++ [::m'] ++ List.skipn (n + 1) smems).
+  all2 mem_extension smems (set_nth m' smems n m').
 Proof.
   move => smems n.
   generalize dependent smems.
@@ -3737,14 +3730,11 @@ Proof.
     apply/andP. split; first apply Hext.
    by apply all2_mem_extension_same.
   - assert ((n.+1 < length (m0 :: smems))%coq_nat); first by rewrite -List.nth_error_Some; rewrite HN.
-    rewrite -update_list_at_is_set_nth; last by lias.
     simpl.
     apply/andP. split.
     + unfold mem_extension. apply/andP; split => //.
       apply N.leb_le; by lias.
-    + rewrite update_list_at_is_set_nth.
-      * by eapply IHn; eauto.
-      * simpl in H. rewrite length_is_size in H. by lias.
+    + by eapply IHn; eauto.
 Qed.
 
 Lemma bytes_takefill_size: forall c l vs,
@@ -4039,12 +4029,13 @@ Qed.
 
 (*** try N.div_le_mono in mem_length -> mem_size! ***)
 
+Search is:Lemma (N.of_nat _ <= N.of_nat _).
 
 Lemma nth_error_update_list_hit: forall {X:Type} l n {x:X},
     n < length l ->
-    lookup_N (take n l ++ [::x] ++ List.skipn (n + 1) l) (N.of_nat n) = Some x.
-Proof. admit.
-  (* move => X l n. generalize dependent l.
+    lookup_N (set_nth x l n x) (N.of_nat n) = Some x.
+Proof.
+  move => X l n. generalize dependent l.
   induction n => //=; destruct l => //=.
   - move => x' HLength.
     simpl. rewrite -cat1s.
@@ -4052,36 +4043,77 @@ Proof. admit.
     assert (length (take n l) = n).
     { rewrite length_is_size. rewrite length_is_size in H.
       rewrite size_take. by rewrite H. }
-    assert (lookup_N ([:: x] ++ (take n l) ++ x' :: List.skipn (n+1)%Nrec l) (N.of_nat (length (take n l))) = Some x').
-    unfold lookup_N. admit.
     unfold lookup_N.
-    rewrite H0 in H1. unfold lookup_N in H1.
-    replace (N.pos (Pos.of_succ_nat n)) with (N.of_nat (n + 1)) => //.
-    unfold N.of_nat. assert (n = 1); subst. admit.
-    unfold Pos.of_succ_nat.
-Qed. *) Admitted.
+    rewrite (List.nth_error_app2 ([::x]) ) => //=.
+    2: { (* lowest n value = 0; 1 <= succ 0 *) admit. }
+    replace ((Pos.to_nat (Pos.of_succ_nat n) - 1)%coq_nat) with (n).
+    2: {
+        unfold Pos.pred_N.
+        (* bring 1 inside Pos.to_nat *)
+        assert (((Pos.to_nat (Pos.of_succ_nat n)) - 1)%coq_nat
+                = (Pos.to_nat (Pos.of_succ_nat n - 1))). admit.
+        rewrite H1.
+        rewrite <- Ppred_minus.
+        rewrite Pos.pred_of_succ_nat. lias.
+      }
+    unfold lookup_N in IHn. rewrite Nat2N.id in IHn.
+    (* replace (Pos.to_nat (Pos.of_succ_nat n)) 
+       with (N.of_nat (n+1)). *)
+    by apply IHn.
+(* Qed. *) Admitted.
+
+(*****)
 
 Lemma nth_error_update_list_others: forall {X:Type} l n m {x:X},
     n <> m ->
     n < length l ->
-    List.nth_error (update_list_at l n x) m = List.nth_error l m.
+    lookup_N (set_nth x l n x) (N.of_nat m) = lookup_N l (N.of_nat m).
 Proof.
   move => X l n. move: l.
+
+  assert (forall i, Pos.to_nat (Pos.of_succ_nat i) = i + 1) as Hpos_succ. admit.
+  assert (forall i j, (i <= j) <-> (i <= j)%coq_nat) as Hle_cn. admit.
+
   induction n => //=; move => l m x Hne HLength.
   - destruct m => //=.
-    by destruct l => //=.
+    destruct l => //=.
+    repeat unfold lookup_N.
+    (* induction m eqn:E => //=. *)
+    replace (x :: l) with (([::x] ++ l)%list). 2: { reflexivity. }
+    replace (x0 :: l) with (([::x0] ++ l)%list). 2: { reflexivity. }
+    
+    repeat rewrite List.nth_error_app2; simpl; try reflexivity;
+    rewrite Hpos_succ; apply Hle_cn; induction m => //=.
+    
+    
+    (* List.nth_error l _ = List.nth_error l _ *)
   - destruct m => //=.
-    + by destruct l => //=.
     + destruct l => //=.
+    + destruct l => //=.
+      unfold lookup_N. unfold lookup_N in IHn.
+      repeat rewrite (List.nth_error_app2 ([::x0]) ) => //=;
+      try (rewrite Hpos_succ; apply Hle_cn; induction m => //=).
+
+      repeat rewrite Hpos_succ.
+      replace ((m + 1 - 1)%coq_nat) with (m). 2: admit.
+
+      (* rewrote Nat2N.id in IHn's goal *)
+      assert (
+        forall (l : seq X) (m : nat) (x : X),
+        n <> m ->
+        n < length l ->
+        List.nth_error (set_nth x l n x) m =
+        List.nth_error l m
+      ) as IHn'. admit.
       simpl in HLength.
-      by apply IHn; lias.
-Qed.
+      apply IHn' => //=. lias.
+(* Qed. *) Admitted.
 
 Lemma Forall_update: forall {X:Type} f l n {x:X},
     List.Forall f l ->
     f x ->
     n < length l ->
-    List.Forall f (update_list_at l n x).
+    List.Forall f (set_nth x l n x).
 Proof.
   move => X f l n x HA Hf HLength.
   rewrite -> List.Forall_forall in HA.
@@ -4089,14 +4121,19 @@ Proof.
   move => x0 HIN.
   apply List.In_nth_error in HIN.
   destruct HIN as [n' HN].
-  assert (n' < length (update_list_at l n x))%coq_nat.
+  assert (n' < length (set_nth x l n x))%coq_nat.
   { rewrite <- List.nth_error_Some. by rewrite HN. }
   move/ltP in H.
   destruct (n == n') eqn:H1 => //=.
   - move/eqP in H1. subst.
-    rewrite nth_error_update_list_hit in HN => //=. by inversion HN; subst.
+    (* perhaps make an equivalent lemma for List.nth_error? *)
+    assert (lookup_N (set_nth x l n' x) (N.of_nat n') = Some x0) as HN'.
+    unfold lookup_N. rewrite Nat2N.id => //=. 
+    rewrite nth_error_update_list_hit in HN' => //=. by inversion HN'; subst.
   - move/eqP in H1.
-    rewrite nth_error_update_list_others in HN => //=.
+    assert (lookup_N (set_nth x l n x) (N.of_nat n') = Some x0) as HN'.
+    unfold lookup_N. rewrite Nat2N.id => //=. 
+    rewrite nth_error_update_list_others in HN' => //=.
     apply HA.
     by eapply List.nth_error_In; eauto.
 Qed.
@@ -4130,7 +4167,7 @@ Proof.
   assert (mem_agree m); first by eapply store_typed_mem_agree; eauto.
   unfold mem_agree in H0. rewrite HMemLim in H0.
   unfold mem_agree => //=.
-  destruct (mem_max_opt mem) eqn:HLimMax => //=.
+  destruct (lim_max (meminst_type mem)) eqn:HLimMax => //=.
   by rewrite HMemSize in H0.
 Qed.
 
@@ -4146,16 +4183,26 @@ Proof.
   unfold mem_agree. simpl.
   unfold mem_agree in H.
   destruct (mem_size m + c <=? page_limit)%N eqn:HLP => //.
-  - destruct (mem_max_opt m) eqn:HLimMax => //=.
-    destruct ((mem_size m + c <=? n0)%N) eqn:H1 => //.
+  - destruct (lim_max (meminst_type m)) eqn:HLimMax => //=.
+    destruct ((mem_size m + c <=? u)%N) eqn:H1 => //.
     inversion HGrow. unfold mem_size, mem_length, memory_list.mem_length in *. simpl in *. subst. clear HGrow.
     rewrite length_is_size. rewrite size_cat.
     repeat rewrite - length_is_size. rewrite List.repeat_length.
     rewrite - N.div_add in H1 => //.
     apply N.leb_le in H1.
-    by lias.
-  - by inversion HGrow.
-Qed.
+    rewrite HLimMax.
+    rewrite Nat2N.inj_add. rewrite N2Nat.id.
+    admit. (* really close to hypothesis, just need to move <= into scope *)    
+    (* unfold is_true. apply/leP.
+    apply/(eqP (((N.of_nat (length (memory_list.ml_data (meminst_data m))) + 
+                  c * page_size) / page_size)%N <= u) (true)). apply H1.
+    replace (((N.of_nat (length (memory_list.ml_data (meminst_data m))) + c * page_size) / page_size)%N <= u)
+       with ((N.of_nat (length (memory_list.ml_data (meminst_data m))) + c * page_size) / page_size).
+    replace (N.of_nat (length (memory_list.ml_data (meminst_data m)) + N.to_nat (c * page_size)))
+       with ((N.of_nat (length (memory_list.ml_data (meminst_data m))) + c * page_size)).
+    lias. *)
+  - inversion HGrow. destruct lim_max => //=.
+(* Qed. *) Admitted.
     
 Lemma reduce_inst_unchanged: forall hs s f es hs' s' f' es',
     reduce hs s f es hs' s' f' es' ->
@@ -4165,10 +4212,11 @@ Proof.
   by induction HReduce.
 Qed.
 
+
 Lemma store_extension_reduce: forall s f es s' f' es' C tf loc lab ret hs hs',
     reduce hs s f es hs' s' f' es' ->
     inst_typing s f.(f_inst) C ->
-    e_typing s (upd_label (upd_local_return C loc ret) lab) es tf ->
+    e_typing s (upd_label (upd_local_label_return C loc (tc_label C) ret) lab) es tf ->
     store_typing s ->
     store_extension s s' /\ store_typing s'.
 Proof.
@@ -4181,52 +4229,124 @@ Proof.
     split.
     + by eapply host_application_extension; eauto.
     + by eapply host_application_typing; eauto.
-  - (* update glob *)
+  { (* update glob *)
     apply et_to_bet in HType; auto_basic. simpl in HType.
-    replace [::BI_const v; BI_set_global i] with ([::BI_const v] ++ [::BI_set_global i]) in HType => //=.
+    (* unfold to_b_single, v_to_e in HType. *)
+    replace [::to_b_single (v_to_e v); BI_global_set i] with ([::to_b_single (v_to_e v)] ++ [::BI_global_set i]) in HType => //=.
     apply composition_typing in HType.
     destruct HType as [ts [t1s [t2s [t3s [H1 [H2 [H3 H4]]]]]]]. subst.
+    unfold to_b_single, v_to_e in H3.
+    destruct v eqn:Ev => //= ; [| | destruct v0 eqn:Ev0; [admit | admit | admit] ];
     invert_be_typing.
-    apply Set_global_typing in H4.
-    destruct H4 as [g [t [H5 [H6 [H7 [H8 H9]]]]]].
-    apply concat_cancel_last in H8. destruct H8. subst.
-    unfold supdate_glob in H.
-    unfold option_bind in H.
-    unfold supdate_glob_s in H.
-    unfold option_map in H.
-    assert (store_extension s s') as Hext.
-    remove_bools_options.
-    unfold sglob_ind in Hoption. simpl in H5.
-    eapply tc_reference_glob_type in H5; eauto.
-    destruct g => //.
-    destruct g0 => //.
-    simpl in H1. unfold global_agree in H5. simpl in H5.
-    unfold is_mut in H7. simpl in H7. remove_bools_options. subst.
-    + simpl. unfold store_extension => //=.
-      repeat (apply/andP; split) => //=.
-      -- by apply all2_tab_extension_same.
-      -- by apply all2_mem_extension_same.
-      -- eapply glob_extension_update_nth; eauto => //=.
-         unfold glob_extension => //=.
-         by destruct v => //=; destruct g_val => //=.
-    split => //.
-    by eapply store_global_extension_store_typed; eauto;
-      destruct s => //=; destruct s' => //=; remove_bools_options.
-  - (* update memory : store none *)
-    apply et_to_bet in HType; auto_basic. simpl in HType.
-    replace [::BI_const (VAL_int32 k); BI_const v; BI_store t None a off] with ([::BI_const (VAL_int32 k); BI_const v] ++ [::BI_store t None a off]) in HType => //.
+    {
+      apply Set_global_typing in H4.
+      destruct H4 as [g [t [H5 [H6 [H7 H8]]]]].
+      apply concat_cancel_last in H8. destruct H8. subst.
+      unfold supdate_glob in H.
+      unfold option_bind in H.
+      unfold supdate_glob_s in H.
+      unfold option_map in H.
+      assert (store_extension s s') as Hext.
+      remove_bools_options.
+      unfold sglob_ind in Hoption. simpl in H5.
+      eapply tc_reference_glob_type in H5; eauto.
+      destruct g => //.
+      destruct g0 => //.
+      simpl in H1. destruct g_type in H5 => //=. inversion H5.
+      unfold is_mut in H7. simpl in H7. remove_bools_options. subst.
+      simpl. unfold store_extension => //=.
+      repeat (apply/andP; split) => //=;
+      try apply Nat.leb_refl; try (rewrite List.firstn_all).
+        apply all2_func_extension_same.
+        apply all2_table_extension_same.
+        apply all2_mem_extension_same.
+        admit. admit.
+              (* fold s_globals. eapply glob_extension_update_nth; eauto => //=.
+              unfold glob_extension => //=.
+              by destruct v => //=; destruct g_val => //=. *)
+        apply all2_elem_extension_same.
+        apply all2_data_extension_same.
+        admit. split => //=. by eapply store_global_extension_store_typed; eauto;
+        destruct s => //=; destruct s' => //=; remove_bools_options.
+    }
+    { (* repeat of the above for vec, probably streamline this *)
+      apply Set_global_typing in H4.
+      destruct H4 as [g [t [H5 [H6 [H7 H8]]]]].
+      apply concat_cancel_last in H8. destruct H8. subst.
+      unfold supdate_glob in H.
+      unfold option_bind in H.
+      unfold supdate_glob_s in H.
+      unfold option_map in H.
+      assert (store_extension s s') as Hext.
+      remove_bools_options.
+      unfold sglob_ind in Hoption. simpl in H5.
+      eapply tc_reference_glob_type in H5; eauto.
+      destruct g => //.
+      destruct g0 => //.
+      simpl in H1. destruct g_type in H5 => //=. inversion H5.
+      unfold is_mut in H7. simpl in H7. remove_bools_options. subst.
+      simpl. unfold store_extension => //=.
+      repeat (apply/andP; split) => //=;
+      try apply Nat.leb_refl; try (rewrite List.firstn_all).
+        apply all2_func_extension_same.
+        apply all2_table_extension_same.
+        apply all2_mem_extension_same.
+        admit. admit.
+              (* fold s_globals. eapply glob_extension_update_nth; eauto => //=.
+              unfold glob_extension => //=.
+              by destruct v => //=; destruct g_val => //=. *)
+        apply all2_elem_extension_same.
+        apply all2_data_extension_same.
+        admit. split => //=. by eapply store_global_extension_store_typed; eauto;
+        destruct s => //=; destruct s' => //=; remove_bools_options.
+    }
+  }
+
+(*   
+  (* [i; tabv; table_set x] => stab_update...tabv: Some s', None *)
+  admit. admit.
+  (* [table_size x] *)
+  admit.
+  (* [tabinit; i; table_set x] => stab_grow: Some s', None *)
+  admit. admit.
+  (* [i; tabv; n; table_fill x] *)
+  admit.
+  (* [elem_drop x] *)
+  admit.
+  (* [k; v; store t x a off] => x: None, Some tp *)
+  admit. admit.
+  (* [c; memory_grow] => x: None, Some tp *)
+  admit.
+  (* [data_drop] => x: None, Some tp *)
+  admit.
+  (* r_label *)
+  admit.
+  (* r_local *)
+  admit.
+*)
+8:{ (* update memory : store none *)
+    apply et_to_bet in HType; auto_basic. unfold to_b_list, map in HType.
+    unfold to_b_single in HType at 1. unfold to_b_single in HType at 2.
+    replace [::$VBN (VAL_int32 k); to_b_single ($VAN v); BI_store t None a off]
+      with ([::$VBN (VAL_int32 k); to_b_single ($VAN v)] ++ [::BI_store t None a off]) in HType => //.
     apply composition_typing in HType.
     destruct HType as [ts [t1s [t2s [t3s [H3 [H4 [H5 H6]]]]]]]. subst.
-    invert_be_typing.
+    (* FIX THIS TO PRODUCE typeof_num v for t3s *)
+    (* solution: we may need the nnn stuff again... *)
+    invert_be_typing. simpl in H6.
     apply Store_typing in H6.
-    destruct H6 as [H7 [H8 H9]]. subst.
+    destruct H6 as [H7 [H9 H10]]. subst.
     apply concat_cancel_last_n in H7 => //.
+    2: { apply concat_cancel_last_n in H7. }
     remove_bools_options.
-    inversion H4. subst. clear H4.
-    assert (store_extension s (upd_s_mem s (update_list_at (s_mems s) i mem'))) as Hext.
+    inversion H3. subst. clear H4.
+    assert (store_extension s (upd_s_mem s (set_nth mem' (s_mems s) i mem'))) as Hext.
     + unfold store_extension => //=.
-      repeat (apply/andP; split) => //=.
-      * by apply all2_tab_extension_same.
+      repeat (apply/andP; split) => //=;
+      try apply Nat.leb_refl; try rewrite List.firstn_all.
+      * apply Nat.leb_refl. rewrite List.firstn_all. apply all2_func_extension_same.
+      * rewrite List.firstn_all. apply all2_table_extension_same.
+      * rewrite List.firstn_all. 
         eapply mem_extension_update_nth; eauto => //=.
       * by eapply mem_extension_store; eauto.
       * by apply all2_glob_extension_same.
@@ -4244,6 +4364,7 @@ Proof.
     eapply store_mem_agree; eauto.
     * by destruct v => //=.
     * by move/ltP in H3.
+}
   - (* another update memory : store some *)
     apply et_to_bet in HType; auto_basic. simpl in HType.
     replace [::BI_const (VAL_int32 k); BI_const v; BI_store t (Some tp) a off] with ([::BI_const (VAL_int32 k); BI_const v] ++ [::BI_store t (Some tp) a off]) in HType => //.

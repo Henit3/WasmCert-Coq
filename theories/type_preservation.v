@@ -217,70 +217,6 @@ Proof.
   - rewrite - catA. f_equal.
     + intros. admit. (* similar to IHHType statement but no binding Tf for s, C. *)
 Admitted.
-(*
-Definition BI_const_ref_typing_stmt C econst t1s t2s: Prop :=
-  be_typing C [::BI_ref_func econst] (Tf t1s t2s) ->
-  t2s = t1s ++ [::T_ref (typeof_ref (VAL_ref econst))].
-Lemma BI_const_ref_typing: forall C econst t1s t2s,
-  BI_const_ref_typing_stmt C econst t1s t2s.
-Proof.
-move => C econst t1s t2s HType.
-gen_ind_subst HType => //.
-- apply extract_list1 in H1; inversion H1; subst.
-apply empty_typing in HType1; subst.
-by eapply IHHType2.
-- rewrite - catA. f_equal.
-+ intros. by subst.
-+ by eapply IHHType.
-Qed.
-*)
-(* this complicates things for 2 and 3 further so not included until sure *)
-
-Lemma BI_const_typing: forall C econst_num t1s t2s econst_vec econst_ref_null econst_ref_func,
-  BI_const_num_typing_stmt C econst_num t1s t2s
-  /\ BI_const_vec_typing_stmt C econst_vec t1s t2s
-  /\ BI_ref_null_typing_stmt C econst_ref_null t1s t2s
-  /\ BI_ref_func_typing_stmt C econst_ref_func t1s t2s. (*
-  /\ BI_const_ref_func_typing_stmt s C econst_ref_func t1s t2s
-  /\ BI_const_ref_extern_typing_stmt s C econst_ref_extern t1s t2s. *)
-Proof.
-  split. apply BI_const_num_typing.
-  split. apply BI_const_vec_typing.
-  split. apply BI_ref_null_typing.
-         apply BI_ref_func_typing.
-      (* apply BI_const_ref_extern_typing. *)
-Qed.
-
-(*
-Lemma BI_const_typing_alt: forall C econst_num econst_vec t1s t2s,
-  BI_const_num_typing_stmt C econst_num t1s t2s
-  /\ BI_const_vec_typing_stmt C econst_vec t1s t2s.
-Proof.
-  intros.
-  split;
-  [ unfold BI_const_num_typing_stmt
-  | unfold BI_const_vec_typing_stmt];
-  intros; gen_ind_subst H => //.
-  (*...*)
-Qed.
-*)
-
-(*
-Lemma BI_const2_typing: forall C econst1 econst2 t1s t2s,
-    be_typing C [::BI_const econst1; BI_const econst2] (Tf t1s t2s) ->
-    t2s = t1s ++ [::typeof econst1; typeof econst2].
-Proof.
-  move => C econst1 econst2 t1s t2s HType.
-  gen_ind_subst HType => //.
-  - apply extract_list2 in H1; inversion H1; subst.
-    apply BI_const_typing in HType1; subst.
-    apply BI_const_typing in HType2; subst.
-    by rewrite -catA.
-  - rewrite - catA. f_equal.
-    + intros. by subst.
-    + by eapply IHHType.
-Qed.
-*)
 
 (* Can apply BI_const_typing generally but requires work later *)
 (* The ltac for this would need to id or get lemma for each const? *)
@@ -291,50 +227,16 @@ Definition BI_const2_nn_typing_stmt C econst1 econst2 t1s t2s: Prop :=
 Lemma BI_const2_nn_typing: forall C econst1 econst2 t1s t2s,
   BI_const2_nn_typing_stmt C econst1 econst2 t1s t2s.
 Proof.
-move => C econst1 econst2 t1s t2s HType.
-gen_ind_subst HType => //.
-- apply extract_list2 in H1; inversion H1; subst.
-apply BI_const_num_typing in HType1; subst.
-apply BI_const_num_typing in HType2; subst.
-by rewrite -catA.
-- rewrite - catA. f_equal.
-+ intros. by subst.
-+ by eapply IHHType.
-Qed.
-(*
-Definition BI_const2_nv_typing_stmt C econst1 econst2 t1s t2s: Prop :=
-  be_typing C [::BI_const_num econst1; BI_const_vec econst2] (Tf t1s t2s) ->
-  t2s = t1s ++ [::T_num (typeof_num econst1); T_vec (typeof_vec econst2)].
-Lemma BI_const2_nv_typing: forall C econst1 econst2 t1s t2s,
-  BI_const2_nv_typing_stmt C econst1 econst2 t1s t2s.
-Proof.
-move => C econst1 econst2 t1s t2s HType.
-gen_ind_subst HType => //.
-- apply extract_list2 in H1; inversion H1; subst.
-apply BI_const_num_typing in HType1; subst.
-apply BI_const_vec_typing in HType2; subst.
-by rewrite -catA.
-- rewrite - catA. f_equal.
-+ intros. by subst.
-+ by eapply IHHType.
-Qed.
-Definition BI_const2_vn_typing_stmt C econst1 econst2 t1s t2s: Prop :=
-  be_typing C [::BI_const_vec econst1; BI_const_num econst2] (Tf t1s t2s) ->
-  t2s = t1s ++ [::T_vec (typeof_vec econst1); T_num (typeof_num econst2)].
-Lemma BI_const2_vn_typing: forall C econst1 econst2 t1s t2s,
-  BI_const2_vn_typing_stmt C econst1 econst2 t1s t2s.
-Proof.
   move => C econst1 econst2 t1s t2s HType.
   gen_ind_subst HType => //.
   - apply extract_list2 in H1; inversion H1; subst.
-    apply BI_const_vec_typing in HType1; subst.
+    apply BI_const_num_typing in HType1; subst.
     apply BI_const_num_typing in HType2; subst.
     by rewrite -catA.
   - rewrite - catA. f_equal.
     + intros. by subst.
     + by eapply IHHType.
 Qed.
-*)
 Definition BI_const2_vv_typing_stmt C econst1 econst2 t1s t2s: Prop :=
   be_typing C [::BI_const_vec econst1; BI_const_vec econst2] (Tf t1s t2s) ->
   t2s = t1s ++ [::T_vec (typeof_vec econst1); T_vec (typeof_vec econst2)].
@@ -351,37 +253,22 @@ Proof.
     + intros. by subst.
     + by eapply IHHType.
 Qed.
-
-Lemma BI_const2_typing: forall C econst1_num econst2_num econst1_vec econst2_vec t1s t2s,
-  BI_const2_nn_typing_stmt C econst1_num econst2_num t1s t2s (*
-  /\ BI_const2_nv_typing_stmt C econst1_num econst2_vec t1s t2s
-  /\ BI_const2_vn_typing_stmt C econst1_vec econst2_num t1s t2s *)
-  /\ BI_const2_vv_typing_stmt C econst1_vec econst2_vec t1s t2s.
+Definition BI_const2_rr_typing_stmt C econst1 econst2 t1s t2s: Prop :=
+  be_typing C [::BI_ref_null econst1; BI_ref_null econst2] (Tf t1s t2s) ->
+  t2s = t1s ++ [::T_ref econst1; T_ref econst2].
+Lemma BI_const2_rr_typing: forall C econst1 econst2 t1s t2s,
+  BI_const2_rr_typing_stmt C econst1 econst2 t1s t2s.
 Proof.
-  split. apply BI_const2_nn_typing. (*
-  split. apply BI_const2_nv_typing.
-  split. apply BI_const2_vn_typing. *)
-         apply BI_const2_vv_typing.
-Qed.
-
-(*
-Lemma BI_const3_typing: forall C econst1 econst2 econst3 t1s t2s,
-    be_typing C [::BI_const econst1; BI_const econst2; BI_const econst3] (Tf t1s t2s) ->
-    t2s = t1s ++ [::typeof econst1; typeof econst2; typeof econst3].
-Proof.
-  move => C econst1 econst2 econst3 t1s t2s HType.
+  move => C econst1 econst2 t1s t2s HType.
   gen_ind_subst HType => //.
-  - apply extract_list3 in H1; inversion H1; subst.
-    apply BI_const2_typing in HType1; subst.
-    apply BI_const_typing in HType2; subst.
+  - apply extract_list2 in H1; inversion H1; subst.
+    apply BI_ref_null_typing in HType1; subst.
+    apply BI_ref_null_typing in HType2; subst.
     by rewrite -catA.
   - rewrite - catA. f_equal.
     + intros. by subst.
     + by eapply IHHType.
 Qed.
-*)
-
-(* 8 cases following the previous pattern (is this correct?) *)
 
 Definition BI_const3_nnn_typing_stmt C econst1 econst2 econst3 t1s t2s: Prop :=
   be_typing C [::BI_const_num econst1; BI_const_num econst2; BI_const_num econst3] (Tf t1s t2s) ->
@@ -394,87 +281,6 @@ Proof.
   - apply extract_list3 in H1; inversion H1; subst.
     apply BI_const2_nn_typing in HType1; subst.
     apply BI_const_num_typing in HType2; subst.
-    by rewrite -catA.
-  - rewrite - catA. f_equal.
-    + intros. by subst.
-    + by eapply IHHType.
-Qed.
-(*
-Definition BI_const3_nnv_typing_stmt C econst1 econst2 econst3 t1s t2s: Prop :=
-  be_typing C [::BI_const_num econst1; BI_const_num econst2; BI_const_vec econst3] (Tf t1s t2s) ->
-  t2s = t1s ++ [::T_num (typeof_num econst1); T_num (typeof_num econst2); T_vec (typeof_vec econst3)].
-Lemma BI_const3_nnv_typing: forall C econst1 econst2 econst3 t1s t2s,
-  BI_const3_nnv_typing_stmt C econst1 econst2 econst3 t1s t2s.
-Proof.
-  move => C econst1 econst2 econst3 t1s t2s HType.
-  gen_ind_subst HType => //.
-  - apply extract_list3 in H1; inversion H1; subst.
-    apply BI_const2_nn_typing in HType1; subst.
-    apply BI_const_vec_typing in HType2; subst.
-    by rewrite -catA.
-  - rewrite - catA. f_equal.
-    + intros. by subst.
-    + by eapply IHHType.
-Qed.
-Definition BI_const3_nvn_typing_stmt C econst1 econst2 econst3 t1s t2s: Prop :=
-  be_typing C [::BI_const_num econst1; BI_const_vec econst2; BI_const_num econst3] (Tf t1s t2s) ->
-  t2s = t1s ++ [::T_num (typeof_num econst1); T_vec (typeof_vec econst2); T_num (typeof_num econst3)].
-Lemma BI_const3_nvn_typing: forall C econst1 econst2 econst3 t1s t2s,
-  BI_const3_nvn_typing_stmt C econst1 econst2 econst3 t1s t2s.
-Proof.
-  move => C econst1 econst2 econst3 t1s t2s HType.
-  gen_ind_subst HType => //.
-  - apply extract_list3 in H1; inversion H1; subst.
-    apply BI_const2_nv_typing in HType1; subst.
-    apply BI_const_num_typing in HType2; subst.
-    by rewrite -catA.
-  - rewrite - catA. f_equal.
-    + intros. by subst.
-    + by eapply IHHType.
-Qed.
-Definition BI_const3_nvv_typing_stmt C econst1 econst2 econst3 t1s t2s: Prop :=
-  be_typing C [::BI_const_num econst1; BI_const_vec econst2; BI_const_vec econst3] (Tf t1s t2s) ->
-  t2s = t1s ++ [::T_num (typeof_num econst1); T_vec (typeof_vec econst2); T_vec (typeof_vec econst3)].
-Lemma BI_const3_nvv_typing: forall C econst1 econst2 econst3 t1s t2s,
-  BI_const3_nvv_typing_stmt C econst1 econst2 econst3 t1s t2s.
-Proof.
-  move => C econst1 econst2 econst3 t1s t2s HType.
-  gen_ind_subst HType => //.
-  - apply extract_list3 in H1; inversion H1; subst.
-    apply BI_const2_nv_typing in HType1; subst.
-    apply BI_const_vec_typing in HType2; subst.
-    by rewrite -catA.
-  - rewrite - catA. f_equal.
-    + intros. by subst.
-    + by eapply IHHType.
-Qed.
-Definition BI_const3_vnn_typing_stmt C econst1 econst2 econst3 t1s t2s: Prop :=
-  be_typing C [::BI_const_vec econst1; BI_const_num econst2; BI_const_num econst3] (Tf t1s t2s) ->
-  t2s = t1s ++ [::T_vec (typeof_vec econst1); T_num (typeof_num econst2); T_num (typeof_num econst3)].
-Lemma BI_const3_vnn_typing: forall C econst1 econst2 econst3 t1s t2s,
-  BI_const3_vnn_typing_stmt C econst1 econst2 econst3 t1s t2s.
-Proof.
-  move => C econst1 econst2 econst3 t1s t2s HType.
-  gen_ind_subst HType => //.
-  - apply extract_list3 in H1; inversion H1; subst.
-    apply BI_const2_vn_typing in HType1; subst.
-    apply BI_const_num_typing in HType2; subst.
-    by rewrite -catA.
-  - rewrite - catA. f_equal.
-    + intros. by subst.
-    + by eapply IHHType.
-Qed.
-Definition BI_const3_vnv_typing_stmt C econst1 econst2 econst3 t1s t2s: Prop :=
-  be_typing C [::BI_const_vec econst1; BI_const_num econst2; BI_const_vec econst3] (Tf t1s t2s) ->
-  t2s = t1s ++ [::T_vec (typeof_vec econst1); T_num (typeof_num econst2); T_vec (typeof_vec econst3)].
-Lemma BI_const3_vnv_typing: forall C econst1 econst2 econst3 t1s t2s,
-  BI_const3_vnv_typing_stmt C econst1 econst2 econst3 t1s t2s.
-Proof.
-  move => C econst1 econst2 econst3 t1s t2s HType.
-  gen_ind_subst HType => //.
-  - apply extract_list3 in H1; inversion H1; subst.
-    apply BI_const2_vn_typing in HType1; subst.
-    apply BI_const_vec_typing in HType2; subst.
     by rewrite -catA.
   - rewrite - catA. f_equal.
     + intros. by subst.
@@ -495,8 +301,8 @@ Proof.
   - rewrite - catA. f_equal.
     + intros. by subst.
     + by eapply IHHType.
-Qed
-*)
+Qed.
+(*
 Definition BI_const3_vvv_typing_stmt C econst1 econst2 econst3 t1s t2s: Prop :=
   be_typing C [::BI_const_vec econst1; BI_const_vec econst2; BI_const_vec econst3] (Tf t1s t2s) ->
   t2s = t1s ++ [::T_vec (typeof_vec econst1); T_vec (typeof_vec econst2); T_vec (typeof_vec econst3)].
@@ -513,25 +319,22 @@ Proof.
     + intros. by subst.
     + by eapply IHHType.
 Qed.
-
-Lemma BI_const3_typing: forall C econst1_num econst2_num econst3_num econst1_vec econst2_vec econst3_vec t1s t2s,
-  BI_const3_nnn_typing_stmt C econst1_num econst2_num econst3_num t1s t2s (*
-  /\ BI_const3_nnv_typing_stmt C econst1_num econst2_num econst3_vec t1s t2s
-  /\ BI_const3_nvn_typing_stmt C econst1_num econst2_vec econst3_num t1s t2s
-  /\ BI_const3_nvv_typing_stmt C econst1_num econst2_vec econst3_vec t1s t2s
-  /\ BI_const3_vnn_typing_stmt C econst1_vec econst2_num econst3_num t1s t2s
-  /\ BI_const3_vnv_typing_stmt C econst1_vec econst2_num econst3_vec t1s t2s
-  /\ BI_const3_vvn_typing_stmt C econst1_vec econst2_vec econst3_num t1s t2s *)
-  /\ BI_const3_vvv_typing_stmt C econst1_vec econst2_vec econst3_vec t1s t2s.
+*)
+Definition BI_const3_rrn_typing_stmt C econst1 econst2 econst3 t1s t2s: Prop :=
+  be_typing C [::BI_ref_null econst1; BI_ref_null econst2; BI_const_num econst3] (Tf t1s t2s) ->
+  t2s = t1s ++ [::T_ref econst1; T_ref econst2; T_num (typeof_num econst3)].
+Lemma BI_const3_rrn_typing: forall C econst1 econst2 econst3 t1s t2s,
+  BI_const3_rrn_typing_stmt C econst1 econst2 econst3 t1s t2s.
 Proof.
-  split. apply BI_const3_nnn_typing. (*
-  split. apply BI_const3_nnv_typing.
-  split. apply BI_const3_nvn_typing.
-  split. apply BI_const3_nvv_typing.
-  split. apply BI_const3_vnn_typing.
-  split. apply BI_const3_vnv_typing.
-  split. apply BI_const3_vvn_typing. *)
-         apply BI_const3_vvv_typing.
+  move => C econst1 econst2 econst3 t1s t2s HType.
+  gen_ind_subst HType => //.
+  - apply extract_list3 in H1; inversion H1; subst.
+    apply BI_const2_rr_typing in HType1; subst.
+    apply BI_const_num_typing in HType2; subst.
+    by rewrite -catA.
+  - rewrite - catA. f_equal.
+    + intros. by subst.
+    + by eapply IHHType.
 Qed.
 
 
@@ -706,7 +509,8 @@ Qed.
 
 Lemma Select_typing_None: forall C t1s t2s,
     be_typing C [::BI_select None] (Tf t1s t2s) ->
-    exists ts t, is_numeric_type t /\ t1s = ts ++ [::t; t; T_num T_i32] /\ t2s = ts ++ [::t].
+    exists ts t, is_numeric_type t
+      /\ t1s = ts ++ [::t; t; T_num T_i32] /\ t2s = ts ++ [::t].
 Proof.
   move => C t1s t2s HType.
   gen_ind_subst HType => //.
@@ -885,7 +689,7 @@ Admitted. *)
 
 (* split to assist debugging *)
 Ltac invert_be_typing_step:=
-  repeat lazymatch goal with
+  lazymatch goal with
   | H: (?es ++ [::?e])%list = [::_] |- _ =>
     extract_listn
   | H: (?es ++ [::?e])%list = [::_; _] |- _ =>
@@ -896,8 +700,6 @@ Ltac invert_be_typing_step:=
     extract_listn
   | H: be_typing _ [::] _ |- _ =>
     apply empty_typing in H; subst
-(*| H: be_typing _ [:: BI_const _] _ |- _ =>
-    apply BI_const_typing in H; subst*)
   | H: be_typing _ [:: BI_const_num _] _ |- _ =>
     apply BI_const_num_typing in H; subst
   | H: be_typing _ [:: BI_const_vec _] _ |- _ =>
@@ -906,34 +708,20 @@ Ltac invert_be_typing_step:=
     apply BI_ref_null_typing in H; subst
   | H: be_typing _ [:: BI_ref_func _] _ |- _ =>
     apply BI_ref_func_typing in H; subst
-(*| H: be_typing _ [:: BI_const _; BI_const _] _ |- _ =>
-    apply BI_const2_typing in H; subst*)
   | H: be_typing _ [:: BI_const_num _; BI_const_num _] _ |- _ =>
     apply BI_const2_nn_typing in H; subst
-(*| H: be_typing _ [:: BI_const_num _; BI_const_vec _] _ |- _ =>
-    apply BI_const2_nv_typing in H; subst
-  | H: be_typing _ [:: BI_const_vec _; BI_const_num _] _ |- _ =>
-    apply BI_const2_vn_typing in H; subst*)
   | H: be_typing _ [:: BI_const_vec _; BI_const_vec _] _ |- _ =>
     apply BI_const2_vv_typing in H; subst
-(*| H: be_typing _ [:: BI_const _; BI_const _; BI_const _] _ |- _ =>
-    apply BI_const3_typing in H; subst*)
+  | H: be_typing _ [:: BI_ref_null _; BI_ref_null _] _ |- _ =>
+    apply BI_const2_rr_typing in H; subst
   | H: be_typing _ [:: BI_const_num _; BI_const_num _; BI_const_num _] _ |- _ =>
     apply BI_const3_nnn_typing in H; subst
-(*| H: be_typing _ [:: BI_const_num _; BI_const_num _; BI_const_vec _] _ |- _ =>
-    apply BI_const3_nnv_typing in H; subst
-  | H: be_typing _ [:: BI_const_num _; BI_const_vec _; BI_const_num _] _ |- _ =>
-    apply BI_const3_nvn_typing in H; subst
-  | H: be_typing _ [:: BI_const_num _; BI_const_vec _; BI_const_vec _] _ |- _ =>
-    apply BI_const3_nvv_typing in H; subst
-  | H: be_typing _ [:: BI_const_vec _; BI_const_num _; BI_const_num _] _ |- _ =>
-    apply BI_const3_vnn_typing in H; subst
-  | H: be_typing _ [:: BI_const_vec _; BI_const_num _; BI_const_vec _] _ |- _ =>
-    apply BI_const3_vnv_typing in H; subst
   | H: be_typing _ [:: BI_const_vec _; BI_const_vec _; BI_const_num _] _ |- _ =>
-    apply BI_const3_vvn_typing in H; subst*)
-  | H: be_typing _ [:: BI_const_vec _; BI_const_vec _; BI_const_vec _] _ |- _ =>
-    apply BI_const3_vvv_typing in H; subst
+    apply BI_const3_vvn_typing in H; subst
+  | H: be_typing _ [:: BI_ref_null _; BI_ref_null _; BI_const_num _] _ |- _ =>
+    apply BI_const3_rrn_typing in H; subst
+  (* | H: be_typing _ [:: BI_const_vec _; BI_const_vec _; BI_const_vec _] _ |- _ =>
+    apply BI_const3_vvv_typing in H; subst *)
   | H: be_typing _ [::BI_unop _ _] _ |- _ =>
     let ts := fresh "ts" in
     let H1 := fresh "H1" in
@@ -974,7 +762,8 @@ Ltac invert_be_typing_step:=
     (*let t := fresh "t" in*)
     let H1 := fresh "H1" in
     let H2 := fresh "H2" in
-    apply Select_typing_None in H; destruct H as [ts [t [H1 H2]]]; subst
+    let H3 := fresh "H3" in
+    apply Select_typing_None in H; destruct H as [ts [t [H1 [H2 H3]]]]; subst
   | H: be_typing _ [::BI_if _ _ _] _ |- _ =>
     let ts := fresh "ts" in
     let H1 := fresh "H1" in
@@ -1276,50 +1065,8 @@ Proof.
     by eapply IHHType; eauto.
 Qed.
 
-(* num, vec, null, ref *)
-
-(* Lemma t_Ref_is_null_false_num_preserve: forall C t be tf,
-  be_typing C [::BI_const_num t; BI_ref_is_null] tf ->
-  reduce_simple [:: AI_basic (BI_const_num t); AI_basic BI_ref_is_null] (to_e_list [::be]) ->
-  be_typing C [::be] tf.
-Proof.
-  move => C t be tf HType HReduce.
-  destruct tf as [ts1 ts2].
-  inversion HReduce; b_to_a_revert; subst.
-  gen_ind_subst HType.
-  {
-    invert_be_typing; subst.
-    inversion HType2; subst.
-    { admit. } {  }
-    
-  }
-  (* true case -> how to introduce ref_null? *)
-  admit.
-  
-  (* rewrite catA. *)
-  apply bet_weakening_empty_1.
-  replace (typeof_num v) with (typeof_num (app_unop_num op v)); first by apply bet_const_num.
-  by destruct op; destruct v.
-Admitted. Qed. *)
-
-(* rs_ref_is_null_true:
-  forall t,
-    reduce_simple [:: AI_basic (BI_ref_null t); AI_basic BI_ref_is_null] [::$VAN (VAL_int32 Wasm_int.Int32.one)]
-*)
-
-(* Incorrect due to being based off a false premise (the rs statement) *)
-(* Lemma t_Ref_is_null_preserve: forall C be tf,
-  be_typing C [:: BI_ref_is_null] tf ->
-  reduce_simple (to_e_list [:: BI_ref_is_null]) (to_e_list [::be]) ->
-  be_typing C [::be] tf.
-Proof.
-  move => C be tf HType HReduce.
-  destruct tf as [ts1 ts2].
-  inversion HReduce.
-Qed. *)
-
-(* 
-Lemma t_Ref_is_null_false_preserve_e: forall s C ref tf,
+(*
+Lemma t_Ref_is_null_false_preserve: forall s C ref tf,
   e_typing s C [:: v_to_e (VAL_ref ref); AI_basic BI_ref_is_null] tf ->
   reduce_simple [:: v_to_e (VAL_ref ref); AI_basic BI_ref_is_null] [:: $VAN VAL_int32 Wasm_int.Int32.zero] ->
   e_typing s C [:: $VAN VAL_int32 Wasm_int.Int32.zero] tf.
@@ -1359,34 +1106,26 @@ Proof.
 Admitted. (* Qed. *)
 *)
 
-
-(* same problem as above, but this works with use cases *)
-Lemma t_Ref_is_null_false_preserve: forall C ref tf,
+(* will never work due to the false case having AI refs *)
+Lemma t_Ref_is_null_false_preserve_be: forall C ref tf,
+  es_is_basic [:: v_to_e (VAL_ref ref); AI_basic BI_ref_is_null] ->
   be_typing C [:: to_b_single (v_to_e (VAL_ref ref)); BI_ref_is_null] tf ->
   reduce_simple [:: v_to_e (VAL_ref ref); AI_basic BI_ref_is_null] [:: $VAN VAL_int32 Wasm_int.Int32.zero] ->
-  be_typing C [:: $VBN VAL_int32 Wasm_int.Int32.zero] tf.
+  False.
 Proof.
-  move => C ref tf HType HReduce.
-  gen_ind_subst HType.
-  - (* Composition *)
-    invert_be_typing.
-    destruct H1 as [t [H1 H2]].
+  intros C ref tf HBasic HType HReduce.
+  unfold es_is_basic, e_is_basic in HBasic.
+  apply List.Forall_inv in HBasic.
 
-    destruct ref => //=.
-    - apply BI_ref_null_typing in HType1. subst.
-      apply concat_cancel_last in HType1.
-      destruct HType1 as [Hx _]. subst.
-    2,3: admit.
-
-    (* assert (x = t1s). admit. subst. *)
-    apply bet_weakening_empty_1; apply bet_const_num.
-  - (* Weakening *)
-    apply bet_weakening.
-    by eapply IHHType; eauto.
-Admitted. (* Qed. *)
+  destruct tf as [ts1 ts2].
+  inversion HReduce; subst.
+  destruct ref, ref0; simpl in * => //=;
+  try (destruct HBasic; discriminate H1).
+  by destruct (H0 r0).
+Qed.
 
 
-Lemma t_Ref_is_null_true_preserve: forall C ref tf,
+Lemma t_Ref_is_null_true_preserve_be: forall C ref tf,
   be_typing C [:: BI_ref_null ref; BI_ref_is_null] tf ->
   reduce_simple (to_e_list [:: BI_ref_null ref; BI_ref_is_null]) [:: $VAN VAL_int32 Wasm_int.Int32.one] ->
   be_typing C [:: $VBN VAL_int32 Wasm_int.Int32.one] tf.
@@ -1417,91 +1156,80 @@ Proof.
   - apply bet_weakening. by eapply IHHType.
 Qed.
 
-Lemma t_Select_none_preserve: forall C v1 v2 n tf be,
-    be_typing C [::BI_const_num v1; BI_const_num v2; BI_const_num (VAL_int32 n); BI_select None] tf ->
-    reduce_simple [::AI_basic (BI_const_num v1); AI_basic (BI_const_num v2); AI_basic (BI_const_num (VAL_int32 n));
-                     AI_basic (BI_select None)] [::AI_basic be]->
+Lemma t_Select_none_preserve: forall C bev1 bev2 n tf be,
+    be_typing C [:: bev1; bev2; BI_const_num (VAL_int32 n); BI_select None] tf ->
+    reduce_simple (to_e_list [:: bev1; bev2; BI_const_num (VAL_int32 n); BI_select None]) [::AI_basic be]->
     be_typing C [::be] tf.
 Proof.
-  move => C v1 v2 n tf be HType HReduce.
-  inversion HReduce; subst.
-  - (* n = 0 : Select second *)
-    gen_ind_subst HType => //=.
-    + (* Composition *)
-      invert_be_typing.
-      destruct H2.
-      apply concat_cancel_last_n in H2 => //.
-      remove_bools_options.
-      inversion H4. subst.
-      apply bet_weakening_empty_1.
-      rewrite <- H7.
-      apply bet_const_num.
-    + apply bet_weakening. by eapply IHHType => //=.
-  - (* n = 1 : Select first *)
-    gen_ind_subst HType => //=.
-    + (* Composition *)
-      invert_be_typing.
-      destruct H3.
-      apply concat_cancel_last_n in H3 => //.
-      remove_bools_options.
-      inversion H5. subst.
-      apply bet_weakening_empty_1.
-      by apply bet_const_num.
-    + apply bet_weakening. by eapply IHHType => //=.
+  move => C bev1 bev2 n tf be HType HReduce.
+  inversion HReduce; subst;
+  destruct v1, v2 => //=; simpl in *;
+  try (by destruct (H3 (typeof_ref v)));
+  try (by destruct (H4 (typeof_ref v0)));
+  inversion H2;
+    (* n = 0 : Select second *)
+    gen_ind_subst HType => //=;
+    (* Weakening *)
+    try (apply bet_weakening; by eapply IHHType => //=);
+    (* Composition *)
+    invert_be_typing;
+    apply concat_cancel_last_n in H2 => //;
+    remove_bools_options;
+    [ inversion H6 | inversion H6 | inversion H7 | inversion H7];
+    subst; apply bet_weakening_empty_1; try rewrite H10;
+    constructor.
 Qed.
 
-Lemma t_Select_num_some_preserve: forall C v1 v2 n t tf be,
-    be_typing C [::BI_const_num v1; BI_const_num v2; BI_const_num (VAL_int32 n); BI_select (Some [:: (T_num t)])] tf ->
-    reduce_simple (to_e_list [::BI_const_num v1; BI_const_num v2; BI_const_num (VAL_int32 n); BI_select (Some [:: (T_num t)])]) (to_e_list [:: be]) ->
+Lemma t_Select_some_preserve: forall C bev1 bev2 n t tf be,
+    be_typing C [:: bev1; bev2; BI_const_num (VAL_int32 n); BI_select (Some [:: t])] tf ->
+    reduce_simple (to_e_list [:: bev1; bev2; BI_const_num (VAL_int32 n); BI_select (Some [:: t])]) (to_e_list [:: be]) ->
     be_typing C [::be] tf.
 Proof.
-  move => C v1 v2 n t tf be HType HReduce.
-  inversion HReduce; subst.
-  - (* n = 0 : Select second *)
-    gen_ind_subst HType => //=.
-    + (* Composition *)
-      invert_be_typing.
-      apply concat_cancel_last_n in H1 => //.
-      remove_bools_options.
-      inversion H2. subst.
-      apply bet_weakening_empty_1.
-      by apply bet_const_num.
-    + apply bet_weakening. by eapply IHHType => //=.
-  - (* n = 1 : Select first *)
-    gen_ind_subst HType => //=.
-    + (* Composition *)
-      invert_be_typing.
-      apply concat_cancel_last_n in H2 => //.
-      remove_bools_options.
-      inversion H3. subst.
-      apply bet_weakening_empty_1.
-      rewrite H6.
-      by apply bet_const_num.
-    + apply bet_weakening. by eapply IHHType => //=.
-Qed.
-Lemma t_Select_vec_some_preserve: forall C v1 v2 n t tf be,
-    be_typing C [::BI_const_vec v1; BI_const_vec v2; BI_const_num (VAL_int32 n); BI_select (Some [:: (T_vec t)])] tf ->
-    reduce_simple (to_e_list [::BI_const_vec v1; BI_const_vec v2; BI_const_num (VAL_int32 n); BI_select (Some [:: (T_vec t)])]) (to_e_list [:: be]) ->
-    be_typing C [::be] tf.
-Proof.
-  move => C v1 v2 n t tf be HType HReduce.
-  inversion HReduce; subst.
-Qed.
-Lemma t_Select_func_some_preserve: forall C v1 v2 n t tf be,
-    be_typing C [::BI_ref_func v1; BI_ref_func v2; BI_const_num (VAL_int32 n); BI_select (Some [:: (T_ref t)])] tf ->
-    reduce_simple (to_e_list [::BI_ref_func v1; BI_ref_func v2; BI_const_num (VAL_int32 n); BI_select (Some [:: (T_ref t)])]) (to_e_list [:: be]) ->
-    be_typing C [::be] tf.
-Proof.
-  move => C v1 v2 n t tf be HType HReduce.
-  inversion HReduce; subst.
-Qed.
-Lemma t_Select_null_some_preserve: forall C v1 v2 n t tf be,
-    be_typing C [::BI_ref_null v1; BI_ref_null v2; BI_const_num (VAL_int32 n); BI_select (Some [:: (T_ref t)])] tf ->
-    reduce_simple (to_e_list [::BI_ref_null v1; BI_ref_null v2; BI_const_num (VAL_int32 n); BI_select (Some [:: (T_ref t)])]) (to_e_list [:: be]) ->
-    be_typing C [::be] tf.
-Proof.
-  move => C v1 v2 n t tf be HType HReduce.
-  inversion HReduce; subst.
+  move => C bev1 bev2 n t tf be HType HReduce.
+  inversion HReduce; subst;
+  destruct v1, v2 => //=;
+  [| | destruct v, v0 | | | destruct v, v0] => //=; simpl in *;
+   (* n = 0 : Select second *)
+    gen_ind_subst HType => //=;
+    (* Weakening *)
+    try (
+      apply bet_weakening; rewrite H0 H1 in HReduce;
+      eapply IHHType with (v1 := v1)
+        (bev3 := bev2) (bev4 := bev1) => //=; by rewrite H1);
+    try (
+      apply bet_weakening; rewrite H0 H1 H2 in HReduce;
+      eapply IHHType with (v1 := v1) (n0 := n)
+        (bev3 := bev2) (bev4 := bev1) => //=; by rewrite H1
+    ); (* Composition *)
+    try inversion H4;
+    invert_be_typing;
+
+    try (
+      apply concat_cancel_last_n in H2 => //=;
+      remove_bools_options;
+      subst; simpl in *;
+      apply bet_weakening_empty_1;
+      try constructor; try (rewrite H1; constructor)
+    );
+    try (
+      apply concat_cancel_last_n in H1 => //=;
+      remove_bools_options;
+      subst; simpl in *;
+      apply bet_weakening_empty_1; constructor
+    );
+    apply bet_weakening;
+    try (
+      eapply IHHType with (C := C0) (v1 := v) => //=;
+      first (by rewrite <- H1); by rewrite H1
+    );
+    try (
+      eapply IHHType with (C := C0) (v1 := v) (n0 := n) => //=;
+      first (by rewrite <- H1); by rewrite H1
+    );
+    try (
+      eapply IHHType with (C := C0) (r0 := r) => //=;
+      assumption
+    ).
 Qed.
 
 (* BI_if is no longer in reduce_simple, so inversion result is complicated
@@ -1585,7 +1313,7 @@ Proof.
   inversion HReduce; subst.
   gen_ind_subst HType => //=.
   - (* Composition *)
-  invert_be_typing_step.
+  invert_be_typing.
   apply (bet_br ts (ts ++ ts') H4).
   - (* Weakening *)
   apply bet_weakening.
@@ -1770,9 +1498,10 @@ Proof.
     apply HType.
     by apply rs_reinterpret => //=.
   - (* rs_ref_is_null_true: *)
-    eapply t_Ref_is_null_true_preserve with (ref := t) => //=.
+    eapply t_Ref_is_null_true_preserve_be with (ref := t) => //=.
   - (* rs_ref_is_null_false: *)
-    eapply t_Ref_is_null_false_preserve with (ref := ref) => //=.
+    exfalso. remember (Tf r r0) as tf.
+    eapply t_Ref_is_null_false_preserve_be with C ref tf => //=.
   - (* Nop *) (* weird behaviour here, only progress with ; *)
     apply Nop_typing in HType; subst;
     apply bet_weakening_empty_both;
@@ -1780,34 +1509,47 @@ Proof.
   - (* Drop *)
     eapply t_Drop_preserve => //=;
     by apply HType.
-  - (* Select_false *)
-    destruct ot.
-    + eapply t_Select_num_some_preserve.
-      * (*instantiate (1 := v1).
-        remember [:: T_num T_i32] as ls. (* not general enough *)
-        instantiate (2 := v2). instantiate (2 := v1).
-        instantiate (1 := Wasm_int.Int32.zero).
-        by apply HType. *) admit.
-      * by apply rs_select_false.
-    + eapply t_Select_none_preserve => //=.
-      * by apply HType.
-      * by apply HReduce.
-  - (* Select_true *)
-    destruct ot.
-    + eapply t_Select_num_some_preserve => //=.
-      * (* same as for Select_false case *) admit.
-      * apply rs_select_true. apply H.
-    + eapply t_Select_none_preserve => //=.
-      * by apply HType.
-      * by apply HReduce.
-(*- (* If_0 *)
-    eapply t_If_be_preserve => //=.
-    + by apply HType.
-    + by apply rs_if_false.
-  - (* If_n0 *)
-    eapply t_If_be_preserve => //=.
-    + by apply HType.
-    + by apply rs_if_true. *)
+  - (* Select_none_false *)
+    eapply t_Select_none_preserve
+      with (bev1 := to_b_single (v_to_e v1))
+            (bev2 := to_b_single (v_to_e v2))
+            (n := Wasm_int.int_zero i32m) => //=.
+    destruct v1, v2, v => //=; simpl in H.
+    + by destruct (H r1).
+    + by destruct (H T_funcref).
+    + by destruct (H T_externref).
+  - (* Select_none_true *)
+    eapply t_Select_none_preserve
+      with (bev1 := to_b_single (v_to_e v1))
+          (bev2 := to_b_single (v_to_e v2))
+          (n := n) => //=.
+    destruct v1, v2, v => //=; simpl in H.
+    + by destruct (H r1).
+    + by destruct (H T_funcref).
+    + by destruct (H T_externref).
+  - (* Select_some_false *)
+    eapply t_Select_some_preserve
+      with (bev1 := to_b_single (v_to_e v1))
+            (bev2 := to_b_single (v_to_e v2))
+            (n := Wasm_int.int_zero i32m)
+            (t := typeof v1) => //=.
+    destruct v1, v2, v, v0 => //=; simpl in *;
+    try (
+      unfold es_is_basic in H5; apply List.Forall_inv in H5;
+      unfold e_is_basic in H5; destruct H5; discriminate
+    ).
+    admit. admit.
+  - (* Select_some_true *)
+    eapply t_Select_some_preserve
+    with (bev1 := to_b_single (v_to_e v1))
+          (bev2 := to_b_single (v_to_e v2))
+          (n := n) (t := typeof v1) => //=.
+    destruct v1, v2, v, v0 => //=; simpl in *;
+    try (
+      unfold es_is_basic in H5; apply List.Forall_inv in H5;
+      unfold e_is_basic in H5; destruct H5; discriminate
+    ).
+    admit. admit.
   - (* br_if_0 *)
     eapply t_Br_if_false_preserve => //=.
     + by apply HType.
@@ -2086,11 +1828,6 @@ Proof.
     repeat rewrite -catA.
     by repeat split => //=.
 Qed.
-
-(* if lookup_N known to succeed, size guaranteed. Host not declared when using?
-Lemma lookup_in_bounds: forall {X:Type} (l:seq X) n v,
-  n < size l -> lookup_N l (N.of_nat n) = Some v.
-Proof. admit. Admitted. *)
 
 Lemma Break_typing: forall n C t1s t2s,
     be_typing C [::BI_br n] (Tf t1s t2s) ->
@@ -2509,9 +2246,10 @@ Proof.
   { eapply Lfilled_return_typing; eauto. }
   apply et_to_bet in HET. 2: { admit. } (* apply const_list_is_basic *)
   apply const_es_exists in HConst. destruct HConst. subst.
-  apply Const_list_typing in HET; subst => /=.
+  admit.
+  (* apply Const_list_typing in HET; subst => /=.
   apply ety_a'. admit. (* first by apply const_list_is_basic; apply v_to_e_is_const_list. *)
-  by apply Const_list_typing_empty.
+  by apply Const_list_typing_empty. *)
 (* Qed. *) Admitted.
 
 
@@ -2553,6 +2291,10 @@ Proof.
       apply ety_weakening.
       by eapply IHHType => //.
   }
+  { (* select_none_false *) admit. }
+  { (* select_none_true *) admit. }
+  { (* select_some_false *) admit. }
+  { (* select_some_true *) admit. }
   - (* Label_const *)
  (*   Check HType.
     dependent induction HType.
@@ -4142,7 +3884,7 @@ Proof.
   by induction HReduce.
 Qed.
 
-
+(*
 Lemma store_extension_reduce: forall s f es s' f' es' C tf loc lab ret hs hs',
     reduce hs s f es hs' s' f' es' ->
     inst_typing s f.(f_inst) C ->
@@ -4778,5 +4520,5 @@ Proof.
   fold_upd_context.
   by eapply t_preservation_e; eauto.
 Qed.
-
+*)
 End Host.

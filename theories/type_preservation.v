@@ -177,6 +177,7 @@ Proof.
   gen_ind_subst HType => //=.
   destruct v => //=. (* [:: T_num _i32] = [:: T_ref T_funcref] *)
 False. *)
+(* 
 Definition AI_const_ref_func_typing_stmt s C econst t1s t2s: Prop :=
   e_typing s C [::AI_ref econst] (Tf t1s t2s) ->
   t2s = t1s ++ [::T_ref T_funcref].
@@ -216,7 +217,8 @@ Proof.
   - admit. (* similar to IHHType1 statement but no binding Tf for s, C. *)
   - rewrite - catA. f_equal.
     + intros. admit. (* similar to IHHType statement but no binding Tf for s, C. *)
-Admitted.
+Admitted. *)
+
 
 (* Can apply BI_const_typing generally but requires work later *)
 (* The ltac for this would need to id or get lemma for each const? *)
@@ -1241,6 +1243,8 @@ Lemma t_If_be_preserve: forall C c tf0 es1 es2 tf be,
   reduce_simple (to_e_list [::BI_const (VAL_int32 c); BI_if tf0 es1 es2]) [::AI_basic be] ->
   be_typing C [::be] tf.
 *)
+(* Unused? *)
+(*
 Lemma t_If_be_preserve: forall C c tf0 vs es es1 es2 tf h s f n,
   e_typing s C (vs ++ [::$VAN (VAL_int32 c); AI_basic (BI_if tf0 es1 es2)]) tf ->
   reduce h s f (vs ++ [::$VAN (VAL_int32 c); AI_basic (BI_if tf0 es1 es2)]) h s f [::AI_label n [::] (vs ++ (to_e_list es1))] ->
@@ -1296,6 +1300,7 @@ Proof. admit. (*
       apply bet_weakening.
       by eapply IHHType => //=.
 Qed. *) Admitted.
+*)
 
 
 (*
@@ -1438,29 +1443,6 @@ Proof.
     apply bet_weakening.
     by eapply IHHType => //=.
 Qed.
-Lemma t_Local_tee_func_preserve: forall C v i tf,
-    be_typing C ([::BI_ref_func v; BI_local_tee i]) tf ->
-    be_typing C [::BI_ref_func v; BI_ref_func v; BI_local_set i] tf.
-Proof.
-  move => C v i tf HType.
-  dependent induction HType => //.
-  - (* Composition *)
-    invert_be_typing; simpl in *.
-    replace ([::BI_ref_func v; BI_ref_func v; BI_local_set i]) with ([::BI_ref_func v] ++ [::BI_ref_func v] ++ [::BI_local_set i]) => //.
-    repeat (try rewrite catA; eapply bet_composition) => //.
-    + instantiate (1 := (ts ++ [::T_ref T_funcref])).
-      apply bet_weakening_empty_1. eapply bet_ref_func => //=.
-      admit. admit. (* condititions for valid func ref *)
-    + instantiate (1 := (ts ++ [::T_ref T_funcref] ++ [::T_ref T_funcref])).
-      apply bet_weakening. apply bet_weakening_empty_1.
-      eapply bet_ref_func => //=.
-      admit. admit. (* condititions for valid func ref *)
-    + apply bet_weakening. apply bet_weakening_empty_2.
-      apply bet_local_set => //=.
-  - (* Weakening *)
-    apply bet_weakening.
-    by eapply IHHType => //=.
-Admitted.
 
 (*
   Preservation for all be_typeable simple reductions.
@@ -1537,8 +1519,11 @@ Proof.
     try (
       unfold es_is_basic in H5; apply List.Forall_inv in H5;
       unfold e_is_basic in H5; destruct H5; discriminate
+    );
+    try (
+      unfold es_is_basic in H7; apply List.Forall_inv in H7;
+      unfold e_is_basic in H7; destruct H7; discriminate
     ).
-    admit. admit.
   - (* Select_some_true *)
     eapply t_Select_some_preserve
     with (bev1 := to_b_single (v_to_e v1))
@@ -1548,8 +1533,12 @@ Proof.
     try (
       unfold es_is_basic in H5; apply List.Forall_inv in H5;
       unfold e_is_basic in H5; destruct H5; discriminate
+    );
+    try (
+      unfold es_is_basic in HAI_basic1;
+      apply List.Forall_inv_tail, List.Forall_inv in HAI_basic1;
+      unfold e_is_basic in HAI_basic1; destruct HAI_basic1; discriminate
     ).
-    admit. admit.
   - (* br_if_0 *)
     eapply t_Br_if_false_preserve => //=.
     + by apply HType.
@@ -1569,17 +1558,17 @@ Proof.
   - (* tee_local *)
     unfold is_const in H.
     destruct v => //; (* now gives basic, ref, ref_extern *)
-    [ destruct b => // | destruct f => // | destruct e => //]; unfold to_b_single in *.
-    (* now gives:
-      ref_null, $VAN (const_num), const_vec,
-      AI_ref 0%N, AI_ref (N.pos p),
-      AI_ref_extern 0%N, AI_ref_extern (N.pos p)
-    *)
-    2: { apply (t_Local_tee_num_preserve HType ). } (* $VBN case *)
-    admit. admit.
-    admit. admit.
-    admit. admit.
-Admitted. (* Qed. *)
+    [ destruct b => // | destruct f => // | destruct e => //];
+    unfold to_b_single in *; simpl in *;
+    try (
+      unfold es_is_basic in HAI_basic1;
+      apply List.Forall_inv in HAI_basic1;
+      destruct HAI_basic1; discriminate
+    ).
+    + by apply t_Local_tee_null_preserve.
+    + by apply t_Local_tee_num_preserve.
+    + by apply t_Local_tee_vec_preserve.
+Qed.
 
 Ltac auto_basic :=
   repeat lazymatch goal with

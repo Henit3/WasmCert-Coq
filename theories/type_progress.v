@@ -371,22 +371,18 @@ Definition not_lf_br (es: seq administrative_instruction) (n: nat) :=
 Definition not_lf_return (es: seq administrative_instruction) (n: nat) :=
   forall (lh : lholed n), ~ lfilled lh [::AI_basic BI_return] es.
 
-(* No lfilledP since only one lfilled representation now *)
-(* How to resolve patterns in fixpoint def (not inductive anymore)? *)
 Lemma lf_composition: forall es es2 e0 n (lh : lholed n),
     lfilled lh e0 es ->
     exists (lh' : lholed n), lfilled lh' e0 (es ++ es2).
 Proof.
   move => es es2 e0 n lh HLF.
-  (*inversion HLF; subst.*)
-  inversion lh as [vs es' | n0 vs l es' lh' es'']; subst.
-  - exists (LH_base vs (es' ++ es2)).
-    repeat rewrite -catA.
-    admit. (*by apply LfilledBase.*)
-  - exists (LH_rec vs l es' lh' (es'' ++ es2)).
-    repeat rewrite -catA.
-    admit. (*by apply LfilledRec.*)
-Admitted.
+  destruct lh as [vs es' | n0 vs l es' lh' es''];
+  [ exists (LH_base vs (es' ++ es2))
+  | exists (LH_rec vs l es' lh' (es'' ++ es2))];
+    unfold lfilled in *; simpl in *;
+    apply/eqP; move/eqP in HLF; rewrite <- HLF;
+    by repeat rewrite -catA.
+Qed.
 
 (* lholed 0 now defined as vs -> ais -> lh instead of ais -> ais -> lh
    May need e_to_v_list? This gives seq of option though
@@ -396,21 +392,23 @@ Admitted.
 *)
 
 Lemma lf_composition_left: forall cs es e0 n (lh : lholed n),
-    const_list cs ->
+    basic_const_list cs ->
     lfilled lh e0 es ->
     exists (lh' : lholed n), lfilled lh' e0 (cs ++ es).
-Proof. admit. (*
+Proof.
   move => cs es e0 n lh HConst HLF.
-  inversion lh as [vs es' | n0 vs l es' lh' es'']; subst.
-  - exists (LH_base ([(e_to_v_list cs)] ++ vs) es').
-    rewrite (catA cs vs).
-    apply LfilledBase.
-    by apply const_list_concat.
-  - exists (LH_rec (cs ++ vs) n0 es' lh' es'').
-    rewrite (catA cs vs).
-    apply LfilledRec => //.
-    by apply const_list_concat.
-Qed. *) Admitted.
+  apply basic_const_list_alt in HConst. destruct HConst.
+  apply const_list_get in H0. destruct H0.
+  destruct lh as [vs es' | n0 vs l es' lh' es''].
+  - exists (LH_base (x ++ vs) es').
+    unfold lfilled in *; simpl in *;
+    apply/eqP; move/eqP in HLF; rewrite <- HLF.
+    rewrite <- v_to_e_cat. rewrite H0. by rewrite <- catA.
+  - exists (LH_rec (x ++ vs) l es' lh' es'').
+    unfold lfilled in *; simpl in *;
+    apply/eqP; move/eqP in HLF; rewrite <- HLF.
+    rewrite <- v_to_e_cat. rewrite H0. by rewrite catA.
+Qed.
 
 
 Lemma nlfbr_right: forall es n es',
@@ -509,7 +507,7 @@ Ltac split_et_composition:=
     destruct H as [ts [t1s [t2s [t3s [H1 [H2 [H3 H4]]]]]]]; subst
   end.
 
-(* Label_typing result from type_preservation; blocks progress here.
+(* Label_typing result from type_preservation; blocks progress here. *)
 
 Ltac invert_e_typing:=
   repeat lazymatch goal with
@@ -565,7 +563,7 @@ Ltac solve_progress :=
 Lemma t_progress_be: forall C bes ts1 ts2 vcs lab ret s f hs,
     store_typing s ->
     inst_typing s f.(f_inst) C ->
-    be_typing (upd_label (upd_local_return C (map typeof f.(f_locs)) ret) lab) bes (Tf ts1 ts2) ->
+    be_typing (upd_label (upd_local_label_return C (map typeof f.(f_locs)) (tc_label C) ret) lab) bes (Tf ts1 ts2) ->
     map typeof vcs = ts1 ->
     not_lf_br (to_e_list bes) 0 ->
     not_lf_return (to_e_list bes) 0 ->
@@ -577,7 +575,8 @@ Proof.
   gen_ind HType; try by left.
   - (* Unop *)
     right. invert_typeof_vcs.
-    by destruct v => //=; solve_progress.
+    (* only works for num case! *)
+    destruct v => //=; solve_progress.
   - (* Binop *)
     right. invert_typeof_vcs.
     by destruct (app_binop op v v0) eqn:HBinary; solve_progress.
@@ -1524,6 +1523,6 @@ Proof.
   - by eapply s_typing_lf_br; eauto.
   - by eapply s_typing_lf_return; eauto.
 Qed.
-*)
+
 End Host.
 

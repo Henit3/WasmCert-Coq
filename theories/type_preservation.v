@@ -339,30 +339,24 @@ Proof.
     + by eapply IHHType.
 Qed.
 
-
-(* This is no longer valid due to
-    T_funcref and T_externref being cast to 0 so types mismatch *)
-
-(* Only usage in [Lfilled|Local]_[break|return]_typing *)
-(* Lemma Const_list_typing_empty: forall C vs,
-    be_typing C (to_b_list (v_to_e_list vs)) (Tf [::] (vs_to_vts vs)).
+Lemma basic_const_list_typing_empty: forall C vs,
+  basic_const_list (v_to_e_list vs) ->
+  be_typing C (to_b_list (v_to_e_list vs)) (Tf [::] (vs_to_vts vs)).
 Proof.
   move => C vs.
   generalize dependent vs.
   induction vs => //=.
-  - by apply bet_empty.
-  - rewrite - cat1s.
+  - intro H. by apply bet_empty.
+  - intros H. move/andP in H. destruct H. apply IHvs in H0.
+    rewrite - cat1s.
     replace (typeof a :: vs_to_vts vs) with ([::typeof a] ++ vs_to_vts vs) => //.
-    destruct a => //;
-    eapply bet_composition' with (t1s := ?[t2s]) => //;
-    try by apply bet_weakening_empty_1.
+    eapply bet_composition' with (t2s := [:: typeof a]) => //;
+    last by apply bet_weakening_empty_1.
+    destruct a => //=.
     - apply bet_const_num.
     - apply bet_const_vec.
-    - destruct v => //=.
-      * apply bet_ref_null.
-      * admit.
-      * admit.
-Admitted. *)
+    - destruct v => //=. apply bet_ref_null.
+Qed.
 
 Lemma Unop_typing: forall C t op t1s t2s,
     be_typing C [::BI_unop t op] (Tf t1s t2s) ->
@@ -635,53 +629,27 @@ Proof.
     by rewrite -catA.
 Qed.
 
-(* This is no longer valid due to
-    T_funcref and T_externref being cast to 0
-    so types appended mismatch with original vs *)
-
-(* Only usage in [Lfilled|Local]_[break|return]_typing *)
-(* Lemma Const_list_typing: forall C vs t1s t2s,
-    be_typing C (to_b_list (v_to_e_list vs)) (Tf t1s t2s) ->
-    t2s = t1s ++ (map typeof vs).
+Lemma basic_const_list_typing: forall C vs t1s t2s,
+  basic_const_list (v_to_e_list vs) ->
+  be_typing C (to_b_list (v_to_e_list vs)) (Tf t1s t2s) ->
+  t2s = t1s ++ (map typeof vs).
 Proof.
   move => C vs.
-  induction vs => //=; move => t1s t2s HType.
+  induction vs => //=; move => t1s t2s H HType.
   - apply empty_typing in HType. subst. by rewrite cats0.
-  - rewrite -cat1s in HType.
+  - move/andP in H. destruct H.
+    rewrite -cat1s in HType.
     rewrite -cat1s.
     apply composition_typing in HType.
     destruct HType as [ts [ts1' [ts2' [ts3 [H1 [H2 [H3 H4]]]]]]].
     subst.
-    destruct a.
-
-    apply BI_const_num_typing in H3. apply IHvs in H4; subst; by repeat rewrite catA.
-    apply BI_const_vec_typing in H3. apply IHvs in H4; subst; by repeat rewrite catA.
-
-    {
-      rewrite <- catA.
-      assert (ts2' = ts1' ++ [:: typeof (VAL_ref v)] ++ [seq typeof i | i <- vs]).
-      2: { rewrite H. reflexivity. }
-      destruct v; simpl.
-      {
-        apply BI_ref_null_typing in H3. unfold typeof_ref in H3.
-        apply IHvs in H4; subst; repeat rewrite <- catA; by rewrite cat1s.
-      }
-      { unfold v_to_e in H3. (* AI_ref *) admit. }
-      { unfold v_to_e in H3. (* AI_ref_extern *) admit. }
-    }
-(*  Can prettify (remove repetition) once done with proof (may also use all tactic)
-    [ | |
-      rewrite <- catA;
-      assert (ts2' = ts1' ++ [:: typeof (VAL_ref v)] ++ [seq typeof i | i <- vs]);
-      [admit | rewrite H; reflexivity]
-    ];
-    [ apply BI_const_num_typing in H3 
-    | apply BI_const_vec_typing in H3 ];
-    apply IHvs in H4;
-    subst;
-    by repeat rewrite catA.
-*)
-Admitted. *)
+    destruct a => //=;
+    [ apply BI_const_num_typing in H3
+    | apply BI_const_vec_typing in H3
+    | destruct v => //=; apply BI_ref_null_typing in H3];
+    eapply IHvs in H4 => //=; subst;
+    rewrite <- catA; rewrite cat1s; by rewrite <- catA.
+Qed.
 
 (*
   Unlike the above proofs which have a linear dependent structure therefore hard
@@ -1615,92 +1583,8 @@ Ltac basic_inversion'_step :=
 Ltac basic_inversion' :=
   repeat basic_inversion'_step.
 
-(* const_list_is_basic no longer holds so can no longer
-   convert e_typing to be_typing for free
-*)
-
-(*
-Lemma rev_null: forall {A},
-  @rev (seq A) [::] = [::].
-Proof. by unfold rev. Qed.
-*)
-Lemma e_to_b_nil: forall s C tf,
-  be_typing C [::] tf ->
-  e_typing s C [::] tf.
-Proof.
-  intros s C tf H.
-  assert (to_e_list [::] = [::]) as Hnull. by unfold to_e_list.
-  rewrite <- Hnull. by apply ety_a.
-Qed.
-Lemma e_to_b_num: forall s C v tf,
-  be_typing C [:: $VBN v] tf ->
-  e_typing s C [:: $VAN v] tf.
-Proof.
-  intros s C v tf H.
-  assert (to_e_list [:: $VBN v] = [:: $VAN v]) as Hv.
-  unfold to_e_list. by unfold map.
-  rewrite <- Hv. by apply ety_a.
-Qed.
-Lemma e_to_b_vec: forall s C v tf,
-  be_typing C [:: BI_const_vec v] tf ->
-  e_typing s C [:: AI_basic (BI_const_vec v)] tf.
-Proof.
-  intros s C v tf H.
-  assert (to_e_list [:: BI_const_vec v] = [:: AI_basic (BI_const_vec v)]) as Hv.
-  unfold to_e_list. by unfold map.
-  rewrite <- Hv. by apply ety_a.
-Qed.
-Lemma e_to_b_ref_null: forall s C v tf,
-  be_typing C [:: BI_ref_null v] tf ->
-  e_typing s C [:: AI_basic (BI_ref_null v)] tf.
-Proof.
-  intros s C v tf H.
-  assert (to_e_list [:: BI_ref_null v] = [:: AI_basic (BI_ref_null v)]) as Hv.
-  unfold to_e_list. by unfold map.
-  rewrite <- Hv. by apply ety_a.
-Qed.
-Lemma b_to_e_nil: forall s C tf,
-  e_typing s C (to_e_list [::]) tf ->
-  be_typing C [::] tf.
-Proof.
-  intros s C tf H.
-  apply et_to_bet in H => //.
-  unfold to_e_list. unfold es_is_basic => //=.
-Qed.
-Lemma b_to_e_num: forall s C v tf,
-  e_typing s C (to_e_list [:: $VBN v]) tf ->
-  be_typing C [:: $VBN v] tf.
-Proof.
-  intros s C v tf H.
-  apply et_to_bet in H => //.
-  unfold to_e_list. unfold es_is_basic => //=.
-  apply List.Forall_cons =>//.
-  unfold e_is_basic. by exists (BI_const_num v).
-Qed.
-Lemma b_to_e_vec: forall s C v tf,
-  e_typing s C (to_e_list [:: BI_const_vec v]) tf ->
-  be_typing C [:: BI_const_vec v] tf.
-Proof.
-  intros s C v tf H.
-  apply et_to_bet in H => //.
-  unfold to_e_list. unfold es_is_basic => //=.
-  apply List.Forall_cons =>//.
-  unfold e_is_basic. by exists (BI_const_vec v).
-Qed.
-Lemma b_to_e_ref_null: forall s C v tf,
-  e_typing s C (to_e_list [:: BI_ref_null v]) tf ->
-  be_typing C [:: BI_ref_null v] tf.
-Proof.
-  intros s C v tf H.
-  apply et_to_bet in H => //.
-  unfold to_e_list. unfold es_is_basic => //=.
-  apply List.Forall_cons =>//.
-  unfold e_is_basic. by exists (BI_ref_null v).
-Qed.
-
-(* no longer holds because T_funcref and T_externref look at context *)
-Lemma t_const_ignores_context: forall s s' C C' es tf,
-    const_list es ->
+Lemma t_basic_const_ignores_context: forall s s' C C' es tf,
+    basic_const_list es ->
     e_typing s C es tf ->
     e_typing s' C' es tf.
 Proof.
@@ -1715,7 +1599,7 @@ Proof.
   induction es' => //=; move => es HConst HRev1 HRev2 tf HType; destruct tf.
   - subst. simpl in HType.
     unfold rev in HType. simpl in HType. unfold rev. simpl.
-    apply e_to_b_nil.
+    apply ety_a' => //=.
     apply empty_e_typing in HType. subst.
     apply bet_weakening_empty_both. by apply bet_empty.
   - subst.
@@ -1727,7 +1611,7 @@ Proof.
     subst.
     apply ety_weakening.
     rewrite rev_cons in HConst. rewrite -cats1 in HConst.
-    apply const_list_split in HConst. destruct HConst.
+    apply basic_const_list_split in HConst. destruct HConst.
     eapply ety_composition.
     + eapply IHes' => //.
       -- by apply H.
@@ -1735,43 +1619,25 @@ Proof.
       -- by apply H3.
     + (* The main reason that this holds *)
       simpl in H0. move/andP in H0. destruct H0.
-      destruct a => //=;
-      [ destruct b => //= | destruct f => //= | destruct e => //= ];
-      (* now gives:
-        ref_null, $VAN (const_num), const_vec,
-        AI_ref 0%N, AI_ref (N.pos p),
-        AI_ref_extern 0%N, AI_ref_extern (N.pos p)
-      *)
-      (* { convenient, but requires t1s' = t2s'; i.e. nop, not true
-        assert (es' = [::AI_basic (BI_ref_null r)]). admit.
-        subst. apply IHes' in H4 => //.
-      } *)
+      destruct a => //=; destruct b => //=;
       try (
-        apply et_to_bet in H4; last shelve;
+        apply et_to_bet in H4;
+        last (
+          unfold es_is_basic; apply List.Forall_cons => //;
+          econstructor; eauto
+        );
         unfold to_b_list, map, to_b_single in H4);
       [ apply BI_ref_null_typing in H4
       | apply BI_const_num_typing in H4
-      | apply BI_const_vec_typing in H4
-      | admit | admit | admit | admit];
-      subst;
-      [ unfold typeof_ref; apply e_to_b_ref_null
-      | apply e_to_b_num
-      | apply e_to_b_vec];
-      try ( apply bet_weakening_empty_1 );
-      [ apply bet_ref_null
-      | apply bet_const_num
-      | apply bet_const_vec].
-      Unshelve.
-
-      all: 
-      try (unfold es_is_basic; apply List.Forall_cons => //; unfold e_is_basic).
-      by exists (BI_ref_null r).
-      by exists (BI_const_num v).
-      by exists (BI_const_vec v).
-      (* the rest do not start with AI_basic, discriminate? *)
-      admit. admit.
-      admit. admit.
-Admitted.
+      | apply BI_const_vec_typing in H4];
+      subst; apply et_weakening_empty_1;
+      apply ety_a' => //=;
+      try (
+        unfold es_is_basic; apply List.Forall_cons;
+        unfold e_is_basic; eauto
+      );
+      constructor.
+Qed.
 
 (* 
 Lemma Block_typing: forall C t1s t2s es tn tm,

@@ -21,6 +21,15 @@ Proof.
   - move => a vs1' IHvs1 H1 H2. simpl in H1. simpl.
     apply andb_true_iff in H1. destruct H1. rewrite IHvs1 //=. by rewrite andbT.
 Qed.
+Lemma basic_const_list_concat: forall vs1 vs2,
+    basic_const_list vs1 ->
+    basic_const_list vs2 ->
+    basic_const_list (vs1 ++ vs2).
+Proof.
+  move => vs1 vs2. elim vs1 => {vs1} //=.
+  - move => a vs1' IHvs1 H1 H2. simpl in H1. simpl.
+    apply andb_true_iff in H1. destruct H1. rewrite IHvs1 //=. by rewrite andbT.
+Qed.
 
 Lemma const_list_split: forall vs1 vs2,
     const_list (vs1 ++ vs2) ->
@@ -32,16 +41,41 @@ Proof.
   apply IHvs1 in H0. destruct H0.
   split => //.
   by apply/andP.
-Qed.    
+Qed.
+Lemma basic_const_list_split: forall vs1 vs2,
+    basic_const_list (vs1 ++ vs2) ->
+    basic_const_list vs1 /\
+    basic_const_list vs2.
+Proof.
+  induction vs1 => //=; move => vs2 HConst.
+  move/andP in HConst. destruct HConst.
+  apply IHvs1 in H0. destruct H0.
+  split => //.
+  by apply/andP.
+Qed.   
 
 (** This lemma justifies the computation “to the first non-[const_list]”. **)
 Lemma const_list_concat_inv : forall vs1 vs2 e1 e2 es1 es2,
-  const_list vs1 ->
-  const_list vs2 ->
-  ~ is_const e1 ->
-  ~ is_const e2 ->
-  vs1 ++ e1 :: es1 = vs2 ++ e2 :: es2 ->
-  vs1 = vs2 /\ e1 = e2 /\ es1 = es2.
+    const_list vs1 ->
+    const_list vs2 ->
+    ~ is_const e1 ->
+    ~ is_const e2 ->
+    vs1 ++ e1 :: es1 = vs2 ++ e2 :: es2 ->
+    vs1 = vs2 /\ e1 = e2 /\ es1 = es2.
+Proof.
+  induction vs1 => vs2 e1 e2 es1 es2 C1 C2 N1 N2; destruct vs2 => /=; inversion 1; subst;
+    try move: C1 => /= /andP [? ?] //;
+    try move: C2 => /= /andP [? ?] //.
+  - done.
+  - apply IHvs1 in H2 => //. move: H2 => [? [? ?]]. by subst.
+Qed.
+Lemma basic_const_list_concat_inv : forall vs1 vs2 e1 e2 es1 es2,
+    basic_const_list vs1 ->
+    basic_const_list vs2 ->
+    ~ is_basic_const e1 ->
+    ~ is_basic_const e2 ->
+    vs1 ++ e1 :: es1 = vs2 ++ e2 :: es2 ->
+    vs1 = vs2 /\ e1 = e2 /\ es1 = es2.
 Proof.
   induction vs1 => vs2 e1 e2 es1 es2 C1 C2 N1 N2; destruct vs2 => /=; inversion 1; subst;
     try move: C1 => /= /andP [? ?] //;
@@ -53,6 +87,15 @@ Qed.
 Lemma const_list_take: forall vs l,
     const_list vs ->
     const_list (take l vs).
+Proof.
+  move => vs. induction vs => //=.
+  - move => l HConst. destruct l => //=.
+    + simpl. simpl in HConst. apply andb_true_iff in HConst. destruct HConst.
+      apply andb_true_iff. split => //. by apply IHvs.
+Qed.
+Lemma basic_const_list_take: forall vs l,
+    basic_const_list vs ->
+    basic_const_list (take l vs).
 Proof.
   move => vs. induction vs => //=.
   - move => l HConst. destruct l => //=.
@@ -76,6 +119,15 @@ Proof.
   - destruct e; simpl in H; subst; try by inversion H => //=.
     destruct b; simpl in H; inversion H; by subst => //=.
 Qed.
+Lemma v_to_be_to_v: forall v e,
+    v_to_be v = Some e <->
+    be_to_v e = Some v.
+Proof.
+  move => v e.
+  split; move => H.
+  - destruct v as [ | | []] => //=; inversion H; subst => //=.
+  - destruct e; simpl in H; subst; try by inversion H => //=.
+Qed.
 
 Lemma v_to_e_is_const_list: forall vs,
     const_list (v_to_e_list vs).
@@ -89,6 +141,12 @@ Lemma v_to_e_cat: forall vs1 vs2,
     v_to_e_list vs1 ++ v_to_e_list vs2 = v_to_e_list (vs1 ++ vs2).
 Proof.
   intros. unfold v_to_e_list.
+  by rewrite map_cat.
+Qed.
+Lemma v_to_be_cat: forall vs1 vs2,
+    v_to_be_list vs1 ++ v_to_be_list vs2 = v_to_be_list (vs1 ++ vs2).
+Proof.
+  intros. unfold v_to_be_list.
   by rewrite map_cat.
 Qed.
 
@@ -108,9 +166,34 @@ Proof.
     + by inversion HSplit.
 Qed.
 
+Lemma is_basic_const_alt: forall a,
+  is_basic_const a <-> e_is_basic a /\ is_const a.
+Proof.
+  split; intros.
+  - unfold is_basic_const in H. split;
+    destruct a => //=; destruct b => //=;
+    unfold e_is_basic; eauto.
+  - destruct H. unfold is_basic_const.
+    destruct a => //=; [destruct b => //= | |];
+    unfold e_is_basic in H; destruct H; discriminate.
+Qed.
+
 Lemma const_list_cons : forall a l,
   const_list (a :: l) = is_const a && const_list l.
 Proof. by []. Qed.
+Lemma basic_const_list_cons : forall a l,
+  is_const a ->
+  e_is_basic a ->
+  basic_const_list l ->
+  basic_const_list (a :: l).
+Proof.
+  intros a l H1 H2 H3.
+  unfold basic_const_list.
+  rewrite <- cat1s.
+  replace ([::a] ++ l) with (([::a] ++ l)%list) => //=.
+  apply/andP. split => //=.
+  apply is_basic_const_alt => //=.
+Qed.
 
 Lemma e_is_trapP : forall e, reflect (e = AI_trap) (e_is_trap e).
 Proof.
@@ -195,6 +278,13 @@ Proof.
   elim => //=.
   move => a l IH. rewrite rev_cons. rewrite -cats1. rewrite -v_to_e_cat.
   rewrite rev_cons. rewrite -cats1. by rewrite -IH.
+Qed.
+
+Lemma to_b_single_basic_const: forall x,
+  is_basic_const x ->
+  AI_basic (to_b_single x) = x.
+Proof.
+  destruct x => //=.
 Qed.
 
 Lemma to_b_list_concat: forall es1 es2 : seq administrative_instruction,

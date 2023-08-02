@@ -624,6 +624,15 @@ Definition v_to_e (v: value) : administrative_instruction :=
   | VAL_ref (VAL_ref_extern ext) => AI_ref_extern ext
   end.
 
+Definition v_to_be (v: value) : option basic_instruction :=
+  match v with
+  | VAL_num v => Some (BI_const_num v)
+  | VAL_vec v => Some (BI_const_vec v)
+  | VAL_ref (VAL_ref_null t) => Some (BI_ref_null t)
+  | VAL_ref (VAL_ref_func addr) => None
+  | VAL_ref (VAL_ref_extern ext) => None
+  end.
+
 Definition be_to_v (be: basic_instruction) : option value :=
   match be with
   | BI_const_num v => Some (VAL_num v)
@@ -699,11 +708,30 @@ Definition to_b_single (e: administrative_instruction) : basic_instruction :=
   | _ => BI_const_num (VAL_int32 (Wasm_int.Int32.zero))
   end.
 
+Definition is_basic_const (e : administrative_instruction) : bool :=
+  match e_to_v e with
+  | Some x1 => 
+      match be_to_v (to_b_single e) with
+      | Some x2 => x1 == x2
+      | _ => false
+      end
+  | _ => false
+  end.
+
+Definition basic_const_list (es : list administrative_instruction) : bool :=
+  List.forallb is_basic_const es.
+
 Definition to_b_list (es: seq administrative_instruction) : seq basic_instruction :=
   map to_b_single es.
 
 Definition e_is_basic (e: administrative_instruction) :=
   exists be, e = AI_basic be.
+
+(* Definition e_is_basic_bool (e: administrative_instruction) :=
+  match e with
+  | AI_basic be => true
+  | _ => false
+  end. *)
 
 Definition es_is_basic (es: list administrative_instruction) :=
   List.Forall e_is_basic es.
@@ -712,6 +740,9 @@ Definition es_is_basic (es: list administrative_instruction) :=
     takes a list of [v] and gives back a list where each [v] is mapped to the corresponding instruction. **)
 Definition v_to_e_list (ves : list value) : list administrative_instruction :=
   map v_to_e ves.
+
+Definition v_to_be_list (ves : list value) : list (option basic_instruction) :=
+  map v_to_be ves.
 
 (* interpreter related *)
 

@@ -195,6 +195,27 @@ Proof.
   apply is_basic_const_alt => //=.
 Qed.
 
+Lemma const_list_get: forall es,
+  const_list es <->
+  exists vs, es = v_to_e_list vs.
+Proof.
+  intros es. split; intros H.
+  - induction es => //=. by exists [::].
+    move/andP in H. destruct H. apply IHes in H0. destruct H0.
+    destruct a => //=; [destruct b | |] => //=; rewrite H0.
+    + exists (VAL_ref (VAL_ref_null r) :: x) => //=.
+    + exists (VAL_num v :: x) => //=.
+    + exists (VAL_vec v :: x) => //=.
+    + exists (VAL_ref (VAL_ref_func f) :: x) => //=.
+    + exists (VAL_ref (VAL_ref_extern e) :: x) => //=.
+  - destruct H as [vs H]. generalize dependent vs.
+    induction es => //=. intros vs H.
+    unfold v_to_e_list in H. induction vs => //=.
+    rewrite map_cons in H. inversion H.
+    fold (v_to_e_list vs) in *. rewrite <- H2. apply IHes in H2.
+    apply/andP. split => //=. destruct a0 as [| |[]] => //=.
+Qed.
+
 Lemma e_is_trapP : forall e, reflect (e = AI_trap) (e_is_trap e).
 Proof.
   case => //= >; by [ apply: ReflectF | apply: ReflectT ].

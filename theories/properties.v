@@ -120,13 +120,16 @@ Proof.
     destruct b; simpl in H; inversion H; by subst => //=.
 Qed.
 Lemma v_to_be_to_v: forall v e,
-    v_to_be v = Some e <->
-    be_to_v e = Some v.
+    is_basic_const (v_to_e v) /\ v_to_be v = e
+    <-> be_to_v e = Some v.
 Proof.
   move => v e.
   split; move => H.
-  - destruct v as [ | | []] => //=; inversion H; subst => //=.
-  - destruct e; simpl in H; subst; try by inversion H => //=.
+  - destruct v as [ | | []] => //=;
+    unfold is_basic_const in H; simpl in H;
+      destruct H => //=; subst => //=.
+  - destruct e; simpl in H; subst; inversion H => //=;
+    split => //=; unfold is_basic_const => //=.
 Qed.
 
 Lemma v_to_e_is_const_list: forall vs,
@@ -176,6 +179,29 @@ Proof.
   - destruct H. unfold is_basic_const.
     destruct a => //=; [destruct b => //= | |];
     unfold e_is_basic in H; destruct H; discriminate.
+Qed.
+Lemma basic_const_list_alt: forall a,
+  basic_const_list a <-> es_is_basic a /\ const_list a.
+Proof.
+  split; intros.
+  - unfold basic_const_list in H. induction a; split => //=;
+    unfold List.forallb in H; move/andP in H; destruct H;
+    fold (List.forallb is_basic_const a0) in H0.
+    + unfold es_is_basic. apply List.Forall_cons => //=.
+      * destruct a => //=. by exists b.
+      * apply IHa in H0. destruct H0 => //=.
+    + apply/andP. split.
+      * apply is_basic_const_alt in H. destruct H => //=.
+      * apply IHa in H0. destruct H0 => //=.
+  - destruct H. unfold basic_const_list.
+    induction a => //=. apply/andP. split;
+    unfold es_is_basic in H; unfold const_list in H0;
+    unfold List.forallb in H0; move/andP in H0; destruct H0;
+    fold (List.forallb is_const a0) in H1.
+    + apply List.Forall_inv in H.
+      apply is_basic_const_alt. split => //=.
+    + apply List.Forall_inv_tail in H.
+      fold (List.forallb is_const a0) in H1. apply IHa => //=.
 Qed.
 
 Lemma const_list_cons : forall a l,
@@ -407,6 +433,20 @@ Proof.
   by eexists.
 Qed.
 
+Lemma basic_const_e_exists: forall e,
+    is_basic_const e ->
+    exists v, e = AI_basic (to_b_single (v_to_e v)).
+Proof.
+  move => e H.
+  unfold is_basic_const in H.
+  destruct (e_to_v e) eqn:Hetov => //.
+  apply v_to_e_to_v in Hetov; subst.
+  destruct v as [| |[]]=> //=.
+  - by exists (VAL_num v).
+  - by exists (VAL_vec v).
+  - by exists (VAL_ref (VAL_ref_null r)).
+Qed.
+
 Lemma const_es_exists: forall es,
     const_list es ->
     exists vs, es = v_to_e_list vs.
@@ -416,6 +456,21 @@ Proof.
   - move => HConst.
     move/andP in HConst. destruct HConst as [H Hs].
     apply const_e_exists in H.
+    destruct H as [v ->].
+    apply IHes in Hs as [vs ->].
+    by exists (v :: vs).
+Qed.
+
+Lemma basic_const_es_exists: forall es,
+    basic_const_list es ->
+    exists vs, es = map (fun x => AI_basic x)
+                        (to_b_list (v_to_e_list vs)).
+Proof.
+  induction es => //=.
+  - by exists [::].
+  - move => HConst.
+    move/andP in HConst. destruct HConst as [H Hs].
+    apply basic_const_e_exists in H.
     destruct H as [v ->].
     apply IHes in Hs as [vs ->].
     by exists (v :: vs).

@@ -415,7 +415,6 @@ Lemma nlfbr_right: forall es n es',
     not_lf_br (es ++ es') n ->
     not_lf_br es n.
 Proof.
-  unfold not_lf_br.
   move => es n es' HNLF k lh HContra.
   eapply lf_composition in HContra.
   instantiate (1 := es') in HContra.
@@ -427,7 +426,6 @@ Lemma nlfret_right: forall es n es',
     not_lf_return (es ++ es') n ->
     not_lf_return es n.
 Proof.
-  unfold not_lf_return.
   move => es n es' HNLF lh HContra.
   eapply lf_composition in HContra.
   instantiate (1 := es') in HContra.
@@ -436,11 +434,10 @@ Proof.
 Qed.
 
 Lemma nlfbr_left: forall es n cs,
-    const_list cs ->
+    basic_const_list cs ->
     not_lf_br (cs ++ es) n ->
     not_lf_br es n.
 Proof.
-  unfold not_lf_return.
   move => es n cs HConst HNLF k lh HContra.
   eapply lf_composition_left in HContra => //.
   {
@@ -452,11 +449,10 @@ Proof.
 Qed.
 
 Lemma nlfret_left: forall es n cs,
-    const_list cs ->
+    basic_const_list cs ->
     not_lf_return (cs ++ es) n ->
     not_lf_return es n.
 Proof.
-  unfold not_lf_return.
   move => es n cs HConst HNLF lh HContra.
   eapply lf_composition_left in HContra => //.
   {

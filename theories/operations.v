@@ -624,13 +624,12 @@ Definition v_to_e (v: value) : administrative_instruction :=
   | VAL_ref (VAL_ref_extern ext) => AI_ref_extern ext
   end.
 
-Definition v_to_be (v: value) : option basic_instruction :=
+Definition v_to_be (v: value) : basic_instruction :=
   match v with
-  | VAL_num v => Some (BI_const_num v)
-  | VAL_vec v => Some (BI_const_vec v)
-  | VAL_ref (VAL_ref_null t) => Some (BI_ref_null t)
-  | VAL_ref (VAL_ref_func addr) => None
-  | VAL_ref (VAL_ref_extern ext) => None
+  | VAL_num v => BI_const_num v
+  | VAL_vec v => BI_const_vec v
+  | VAL_ref (VAL_ref_null t) => BI_ref_null t
+  | _ => $VBN (VAL_int32 (Wasm_int.Int32.zero))
   end.
 
 Definition be_to_v (be: basic_instruction) : option value :=
@@ -741,7 +740,7 @@ Definition es_is_basic (es: list administrative_instruction) :=
 Definition v_to_e_list (ves : list value) : list administrative_instruction :=
   map v_to_e ves.
 
-Definition v_to_be_list (ves : list value) : list (option basic_instruction) :=
+Definition v_to_be_list (ves : list value) : list basic_instruction :=
   map v_to_be ves.
 
 (* interpreter related *)

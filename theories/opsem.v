@@ -82,7 +82,7 @@ to the spec *)
   reduce_simple [::AI_basic BI_nop] [::]
 | rs_drop :
   forall v,
-    reduce_simple [::$VAN v; AI_basic BI_drop] [::]
+    reduce_simple [:: v_to_e v; AI_basic BI_drop] [::]
 | rs_select_none_false :
   forall n v1 v2,
     (forall v, typeof v1 <> T_ref v) ->

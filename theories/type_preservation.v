@@ -1115,15 +1115,14 @@ Proof.
 Qed.
 
 Lemma t_Drop_preserve: forall C v tf,
-  be_typing C [::$VBN v; BI_drop] tf ->
+  be_typing C [:: to_b_single (v_to_e v); BI_drop] tf ->
   be_typing C [::] tf.
 Proof.
   move => C v tf HType.
-  gen_ind_subst HType.
-  - invert_be_typing.
-  apply bet_weakening_empty_both.
-  by apply bet_empty.
-  - apply bet_weakening. by eapply IHHType.
+  destruct v as [| |[]] => //=;
+  gen_ind_subst HType;
+  try (invert_be_typing; apply bet_weakening_empty_both; apply bet_empty);
+  try (apply bet_weakening; by eapply IHHType).
 Qed.
 
 Lemma t_Select_none_preserve: forall C bev1 bev2 n tf be,

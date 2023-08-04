@@ -153,7 +153,7 @@ to the spec *)
     length vs = n ->
     lfilled lh (vs ++ [::AI_basic BI_return]) es ->
     reduce_simple [::AI_local n f es] vs
-| rs_tee_local :
+| rs_local_tee :
   forall i v,
     is_const v ->
     reduce_simple [::v; AI_basic (BI_local_tee i)] [::v; v; AI_basic (BI_local_set i)]

@@ -415,7 +415,7 @@ Definition cl_type_check_single (s:store_record) (f:function_closure):=
 Definition tabcl_agree (s : store_record) (tref: reference_type) (v : value_ref) : Prop :=
   match v with
   | VAL_ref_null tref' => tref = tref'
-  | VAL_ref_func a => (a < length s.(s_funcs)) /\ (tref = T_funcref)
+  | VAL_ref_func a => ((N.to_nat a) < length s.(s_funcs)) /\ (tref = T_funcref)
   | VAL_ref_extern _ => tref = T_externref
   end.
 

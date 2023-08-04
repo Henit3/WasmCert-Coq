@@ -4394,13 +4394,8 @@ Proof.
   eapply mk_s_typing; eauto.
   eapply mk_frame_typing; eauto.
   replace (f_inst f') with (f_inst f); eauto; first by eapply reduce_inst_unchanged; eauto.
-  
-  (* fold_upd_context. *)
-  assert (typing.e_typing s' (upd_local_label_return C1
-    (tc_local C1 ++ [seq typeof i | i <- f_locs f']) (tc_label C1) None) es'
-  (Tf [::] ts)). 2: { admit. }
-  
+  fold_upd_context.
   by eapply t_preservation_e; eauto.
-(* Qed. *) Admitted.
+Qed.
 
 End Host.

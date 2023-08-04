@@ -735,8 +735,8 @@ Ltac fold_upd_context :=
   | |- context [upd_local (upd_return ?C ?ret) ?loc] =>
     replace (upd_local (upd_return C ret) loc) with
         (upd_local_label_return C loc (tc_label C) ret); try by destruct C
-  | |- context [upd_return (upd_local ?C ?ret) ?loc] =>
-    replace (upd_return (upd_local C ret) loc) with
+  | |- context [upd_return (upd_local ?C ?loc) ?ret] =>
+    replace (upd_return (upd_local C loc) ret) with
         (upd_local_label_return C loc (tc_label C) ret); try by destruct C
   end.
 

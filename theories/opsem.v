@@ -310,11 +310,11 @@ Inductive reduce : host_state -> store_record -> frame -> list administrative_in
     reduce hs s f [::v_to_e (VAL_ref tabinit); $VAN (VAL_int32 n); AI_basic (BI_table_grow x)]
       hs s' f [::$VAN (VAL_int32 int32_minus_one)]
 | r_table_fill_bound :
-  forall x i n tab tabv s s' f hs,
+  forall x i n tab tabv s f hs,
     stab s f.(f_inst) x = Some tab ->
     (Wasm_int.N_of_uint i32m i) + (Wasm_int.N_of_uint i32m n) > tab_size tab ->
     reduce hs s f [::$VAN (VAL_int32 i); v_to_e (VAL_ref tabv); $VAN (VAL_int32 n); AI_basic (BI_table_fill x)]
-      hs s' f [::AI_trap]
+      hs s f [::AI_trap]
 | r_table_fill_return :
   forall x i n tab tabv s f hs,
     stab s f.(f_inst) x = Some tab ->

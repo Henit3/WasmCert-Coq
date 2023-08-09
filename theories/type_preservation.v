@@ -488,11 +488,28 @@ Proof.
     exists x. repeat rewrite -catA. by f_equal.
 Qed.
 
-Lemma Select_typing_Some: forall C t1s t2s t,
+(* Lemma Select_typing_Some: forall C t1s t2s t,
     be_typing C [::BI_select (Some [::t])] (Tf t1s t2s) ->
     exists ts, t1s = ts ++ [::t; t; T_num T_i32] /\ t2s = ts ++ [::t].
+Qed. *)
+
+Lemma Select_typing_Some_nil: forall C t1s t2s,
+    be_typing C [::BI_select (Some [::])] (Tf t1s t2s) ->
+    False.
 Proof.
-  move => C t1s t2s t HType.
+  move => C t1s t2s HType.
+  gen_ind_subst HType => //.
+  - rewrite -(cat0s [:: BI_select (Some [::])]) in Econs.
+    apply concat_cancel_last in Econs. destruct Econs.
+    subst. eapply IHHType2 => //=.
+  - eapply IHHType => //=.
+Qed.
+
+Lemma Select_typing_Some: forall C t1s t2s t t',
+    be_typing C [::BI_select (Some (t :: t'))] (Tf t1s t2s) ->
+    exists ts, t1s = ts ++ [::t; t; T_num T_i32] /\ t2s = ts ++ [::t].
+Proof.
+  move => C t1s t2s t t' HType.
   gen_ind_subst HType => //.
   - by exists [::].
   - apply extract_list1 in Econs; destruct Econs; subst.
@@ -721,6 +738,8 @@ Ltac invert_be_typing_step:=
     apply Ref_is_null_typing in H; destruct H; subst
   | H: be_typing _ [::BI_drop] _ |- _ =>
     apply Drop_typing in H; destruct H; subst
+  | H: be_typing _ [::BI_select (Some [::])] _ |- _ =>
+    apply Select_typing_Some_nil in H; destruct H
   | H: be_typing _ [::BI_select (Some _)] _ |- _ =>
     let ts := fresh "ts" in
     let t := fresh "t" in
@@ -1125,80 +1144,175 @@ Proof.
   try (apply bet_weakening; by eapply IHHType).
 Qed.
 
-Lemma t_Select_none_preserve: forall C bev1 bev2 n tf be,
-    be_typing C [:: bev1; bev2; BI_const_num (VAL_int32 n); BI_select None] tf ->
-    reduce_simple (to_e_list [:: bev1; bev2; BI_const_num (VAL_int32 n); BI_select None]) [::AI_basic be]->
-    be_typing C [::be] tf.
+(* Lemma t_Select_none_num_preserve: forall C v1 v2 v' n tf,
+    be_typing C [:: $VBN v1; $VBN v2; $VBN VAL_int32 n; BI_select None] tf ->
+    reduce_simple (to_e_list [:: $VBN v1; $VBN v2; $VBN (VAL_int32 n); BI_select None]) [:: $VAN v'] ->
+    be_typing C [:: $VBN v'] tf.
 Proof.
-  move => C bev1 bev2 n tf be HType HReduce.
-  inversion HReduce; subst;
-  destruct v1, v2 => //=; simpl in *;
-  try (by destruct (H3 (typeof_ref v)));
-  try (by destruct (H4 (typeof_ref v0)));
-  inversion H2;
-    (* n = 0 : Select second *)
-    gen_ind_subst HType => //=;
-    (* Weakening *)
-    try (apply bet_weakening; by eapply IHHType => //=);
-    (* Composition *)
-    invert_be_typing;
-    apply concat_cancel_last_n in H2 => //;
-    remove_bools_options;
-    [ inversion H6 | inversion H6 | inversion H7 | inversion H7];
-    subst; apply bet_weakening_empty_1; try rewrite H10;
-    constructor.
+  move => C v1 v2 v' n tf HType HReduce.
+  inversion HReduce;
+  destruct tf; simpl in *; invert_be_typing; subst;
+  apply bet_weakening; simpl in *;
+  [ rename H0 into Hts2; rename H2 into Hts4; rename H5 into Hts6
+  | rename H2 into Hts2; rename H3 into Hts4; rename H6 into Hts6 ];
+  try (
+    rewrite (catA ts [:: t; t] [:: T_num T_i32]) in Hts6;
+    apply concat_cancel_last in Hts6; destruct Hts6; subst ts6;
+    replace (ts3 ++ ts ++ [:: t; t])
+      with ((ts3 ++ ts ++ [:: t]) ++ [:: t]) in Hts4;
+      last (by repeat rewrite -catA);
+    apply concat_cancel_last in Hts4; destruct Hts4; subst ts4;
+    replace (ts0 ++ ts3 ++ ts ++ [:: t])
+      with ((ts0 ++ ts3 ++ ts) ++ [:: t]) in Hts2;
+      last (by repeat rewrite -catA);
+    apply concat_cancel_last in Hts2; destruct Hts2; subst ts2;
+    repeat apply bet_weakening;
+    replace (Tf ts (ts ++ [:: t])) with (Tf (ts ++ [::]) (ts ++ [:: t]));
+      last (by rewrite cats0); apply bet_weakening
+  );
+  try (rewrite -H5; rewrite H1 in H4; inversion H4; constructor);
+  try (rewrite -H7; rewrite H in H4; inversion H4; constructor).
 Qed.
+Lemma t_Select_none_vec_preserve: forall C v1 v2 v' n tf,
+    be_typing C [:: BI_const_vec v1; BI_const_vec v2; $VBN VAL_int32 n; BI_select None] tf ->
+    reduce_simple (to_e_list [:: BI_const_vec v1; BI_const_vec v2; $VBN (VAL_int32 n); BI_select None]) (to_e_list [:: BI_const_vec v']) ->
+    be_typing C [:: BI_const_vec v'] tf.
+Proof.
+  move => C v1 v2 v' n tf HType HReduce.
+  inversion HReduce;
+  destruct tf; simpl in *; invert_be_typing; subst;
+  apply bet_weakening; simpl in *;
+  [ rename H0 into Hts2; rename H2 into Hts4; rename H5 into Hts6
+  | rename H2 into Hts2; rename H3 into Hts4; rename H6 into Hts6 ];
+  try (
+    rewrite (catA ts [:: t; t] [:: T_num T_i32]) in Hts6;
+    apply concat_cancel_last in Hts6; destruct Hts6; subst ts6;
+    replace (ts3 ++ ts ++ [:: t; t])
+      with ((ts3 ++ ts ++ [:: t]) ++ [:: t]) in Hts4;
+      last (by repeat rewrite -catA);
+    apply concat_cancel_last in Hts4; destruct Hts4; subst ts4;
+    replace (ts0 ++ ts3 ++ ts ++ [:: t])
+      with ((ts0 ++ ts3 ++ ts) ++ [:: t]) in Hts2;
+      last (by repeat rewrite -catA);
+    apply concat_cancel_last in Hts2; destruct Hts2; subst ts2;
+    repeat apply bet_weakening;
+    replace (Tf ts (ts ++ [:: t])) with (Tf (ts ++ [::]) (ts ++ [:: t]));
+      last (by rewrite cats0); apply bet_weakening
+  );
+  try (rewrite -H5; rewrite H1 in H4; inversion H4; constructor);
+  try (rewrite -H7; rewrite H in H4; inversion H4; constructor).
+Qed.
+Lemma t_Select_none_null_preserve_false: forall C v1 v2 v' n tf,
+    be_typing C [:: BI_ref_null v1; BI_ref_null v2; $VBN VAL_int32 n; BI_select None] tf ->
+    reduce_simple (to_e_list [:: BI_ref_null v1; BI_ref_null v2; $VBN (VAL_int32 n); BI_select None]) (to_e_list [:: BI_ref_null v']) ->
+    be_typing C [:: BI_ref_null v'] tf ->
+    False.
+Proof.
+  move => C v1 v2 v' n tf HType HReduce HContra.
+  inversion HReduce; destruct tf; simpl in *; invert_be_typing;
+  subst; simpl in *;
+  
+  [ rename H0 into Hts2; rename H3 into Hts4; rename H6 into Hts6
+  | rename H2 into Hts2; rename H5 into Hts4; rename H7 into Hts6 ];
+  try (
+    rewrite (catA ts [:: t; t] [:: T_num T_i32]) in Hts6;
+    apply concat_cancel_last in Hts6; destruct Hts6; subst ts6;
+    replace (ts3 ++ ts ++ [:: t; t])
+      with ((ts3 ++ ts ++ [:: t]) ++ [:: t]) in Hts4;
+      last (by repeat rewrite -catA);
+    apply concat_cancel_last in Hts4; destruct Hts4; subst ts4).
+  rewrite -H6 in H5. discriminate.
+  rewrite -H7 in H6. discriminate.
+Qed. *)
 
-Lemma t_Select_some_preserve: forall C bev1 bev2 n t tf be,
-    be_typing C [:: bev1; bev2; BI_const_num (VAL_int32 n); BI_select (Some [:: t])] tf ->
-    reduce_simple (to_e_list [:: bev1; bev2; BI_const_num (VAL_int32 n); BI_select (Some [:: t])]) (to_e_list [:: be]) ->
+Ltac auto_concat_cancel_last_step:=
+  lazymatch goal with
+  | H: _ ++ [::_] = _ ++ [::_] |- _ =>
+    apply concat_cancel_last in H; destruct H; subst
+  | H: [::?a] = _ ++ [::?b] |- _ =>
+    rewrite -(cat0s [::a]) in H;
+    apply concat_cancel_last in H; destruct H; subst
+
+  | H: _ ++ [::_] = _ ++ [::?a; ?b] |- _ =>
+    rewrite -(cat1s a [::b]) in H
+  | H: _ ++ [::_] = _ ++ [::?a; ?b; ?c] |- _ =>
+    rewrite -(cat1s a [::b; c]) in H
+  | H: _ ++ [::_] = ?a ++ ?b ++ [::?c] |- _ =>
+    rewrite (catA a b [::c]) in H
+  | H: _ ++ [::_] = ?a ++ ?b ++ ?c ++ [::?d] |- _ =>
+    rewrite (catA a b (c ++ [::d])) in H;
+    rewrite (catA (a ++ b) c [::d]) in H
+  | H: _ ++ [::_] = ?a ++ ?b ++ [::?c; ?d] |- _ =>
+    rewrite (catA a b [::c; d]) in H
+
+  | H: _ ++ [::?a; ?b] = _ ++ [::_] |- _ =>
+  rewrite -(cat1s a [::b]) in H
+  | H: _ ++ [::?a; ?b; ?c] = _ ++ [::_] |- _ =>
+    rewrite -(cat1s a [::b; c]) in H
+  | H: ?a ++ ?b ++ [::?c] = _ ++ [::_] |- _ =>
+    rewrite (catA a b [::c]) in H
+  | H: ?a ++ ?b ++ ?c ++ [::?d] = _ ++ [::_] |- _ =>
+    rewrite (catA a b (c ++ [::d])) in H;
+    rewrite (catA (a ++ b) c [::d]) in H
+  | H: ?a ++ ?b ++ [::?c; ?d] = _ ++ [::_] |- _ =>
+    rewrite (catA a b [::c; d]) in H
+  end.
+Ltac auto_concat_cancel_last:=
+  repeat auto_concat_cancel_last_step.
+
+(* same proof content for both, aside from intros and H5/H6 *)
+Lemma t_Select_none_preserve: forall C v1 v2 be n tf,
+    be_typing C [:: to_b_single (v_to_e v1); to_b_single (v_to_e v2); $VBN (VAL_int32 n); BI_select None] tf ->
+    reduce_simple [:: v_to_e v1; v_to_e v2; $VAN (VAL_int32 n); AI_basic (BI_select None)] (to_e_list [:: be]) ->
+    be_typing C [:: be] tf.
+Proof.
+  move => C v1 v2 be n tf HType HReduce.
+  inversion HReduce; subst;
+  destruct v1 as [| |[]] => //=;
+  destruct v2 as [| |[]] => //=;
+  rewrite H in H4 || rewrite H1 in H4; inversion H4;
+  destruct tf; invert_be_typing; simpl in *;
+  apply bet_weakening; auto_concat_cancel_last;
+  (* repeat invert_be_typing for ref instructions to be discriminated *)
+  invert_be_typing; simpl in *;
+  auto_concat_cancel_last; try discriminate; simpl in *;
+  repeat rewrite -catA; repeat apply bet_weakening; apply bet_weakening_empty_1;
+  try constructor; try (rewrite H6; constructor).
+Qed.
+(*
+Lemma t_Select_some_preserve: forall C v1 v2 n t tf be,
+    be_typing C [:: to_b_single (v_to_e v1); to_b_single (v_to_e v2); $VBN (VAL_int32 n); BI_select (Some [:: t])] tf ->
+    reduce_simple [:: v_to_e v1; v_to_e v2; $VAN (VAL_int32 n); AI_basic (BI_select (Some [:: t]))] (to_e_list [:: be]) ->
+    be_typing C [::be] tf.
+*) 
+Lemma t_Select_some_preserve_nil: forall C v1 v2 n tf be,
+    be_typing C [:: to_b_single (v_to_e v1); to_b_single (v_to_e v2); $VBN (VAL_int32 n); BI_select (Some [::])] tf ->
+    reduce_simple [:: v_to_e v1; v_to_e v2; $VAN (VAL_int32 n); AI_basic (BI_select (Some [::]))] (to_e_list [:: be]) ->
+    False.
+Proof.
+  move => C v1 v2 n tf be HType HReduce.
+  inversion HReduce; subst;
+  destruct v1 as [| |[]] => //=;
+  destruct v2 as [| |[]] => //=;
+  destruct tf; invert_be_typing.
+Qed.
+Lemma t_Select_some_preserve: forall C v1 v2 n t ts tf be,
+    be_typing C [:: to_b_single (v_to_e v1); to_b_single (v_to_e v2); $VBN (VAL_int32 n); BI_select (Some (t :: ts))] tf ->
+    reduce_simple [:: v_to_e v1; v_to_e v2; $VAN (VAL_int32 n); AI_basic (BI_select (Some (t :: ts)))] (to_e_list [:: be]) ->
     be_typing C [::be] tf.
 Proof.
-  move => C bev1 bev2 n t tf be HType HReduce.
+  move => C v1 v2 n t ts tf be HType HReduce.
   inversion HReduce; subst;
-  destruct v1, v2 => //=;
-  [| | destruct v, v0 | | | destruct v, v0] => //=; simpl in *;
-   (* n = 0 : Select second *)
-    gen_ind_subst HType => //=;
-    (* Weakening *)
-    try (
-      apply bet_weakening; rewrite H0 H1 in HReduce;
-      eapply IHHType with (v1 := v1)
-        (bev3 := bev2) (bev4 := bev1) => //=; by rewrite H1);
-    try (
-      apply bet_weakening; rewrite H0 H1 H2 in HReduce;
-      eapply IHHType with (v1 := v1) (n0 := n)
-        (bev3 := bev2) (bev4 := bev1) => //=; by rewrite H1
-    ); (* Composition *)
-    try inversion H4;
-    invert_be_typing;
-
-    try (
-      apply concat_cancel_last_n in H2 => //=;
-      remove_bools_options;
-      subst; simpl in *;
-      apply bet_weakening_empty_1;
-      try constructor; try (rewrite H1; constructor)
-    );
-    try (
-      apply concat_cancel_last_n in H1 => //=;
-      remove_bools_options;
-      subst; simpl in *;
-      apply bet_weakening_empty_1; constructor
-    );
-    apply bet_weakening;
-    try (
-      eapply IHHType with (C := C0) (v1 := v) => //=;
-      first (by rewrite <- H1); by rewrite H1
-    );
-    try (
-      eapply IHHType with (C := C0) (v1 := v) (n0 := n) => //=;
-      first (by rewrite <- H1); by rewrite H1
-    );
-    try (
-      eapply IHHType with (C := C0) (r0 := r) => //=;
-      assumption
-    ).
+  destruct v1 as [| |[]] => //=;
+  destruct v2 as [| |[]] => //=;
+  rewrite H in H4 || rewrite H1 in H4; inversion H4;
+  destruct tf; invert_be_typing; simpl in *;
+  apply bet_weakening; auto_concat_cancel_last;
+  (* repeat invert_be_typing for ref instructions to be discriminated *)
+  invert_be_typing; simpl in *;
+  auto_concat_cancel_last; try discriminate; simpl in *;
+  repeat rewrite -catA; repeat apply bet_weakening; apply bet_weakening_empty_1;
+  try constructor; try (rewrite H5; constructor).
 Qed.
 
 (* BI_if is no longer in reduce_simple, so inversion result is complicated
@@ -1458,54 +1572,38 @@ Proof.
   - (* Drop *)
     eapply t_Drop_preserve => //=;
     by apply HType.
-  - (* Select_none_false *)
-    eapply t_Select_none_preserve
-      with (bev1 := to_b_single (v_to_e v1))
-            (bev2 := to_b_single (v_to_e v2))
-            (n := Wasm_int.int_zero i32m) => //=.
-    destruct v1, v2, v => //=; simpl in H.
-    + by destruct (H r1).
-    + by destruct (H T_funcref).
-    + by destruct (H T_externref).
-  - (* Select_none_true *)
-    eapply t_Select_none_preserve
-      with (bev1 := to_b_single (v_to_e v1))
-          (bev2 := to_b_single (v_to_e v2))
-          (n := n) => //=.
-    destruct v1, v2, v => //=; simpl in H.
-    + by destruct (H r1).
-    + by destruct (H T_funcref).
-    + by destruct (H T_externref).
-  - (* Select_some_false *)
-    eapply t_Select_some_preserve
-      with (bev1 := to_b_single (v_to_e v1))
-            (bev2 := to_b_single (v_to_e v2))
-            (n := Wasm_int.int_zero i32m)
-            (t := typeof v1) => //=.
-    destruct v1, v2, v, v0 => //=; simpl in *;
-    try (
-      unfold es_is_basic in H5; apply List.Forall_inv in H5;
-      unfold e_is_basic in H5; destruct H5; discriminate
-    );
-    try (
-      unfold es_is_basic in H7; apply List.Forall_inv in H7;
-      unfold e_is_basic in H7; destruct H7; discriminate
-    ).
-  - (* Select_some_true *)
-    eapply t_Select_some_preserve
-    with (bev1 := to_b_single (v_to_e v1))
-          (bev2 := to_b_single (v_to_e v2))
-          (n := n) (t := typeof v1) => //=.
-    destruct v1, v2, v, v0 => //=; simpl in *;
-    try (
-      unfold es_is_basic in H5; apply List.Forall_inv in H5;
-      unfold e_is_basic in H5; destruct H5; discriminate
-    );
-    try (
-      unfold es_is_basic in HAI_basic1;
-      apply List.Forall_inv_tail, List.Forall_inv in HAI_basic1;
-      unfold e_is_basic in HAI_basic1; destruct HAI_basic1; discriminate
-    ).
+  - (* Select_false *)
+    unfold es_is_basic, e_is_basic in H3.
+    apply List.Forall_inv in H3. destruct H3.
+    replace ([:: v_to_e v2]) with ([:: AI_basic x]) in HReduce;
+      last by rewrite H.
+    simpl. replace (to_b_single (v_to_e v2)) with (x) => //=;
+      last by rewrite H.
+    destruct ot => //=.
+    + induction l => //=.
+      * exfalso. eapply t_Select_some_preserve_nil with 
+          (v1 := v1) (v2 := v2) (n := Wasm_int.int_zero i32m)
+          (tf := (Tf r r0)) (C := C) (be := x) => //=.
+      * eapply t_Select_some_preserve with (n := Wasm_int.int_zero i32m)
+          (v1 := v1) (v2 := v2) (t := a) (ts := l) => //=.
+    + eapply t_Select_none_preserve with (n := Wasm_int.int_zero i32m)
+          (v1 := v1) (v2 := v2) => //=.
+  - (* Select_true *)
+    unfold es_is_basic, e_is_basic in H3.
+    apply List.Forall_inv in H3. destruct H3.
+    replace ([:: v_to_e v1]) with ([:: AI_basic x]) in HReduce;
+      last by rewrite H0.
+    simpl. replace (to_b_single (v_to_e v1)) with (x) => //=;
+      last by rewrite H0.
+    destruct ot => //=.
+    + induction l => //=.
+    * exfalso. eapply t_Select_some_preserve_nil with 
+        (v1 := v1) (v2 := v2) (n := n)
+        (tf := (Tf r r0)) (C := C) (be := x) => //=.
+    * eapply t_Select_some_preserve with (n := n)
+        (v1 := v1) (v2 := v2) (t := a) (ts := l) => //=.
+    + eapply t_Select_none_preserve with (n := n)
+          (v1 := v1) (v2 := v2) => //=.
   - (* br_if_0 *)
     eapply t_Br_if_false_preserve => //=.
     + by apply HType.

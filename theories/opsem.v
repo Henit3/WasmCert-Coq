@@ -83,32 +83,14 @@ to the spec *)
 | rs_drop :
   forall v,
     reduce_simple [:: v_to_e v; AI_basic BI_drop] [::]
-| rs_select_none_false :
-  forall n v1 v2,
-    (forall v, typeof v1 <> T_ref v) ->
-    (forall v, typeof v2 <> T_ref v) ->
-    typeof v1 = typeof v2 ->
+| rs_select_false :
+  forall n v1 v2 ot,
     n = Wasm_int.int_zero i32m ->
-    reduce_simple [:: v_to_e v1; v_to_e v2; $VAN (VAL_int32 n); AI_basic (BI_select None)] [:: v_to_e v2]
-| rs_select_none_true :
-  forall n v1 v2,
-    (forall v, typeof v1 <> T_ref v) ->
-    (forall v, typeof v2 <> T_ref v) ->
-    typeof v1 = typeof v2 ->
+    reduce_simple [:: v_to_e v1; v_to_e v2; $VAN (VAL_int32 n); AI_basic (BI_select ot)] [:: v_to_e v2]
+| rs_select_true :
+  forall n v1 v2 ot,
     n <> Wasm_int.int_zero i32m ->
-    reduce_simple [:: v_to_e v1; v_to_e v2; $VAN (VAL_int32 n); AI_basic (BI_select None)] [:: v_to_e v1]
-| rs_select_some_false :
-  forall n v1 v2 t,
-    typeof v1 = t ->
-    typeof v2 = t ->
-    n = Wasm_int.int_zero i32m ->
-    reduce_simple [:: v_to_e v1; v_to_e v2; $VAN (VAL_int32 n); AI_basic (BI_select (Some [::t]))] [:: v_to_e v2]
-| rs_select_some_true :
-  forall n v1 v2 t,
-    typeof v1 = t ->
-    typeof v2 = t ->
-    n <> Wasm_int.int_zero i32m ->
-    reduce_simple [:: v_to_e v1; v_to_e v2; $VAN (VAL_int32 n); AI_basic (BI_select (Some [::t]))] [:: v_to_e v1]
+    reduce_simple [:: v_to_e v1; v_to_e v2; $VAN (VAL_int32 n); AI_basic (BI_select ot)] [:: v_to_e v1]
 | rs_label_const :
   forall n es vs,
     const_list vs ->

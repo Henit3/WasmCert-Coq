@@ -143,14 +143,6 @@ Proof.
   unfold terminal_form. by right.
 Qed.
 
-Lemma e_b_inverse: forall es,
-    es_is_basic es ->
-    to_e_list (to_b_list es) = es.
-Proof.
-  move => es HAI_basic.
-  by erewrite e_b_elim; eauto.
-Qed.
-
 Lemma typeof_append: forall ts t vs,
     map typeof vs = ts ++ [::t] ->
     exists v,
@@ -545,6 +537,24 @@ Ltac solve_progress_cont cont :=
 Ltac solve_progress :=
   solve_progress_cont ltac:(fail).
 
+(* tableinst -> tableinst_type
+ *         |    |
+ *         V    V
+ * value_ref -> value_type   *)
+Lemma table_val_type_rect: forall t h tail,
+  tableinst_elem t = h :: tail ->
+  tt_elem_type (tableinst_type t) = typeof_ref h.
+Proof.
+Admitted.
+
+Lemma e_b_inverse: forall es,
+  es_is_basic es ->
+  to_e_list (to_b_list es) = es.
+Proof.
+  move => es HAI_basic.
+  by erewrite e_b_elim; eauto.
+Qed.
+
 Lemma t_progress_be: forall C bes ts1 ts2 vcs lab ret s f hs,
     store_typing s ->
     inst_typing s f.(f_inst) C ->
@@ -839,10 +849,58 @@ Proof.
     simpl in *.
     apply typeof_append in HConstType. destruct HConstType as [v [Ha [Hb Hc]]].
     destruct v => //=. destruct v => //=.
+
+    (* need some way of using typing to assert no extern_ref *)
+    (* this requires linking the asserted context table with the store table
+        and the tableinst_elem type with its tableinst_type *)
+
+    (* stab_elem destruct breakdown to be able to use internal tab *)
+    (* destruct (lookup_N (inst_tables (f_inst f)) x) as [tabaddr|] eqn:Etest0 => //=.
+    destruct (lookup_N (s_tables s) tabaddr) as [tab|] eqn:Etest1 => //=.
+    destruct (List.nth_error (tableinst_elem tab)
+        (Z.to_nat (Wasm_int.Int32.unsigned s0))) as [a|] eqn:Etest2 => //=.
+        assert (forall ta ti tty,
+          lookup_N (inst_tables (f_inst f)) x = Some ta ->
+          lookup_N (s_tables s) ta = Some ti ->
+          lookup_N (tc_table C) x = Some tty ->
+          tableinst_type ti = tty). admit.
+        destruct (H4 tabaddr tab tabtype) => //=.
+    
+    destruct (tableinst_elem tab) eqn:Etin => //=.
+    admit. (* nth_error [::] _ = Some *)
+    assert (tt_elem_type (tableinst_type tab) = typeof_ref v).
+    apply table_val_type_rect with (tail := l) => //=.
+    rewrite -Etin in Etest2. rewrite H0 in H8.
+    destruct v eqn:Ev => //=. destruct r.
+    simpl in *. destruct a eqn:Ea => //=. *)
+
+
     rewrite Ha. rewrite -v_to_e_cat. rewrite -catA. subst.
     exists s, f.
+    (* destruct (tt_elem_type (tableinst_type tab)) eqn:Etabt => //=.
+    simpl in H. destruct a => //=. simpl in *. discriminate. 2:{} *)
+
     destruct (stab_elem s f.(f_inst) x (Wasm_int.nat_of_uint i32m s0)) as [a|] eqn:Hstabaddr.
     + (* Some a *)
+      clear H2 Hc. simpl in *.
+      (* unfold stab_elem, stab in Hstabaddr. simpl in *.
+      destruct C0 => //=. simpl in *. *)
+      (* inst_tables -> tableaddr -> s_tables -> tableinst -> tableinst_elem -> value_ref *)
+      (* try to assert instance has it if the store has it -> store_typing_stabaddr *)
+      (* unfold stab_elem, stab in Hstabaddr. simpl in *.
+      destruct C0 => //=. simpl in *.
+      destruct (f_inst f) => //=. simpl in *.
+      destruct tc_elem, tc_data, tc_local, tc_label, tc_return, tc_ref => //=.
+      do 4! (move/andP in HIT; destruct HIT as [HIT ?]).
+      unfold lookup_N in *.
+      tabtype
+      inst_tables
+      eapply all2_projection with (f0 := (tabi_agree (s_tables s)))
+        (l1 := inst_tables) (l2 := tc_table) (n := N.to_nat x)
+        (x1 := a) (x2 := tabtype) in H4 => //=.
+      unfold tabi_agree, option_map, tab_typing in H4. *)
+      
+      unfold inst_tables in Hstabaddr.
       remember Hstabaddr as Hstabaddr2. clear HeqHstabaddr2.
       destruct a eqn:Ea => //=.
       * exists ((v_to_e_list (take (size t1s) vcs)) ++ [:: AI_trap]), hs.
@@ -859,6 +917,11 @@ Proof.
           by eapply r_call_indirect_failure1; eauto.
       * (* ref_extern *)
         admit.
+        (* unfold stab_elem, stab in Hstabaddr. simpl in *.
+        exists ((v_to_e_list (take (size t1s) vcs)) ++ [:: AI_trap]), hs.
+        apply reduce_composition_left; first by apply v_to_e_is_const_list.
+        eapply r_call_indirect_failure5; eauto. *)
+
     + (* None *)
       exists (v_to_e_list (take (size t1s) vcs) ++ [::AI_trap]), hs.
       apply reduce_composition_left; first by apply v_to_e_is_const_list.
@@ -924,28 +987,181 @@ Proof.
       destruct (lookup_N (s_globals s) g0) => //.
 
   - (* Table_get *)
-    admit.
+    right. invert_typeof_vcs.
+    simpl in H. clear H1 H2 ETf.
+    destruct v as [[]| |] => //=.
+    destruct (stab_elem s f.(f_inst) x (Wasm_int.N_of_uint i32m s0)) eqn:Ev.
+    + exists s, f, [::v_to_e (VAL_ref v)], hs.
+      by apply r_table_get_success.
+    + exists s, f, [::AI_trap], hs.
+      by apply r_table_get_failure.
 
   - (* Table_set *)
-    admit.
+    right. invert_typeof_vcs.
+    simpl in *. clear H1 H2 ETf.
+    (* same as using HIT:inst_typing to get [tabtype] using
+        "lookup_N (s_tables s)"@ "inst_tables (f_inst f)"@ x *)
+    (* then matching with H:lookup (tc_table C0) x to get [s'] using
+        "s_tables := set_nth tab (s_tables s) (N.to_nat x) tab" *)
+    destruct v as [[]| |], v0 => //=.
+    destruct (stab_update s f.(f_inst) x (Wasm_int.N_of_uint i32m s0) v) eqn:Es.
+    + unfold stab_update, stab in Es.
+      exists s, f, [::], hs.
+      apply r_table_set_success.
+      rewrite Es. f_equal. admit. (* s1 = s *)
+    + exists s, f, [::], hs.
+      by apply r_table_set_failure.
   
   - (* Table_size *)
-    admit.
+    right. invert_typeof_vcs.
+    simpl in *. clear H0 H1 HConstType ETf.
+    (* same as using HIT:inst_typing to get [tabtype] using
+       "lookup_N (s_tables s)"@ "inst_tables (f_inst f)"@ x *)
+    destruct (stab s f.(f_inst) x) eqn:Etab.
+    + exists s, f, [:: $VAN VAL_int32
+            (Wasm_int.int_of_Z i32m (Z.of_nat (tab_size t)))], hs.
+      eapply r_table_size with (tab := t) => //=.
+    + admit. (* fix using above, this is impossible *)
   
   - (* Table_grow *)
-    admit.
+    right. invert_typeof_vcs.
+    simpl in *. destruct v => //=. destruct v0 as [[]| |] => //=.
+    (* same as using HIT:inst_typing to get [tabtype] using
+        "lookup_N (s_tables s)"@ "inst_tables (f_inst f)"@ x *)
+    destruct (stab s f.(f_inst) x) eqn:Etab.
+    + destruct (stab_grow s (f_inst f) x (Wasm_int.N_of_uint i32m s0) v) eqn:Etabg.
+      * exists s1, f, [:: $VAN VAL_int32
+            (Wasm_int.int_of_Z i32m (Z.of_nat (tab_size t)))], hs.
+        apply r_table_grow_success with (tab := t) => //=.
+      * exists s, f, [:: $VAN VAL_int32 int32_minus_one], hs.
+        destruct (tab_size t) eqn:Etabs.
+        -- apply r_table_grow_failure with (tab := t) (sz := 0) => //=.
+        -- apply r_table_grow_failure with (tab := t) (sz := n.+1) => //=.
+    + admit. (* fix using above, this is impossible *)
   
   - (* Table_fill *)
-    admit.
+    right. invert_typeof_vcs. simpl in *.
+    destruct v as [[]| |], v0, v1 as [[]| |] => //=.
+    (* same as using HIT:inst_typing to get [tabtype] using
+        "lookup_N (s_tables s)"@ "inst_tables (f_inst f)"@ x *)
+    destruct (stab s f.(f_inst) x) eqn:Etab.
+    + destruct (tab_size t >= Wasm_int.N_of_uint i32m s0 + Wasm_int.N_of_uint i32m s1) eqn:Etabs.
+      * destruct (s1 == Wasm_int.int_zero i32m) eqn:En; move/eqP in En.
+        -- exists s, f, [::], hs.
+          apply r_table_fill_return with (tab := t) => //=.
+        -- remember (Wasm_int.int_sub i32m s0 Wasm_int.Int32.one) as s0'.
+          remember (Wasm_int.int_add i32m s1 Wasm_int.Int32.one) as s1'.
+          exists s, f, [:: $VAN VAL_int32 s0; v_to_e (VAL_ref v);
+              AI_basic (BI_table_set x); $VAN VAL_int32 s0';
+              v_to_e (VAL_ref v); $VAN VAL_int32 s1';
+              AI_basic (BI_table_fill x)], hs.
+          apply r_table_fill_step with (tab := t) => //=.
+          (* obtain s0' and s1' legitimately *)
+          admit. admit.
+      * exists s, f, [:: AI_trap], hs.
+        apply r_table_fill_bound with (tab := t) => //=.
+        admit. (* not <= to > *)
+    + admit. (* fix using above, this is impossible *)
   
   - (* Table_copy *)
-    admit.
+    right. invert_typeof_vcs. simpl in *.
+    destruct v as [[]| |], v0 as [[]| |], v1 as [[]| |] => //=.
+    (* same as using HIT:inst_typing to get [tabtype] using
+        "lookup_N (s_tables s)"@ "inst_tables (f_inst f)"@ x,y *)
+    destruct (stab s f.(f_inst) x) as [tx|] eqn:Etabx;
+    destruct (stab s f.(f_inst) y) as [ty|] eqn:Etaby.
+    + destruct (tab_size tx >= Wasm_int.N_of_uint i32m s0 + Wasm_int.N_of_uint i32m s2) eqn:Etabsx;
+      destruct (tab_size ty >= Wasm_int.N_of_uint i32m s1 + Wasm_int.N_of_uint i32m s2) eqn:Etabsy.
+      * destruct (s2 == Wasm_int.int_zero i32m) eqn:En; move/eqP in En.
+        -- exists s, f, [::], hs.
+          apply r_table_copy_return with (tabx := tx) (taby := ty) => //=.
+        -- destruct (Wasm_int.N_of_uint i32m s0 <= Wasm_int.N_of_uint i32m s1) eqn:Emode.
+          ++ (* forward *)
+            remember (Wasm_int.int_add i32m s0 Wasm_int.Int32.one) as s0'.
+            remember (Wasm_int.int_add i32m s1 Wasm_int.Int32.one) as s1'.
+            remember (Wasm_int.int_sub i32m s2 Wasm_int.Int32.one) as s2'.
+            exists s, f, [:: $VAN VAL_int32 s0; $VAN VAL_int32 s1;
+              AI_basic (BI_table_get y); AI_basic (BI_table_set x);
+              $VAN VAL_int32 s0'; $VAN VAL_int32 s1'; $VAN VAL_int32 s2';
+              AI_basic (BI_table_copy x y)], hs.
+            apply r_table_copy_forward
+              with (tabx := tx) (taby := ty) => //=.
+            (* obtain s0', s1' and s2' legitimately *)
+            admit. admit. admit.
+          ++ (* backward *)
+            remember (Wasm_int.int_sub i32m (Wasm_int.int_add i32m s0 s2)
+                        Wasm_int.Int32.one) as s0'.
+            remember (Wasm_int.int_sub i32m (Wasm_int.int_add i32m s1 s2)
+                        Wasm_int.Int32.one) as s1'.
+            remember (Wasm_int.int_add i32m s2 Wasm_int.Int32.one) as s2'.
+            exists s, f, [:: $VAN VAL_int32 s0'; $VAN VAL_int32 s1';
+              AI_basic (BI_table_get y); AI_basic (BI_table_set x);
+              $VAN VAL_int32 s0; $VAN VAL_int32 s1; $VAN VAL_int32 s2';
+              AI_basic (BI_table_copy x y)], hs.
+            apply r_table_copy_backward
+              with (tabx := tx) (taby := ty) => //=.
+            admit. (* not <= to > *)
+            (* obtain s0', s1' and s2' legitimately *)
+            admit. admit. admit.
+      * exists s, f, [:: AI_trap], hs.
+        apply r_table_copy_bound with (tabx := tx) (taby := ty) => //=.
+        left. admit. (* not <= to > *)
+      * exists s, f, [:: AI_trap], hs.
+        apply r_table_copy_bound with (tabx := tx) (taby := ty) => //=.
+        right. admit. (* not <= to > *)
+      * exists s, f, [:: AI_trap], hs.
+        apply r_table_copy_bound with (tabx := tx) (taby := ty) => //=.
+        (* any *) right. admit. (* not <= to > *)
+    admit. admit. admit. (* fix using above, this is impossible *)
   
   - (* Table_init *)
-    admit.
+    right. invert_typeof_vcs. simpl in *.
+    destruct v as [[]| |], v0 as [[]| |], v1 as [[]| |] => //=.
+    (* same as using HIT:inst_typing to get [tabtype] using
+        "lookup_N (s_tables s)"@ "inst_tables (f_inst f)"@ x *)
+    (* same as using HIT:inst_typing to get [tt_elem_type tabtype] using
+        "lookup_N (s_elems s)"@ "inst_elems (f_inst f)"@ y *)
+    destruct (stab s f.(f_inst) x) as [t|] eqn:Etab;
+    destruct (selem s f.(f_inst) y) as [e|] eqn:Eelem.
+    + destruct (tab_size t >= Wasm_int.N_of_uint i32m s0 + Wasm_int.N_of_uint i32m s2) eqn:Etabs;
+      destruct (elem_size e >= Wasm_int.N_of_uint i32m s1 + Wasm_int.N_of_uint i32m s2) eqn:Eelems.
+      * destruct (s2 == Wasm_int.int_zero i32m) eqn:En; move/eqP in En.
+        -- exists s, f, [::], hs.
+          apply r_table_init_return with (tab := t) (elem := e) => //=.
+        -- destruct (lookup_N (eleminst_elem e) (Wasm_int.N_of_uint i32m s1)) eqn:Eeleml.
+          ++ remember (Wasm_int.int_add i32m s0 Wasm_int.Int32.one) as s0'.
+            remember (Wasm_int.int_add i32m s1 Wasm_int.Int32.one) as s1'.
+            remember (Wasm_int.int_sub i32m s2 Wasm_int.Int32.one) as s2'.
+            exists s, f, [:: $VAN VAL_int32 s0; v_to_e (VAL_ref v);
+                AI_basic (BI_table_set x); $VAN VAL_int32 s0';
+                $VAN VAL_int32 s1'; $VAN VAL_int32 s2';
+                AI_basic (BI_table_init x y)], hs.
+            apply r_table_init_step with (tab := t) (elem := e) => //=.
+            (* obtain s0', s1' and s2' legitimately *)
+            admit. admit. admit.
+          ++ admit. (* fix using above, this is impossible *)
+      * exists s, f, [:: AI_trap], hs.
+        apply r_table_init_bound with (tab := t) (elem := e) => //=.
+        left. admit. (* not <= to > *)
+      * exists s, f, [:: AI_trap], hs.
+        apply r_table_init_bound with (tab := t) (elem := e) => //=.
+        right. admit. (* not <= to > *)
+      * exists s, f, [:: AI_trap], hs.
+        apply r_table_init_bound with (tab := t) (elem := e) => //=.
+        (* any *) right. admit. (* not <= to > *)
+    + admit. admit. admit. (* fix using above, this is impossible *)
   
   - (* Elem_drop *)
-    admit.
+    right. invert_typeof_vcs. simpl in *.
+    (* same as using HIT:inst_typing to get [tt_elem_type tabtype] using
+        "lookup_N (s_elems s)"@ "inst_elems (f_inst f)"@ x *)
+    (* then matching with H:lookup (tc_elem C0) x to get [s'] using
+        "s_elems := set_nth elem (s_elems s) (N.to_nat x) elem" *)
+    destruct (selem_drop s f.(f_inst) x) eqn:Eelem.
+    + unfold selem_drop, selem in Eelem.
+      exists s0, f, [::], hs.
+      apply r_elem_drop => //=.
+    + admit. (* fix using above, this is impossible *)
   
   - (* Load *)
     right. subst.
@@ -983,7 +1199,7 @@ Proof.
     + (* Store Packed *)
       simpl in H0. remove_bools_options.
       destruct (store_packed m (Wasm_int.N_of_uint i32m s0) off (bits v0) (tp_length tp)) eqn:HStoreResult.
-      * exists (upd_s_mem s (set_nth m0 s.(s_mems) n m0)), f, [::], hs.
+      * exists (upd_s_mem s (set_nth m0 s.(s_mems) (N.to_nat n) m0)), f, [::], hs.
         eapply r_store_packed_success; eauto.
         unfold typeof in H5. by inversion H5.
       * exists s, f, [::AI_trap], hs.
@@ -992,7 +1208,7 @@ Proof.
     + (* Store *)
       simpl in H0.
       destruct (store m (Wasm_int.N_of_uint i32m s0) off (bits v0) (tnum_length (t))) eqn:HStoreResult.
-      * exists (upd_s_mem s (set_nth m0 s.(s_mems) n m0)), f, [::], hs.
+      * exists (upd_s_mem s (set_nth m0 s.(s_mems) (N.to_nat n) m0)), f, [::], hs.
         eapply r_store_success; eauto.
         unfold typeof in H5. by inversion H5.
       * exists s, f, [::AI_trap], hs.
@@ -1020,13 +1236,117 @@ Proof.
     by eapply r_memory_grow_failure; eauto.
 
   - (* Memory_fill *)
-    admit.
+    right. invert_typeof_vcs. simpl in *.
+    destruct v as [[]| |], v0 as [[]| |], v1 as [[]| |] => //=.
+    (* same as using HIT:inst_typing to get [mem] using
+        "list.nth_error (s_mems s)"@ "inst_mems (f_inst f)" *)
+    destruct (smem s f.(f_inst)) as [mem|] eqn:Emem.
+    + destruct (mem_length mem >= Wasm_int.N_of_uint i32m s0 + Wasm_int.N_of_uint i32m s2) eqn:Etabs.
+      * destruct (s2 == Wasm_int.int_zero i32m) eqn:En; move/eqP in En.
+        -- exists s, f, [::], hs.
+          apply r_memory_fill_return with (mem := mem) => //=.
+        -- remember (Wasm_int.int_add i32m s0 Wasm_int.Int32.one) as s0'.
+          remember (Wasm_int.int_sub i32m s2 Wasm_int.Int32.one) as s2'.
+          exists s, f, [:: $VAN VAL_int32 s0; $VAN VAL_int32 s1;
+              AI_basic (BI_store T_i32 (Some Tp_i8) 0%N 0%N);
+              $VAN VAL_int32 s0; $VAN VAL_int32 s1; $VAN VAL_int32 s2';
+              AI_basic BI_memory_fill], hs.
+          apply r_memory_fill_step with (mem := mem) => //=.
+          (* obtain s0' and s2' legitimately *)
+          admit. admit.
+      * exists s, f, [:: AI_trap], hs.
+        apply r_memory_fill_bound with (mem := mem) => //=.
+        admit. (* not <= to > *)
+    + admit. (* fix using above, this is impossible *)
 
   - (* Memory_copy *)
-    admit.
+    right. invert_typeof_vcs. simpl in *.
+    destruct v as [[]| |], v0 as [[]| |], v1 as [[]| |] => //=.
+    (* same as using HIT:inst_typing to get [mem] using
+        "list.nth_error (s_mems s)"@ "inst_mems (f_inst f)" *)
+    destruct (smem s f.(f_inst)) as [mem|] eqn:Emem.
+    + unfold smem in Emem.
+      destruct (mem_length mem >= Wasm_int.N_of_uint i32m s0 + Wasm_int.N_of_uint i32m s2) eqn:Ememsd;
+      destruct (mem_length mem >= Wasm_int.N_of_uint i32m s1 + Wasm_int.N_of_uint i32m s2) eqn:Ememss.
+      * destruct (s2 == Wasm_int.int_zero i32m) eqn:En; move/eqP in En.
+        -- exists s, f, [::], hs.
+          apply r_memory_copy_return with (mem := mem) => //=.
+        -- destruct (Wasm_int.N_of_uint i32m s0 <= Wasm_int.N_of_uint i32m s1) eqn:Emode.
+          ++ (* forward *)
+            remember (Wasm_int.int_add i32m s0 Wasm_int.Int32.one) as s0'.
+            remember (Wasm_int.int_add i32m s1 Wasm_int.Int32.one) as s1'.
+            remember (Wasm_int.int_sub i32m s2 Wasm_int.Int32.one) as s2'.
+            exists s, f, [:: $VAN VAL_int32 s0; $VAN VAL_int32 s1;
+              AI_basic (BI_load T_i32 (Some (Tp_i8, SX_U)) 0%N 0%N);
+              AI_basic (BI_store T_i32 (Some Tp_i8) 0%N 0%N);
+              $VAN VAL_int32 s0'; $VAN VAL_int32 s1'; $VAN VAL_int32 s2';
+              AI_basic BI_memory_copy], hs.
+            apply r_memory_copy_forward with (mem := mem) => //=.
+            (* obtain s0', s1' and s2' legitimately *)
+            admit. admit. admit.
+          ++ (* backward *)
+            remember (Wasm_int.int_sub i32m (Wasm_int.int_add i32m s0 s2)
+                        Wasm_int.Int32.one) as s0'.
+            remember (Wasm_int.int_sub i32m (Wasm_int.int_add i32m s1 s2)
+                        Wasm_int.Int32.one) as s1'.
+            remember (Wasm_int.int_add i32m s2 Wasm_int.Int32.one) as s2'.
+            exists s, f, [:: $VAN VAL_int32 s0'; $VAN VAL_int32 s1';
+              AI_basic (BI_load T_i32 (Some (Tp_i8, SX_U)) 0%N 0%N);
+              AI_basic (BI_store T_i32 (Some Tp_i8) 0%N 0%N);
+              $VAN VAL_int32 s0; $VAN VAL_int32 s1; $VAN VAL_int32 s2';
+              AI_basic BI_memory_copy], hs.
+            apply r_memory_copy_backward with (mem := mem) => //=.
+            admit. (* not <= to > *)
+            (* obtain s0', s1' and s2' legitimately *)
+            admit. admit. admit.
+      * exists s, f, [:: AI_trap], hs.
+        apply r_memory_copy_bound with (mem := mem) => //=.
+        left. admit. (* not <= to > *)
+      * exists s, f, [:: AI_trap], hs.
+        apply r_memory_copy_bound with (mem := mem) => //=.
+        right. admit. (* not <= to > *)
+      * exists s, f, [:: AI_trap], hs.
+        apply r_memory_copy_bound with (mem := mem)=> //=.
+        (* any *) right. admit. (* not <= to > *)
+    admit. (* fix using above, this is impossible *)
 
   - (* Memory_init *)
-    admit.
+    right. invert_typeof_vcs. simpl in *.
+    destruct v as [[]| |], v0 as [[]| |], v1 as [[]| |] => //=.
+    (* same as using HIT:inst_typing to get [mem] using
+        "list.nth_error (s_mems s)"@ "inst_mems (f_inst f)" *)
+    (* same as using HIT:inst_typing to get [data] using
+        "lookup_N (s_datas s)"@ "lookup_N inst_datas (f_inst f)"@ x *)
+    destruct (smem s f.(f_inst)) as [mem|] eqn:Emem;
+    destruct (sdata s f.(f_inst) x) as [data|] eqn:Edata.
+    + destruct (mem_length mem >= Wasm_int.N_of_uint i32m s0 + Wasm_int.N_of_uint i32m s2) eqn:Etabs;
+      destruct (data_size data >= Wasm_int.N_of_uint i32m s1 + Wasm_int.N_of_uint i32m s2) eqn:Eelems.
+      * destruct (s2 == Wasm_int.int_zero i32m) eqn:En; move/eqP in En.
+        -- exists s, f, [::], hs.
+          apply r_memory_init_return with (mem := mem) (data := data) => //=.
+        -- destruct (lookup_N (datainst_data data) (Wasm_int.N_of_uint i32m s1)) eqn:Eeleml.
+          ++ remember (Wasm_int.int_add i32m s0 Wasm_int.Int32.one) as s0'.
+            remember (Wasm_int.int_add i32m s1 Wasm_int.Int32.one) as s1'.
+            remember (Wasm_int.int_sub i32m s2 Wasm_int.Int32.one) as s2'.
+            exists s, f, [:: $VAN VAL_int32 s0;
+                v_to_e (VAL_num (wasm_deserialise [:: b] T_i32));
+                AI_basic (BI_store T_i32 (Some Tp_i8) 0%N 0%N);
+                $VAN VAL_int32 s0'; $VAN VAL_int32 s1'; $VAN VAL_int32 s2';
+                AI_basic (BI_memory_init x)], hs.
+            apply r_memory_init_step with (mem := mem) (data := data) => //=.
+            (* obtain s0', s1' and s2' legitimately *)
+            admit. admit. admit.
+          ++ admit. (* fix using above, this is impossible *)
+      * exists s, f, [:: AI_trap], hs.
+        apply r_memory_init_bound with (mem := mem) (data := data) => //=.
+        left. admit. (* not <= to > *)
+      * exists s, f, [:: AI_trap], hs.
+        apply r_memory_init_bound with (mem := mem) (data := data) => //=.
+        right. admit. (* not <= to > *)
+      * exists s, f, [:: AI_trap], hs.
+        apply r_memory_init_bound with (mem := mem) (data := data) => //=.
+        (* any *) right. admit. (* not <= to > *)
+    + admit. admit. admit. (* fix using above, this is impossible *)
   
   - (* Composition *)
     subst.
@@ -1039,11 +1359,10 @@ Proof.
     + (* Const *)
       apply const_es_exists in H. destruct H as [cs HConst].
       apply b_e_elim in HConst. destruct HConst. subst.
-      rewrite e_b_inverse in HNRet;
-      last admit.
+      remember (to_b_list (v_to_e_list cs)) as bcs.
+      rewrite -(e_b_elim Heqbcs H2) in HNRet.
       (* last by apply const_list_is_basic; apply v_to_e_is_const_list. *)
-      rewrite e_b_inverse in HNBI_br;
-      last admit.
+      rewrite -(e_b_elim Heqbcs H2) in HNBI_br.
       (* last by apply const_list_is_basic; apply v_to_e_is_const_list. *)
       assert (t2s = [seq typeof i | i <- vcs] ++ [seq typeof i | i <- cs]). admit.
       (* apply Const_list_typing in HType1. *)

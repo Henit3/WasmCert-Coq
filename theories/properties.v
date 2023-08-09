@@ -435,7 +435,7 @@ Qed.
 
 Lemma basic_const_e_exists: forall e,
     is_basic_const e ->
-    exists v, e = AI_basic (to_b_single (v_to_e v)).
+    exists v, e = v_to_e v.
 Proof.
   move => e H.
   unfold is_basic_const in H.
@@ -463,8 +463,7 @@ Qed.
 
 Lemma basic_const_es_exists: forall es,
     basic_const_list es ->
-    exists vs, es = map (fun x => AI_basic x)
-                        (to_b_list (v_to_e_list vs)).
+    exists vs, es = v_to_e_list vs.
 Proof.
   induction es => //=.
   - by exists [::].
@@ -472,8 +471,11 @@ Proof.
     move/andP in HConst. destruct HConst as [H Hs].
     apply basic_const_e_exists in H.
     destruct H as [v ->].
-    apply IHes in Hs as [vs ->].
-    by exists (v :: vs).
+    remember Hs as Hs'. clear HeqHs'.
+    apply IHes in Hs as [vs ->] => //=.
+    exists ([::v] ++ vs).
+    rewrite -v_to_e_cat. unfold v_to_e_list. simpl. unfold v_to_e.
+    destruct v as [| |[]]=> //=.
 Qed.
 
 Lemma b_e_elim: forall bes es,
@@ -1109,7 +1111,6 @@ Proof.
   - f_equal. by eapply IHHType.
 Qed.
 
-(* attempted equivalent statement for AIs *)
 Lemma empty_e_typing: forall s C t1s t2s,
     e_typing s C [::] (Tf t1s t2s) ->
     t1s = t2s.
@@ -1117,13 +1118,13 @@ Proof.
   move => s C t1s t2s HType.
   gen_ind_subst HType => //.
   - induction bes.
-    inversion H; subst => //=. admit.
-      (* (es ++ [::e])%list = [::] -> discriminate H0? *)
+    inversion H; subst => //=.
+    induction es => //=.
     by apply empty_typing in H.
   - apply IHbes; inversion Enil.
   - induction es. eapply IHHType1 => //=. discriminate Enil.
   - f_equal. eapply IHHType => //=.
-Admitted.
+Qed.
 
 Lemma et_to_bet: forall s C es ts,
     es_is_basic es ->

@@ -221,19 +221,30 @@ Proof.
   apply is_basic_const_alt => //=.
 Qed.
 
+Lemma const_get: forall e,
+  is_const e <->
+  exists v, e = v_to_e v.
+Proof.
+  intros e. split; intros H.
+  - unfold v_to_e. destruct e => //=; [destruct b => //=| |].
+    + exists (VAL_ref (VAL_ref_null r)) => //=.
+    + exists (VAL_num v) => //=.
+    + exists (VAL_vec v) => //=.
+    + exists (VAL_ref (VAL_ref_func f)) => //=.
+    + exists (VAL_ref (VAL_ref_extern e)) => //=.
+  - destruct H as [v H]. unfold is_const. rewrite H.
+    destruct v => //=. destruct v => //=.
+Qed.
+
 Lemma const_list_get: forall es,
   const_list es <->
   exists vs, es = v_to_e_list vs.
 Proof.
   intros es. split; intros H.
-  - induction es => //=. by exists [::].
+  - unfold v_to_e_list. induction es => //=. by exists [::].
     move/andP in H. destruct H. apply IHes in H0. destruct H0.
-    destruct a => //=; [destruct b | |] => //=; rewrite H0.
-    + exists (VAL_ref (VAL_ref_null r) :: x) => //=.
-    + exists (VAL_num v :: x) => //=.
-    + exists (VAL_vec v :: x) => //=.
-    + exists (VAL_ref (VAL_ref_func f) :: x) => //=.
-    + exists (VAL_ref (VAL_ref_extern e) :: x) => //=.
+    apply const_get in H. destruct H. rewrite H.
+    exists (x0 :: x) => //=. by f_equal.
   - destruct H as [vs H]. generalize dependent vs.
     induction es => //=. intros vs H.
     unfold v_to_e_list in H. induction vs => //=.
@@ -420,6 +431,14 @@ Lemma vs_to_vts_rev: forall vs,
   vs_to_vts (rev vs) = rev (vs_to_vts vs).
 Proof.
   unfold vs_to_vts. intros. by rewrite map_rev.
+Qed.
+
+Lemma bes_to_e_list_is_basic: forall bes,
+  es_is_basic (to_e_list bes).
+Proof.
+  induction bes => //=.
+  unfold es_is_basic. apply List.Forall_cons => //=.
+  unfold e_is_basic. eauto.
 Qed.
 
 Lemma const_e_exists: forall e,
@@ -1111,7 +1130,7 @@ Proof.
   - f_equal. by eapply IHHType.
 Qed.
 
-Lemma empty_e_typing: forall s C t1s t2s,
+Lemma e_empty_typing: forall s C t1s t2s,
     e_typing s C [::] (Tf t1s t2s) ->
     t1s = t2s.
 Proof.

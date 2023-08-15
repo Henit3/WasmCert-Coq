@@ -99,7 +99,7 @@ to the spec *)
   forall n es,
     reduce_simple [::AI_label n es [::AI_trap]] [::AI_trap]
 | rs_br :
-  forall n vs es (i: labelidx) LI (lh: lholed (N.to_nat i)),
+  forall n vs es (i: labelidx) LI (lh: lholed (nat_of_bin i)),
     const_list vs ->
     length vs = n ->
     lfilled lh (vs ++ [::AI_basic (BI_br i)]) LI ->
@@ -130,7 +130,7 @@ to the spec *)
   forall n f,
     reduce_simple [::AI_local n f [::AI_trap]] [::AI_trap]
 | rs_return :
-  forall n (i: labelidx) vs es (lh: lholed (N.to_nat i)) f,
+  forall n (i: labelidx) vs es (lh: lholed (nat_of_bin i)) f,
     const_list vs ->
     length vs = n ->
     lfilled lh (vs ++ [::AI_basic BI_return]) es ->

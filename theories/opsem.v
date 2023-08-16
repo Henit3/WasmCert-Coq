@@ -288,14 +288,14 @@ Inductive reduce : host_state -> store_record -> frame -> list administrative_in
     stab_update s f.(f_inst) x (Wasm_int.N_of_uint i32m i) tabv = Some s' ->
     reduce hs s f [::$VAN (VAL_int32 i); v_to_e (VAL_ref tabv); AI_basic (BI_table_set x)] hs s' f [::]
 | r_table_set_failure :
-  forall x i tabv s s' f hs,
+  forall x i tabv s f hs,
     stab_update s f.(f_inst) x (Wasm_int.N_of_uint i32m i) tabv = None ->
-    reduce hs s f [::$VAN (VAL_int32 i); v_to_e (VAL_ref tabv); AI_basic (BI_table_set x)] hs s' f [::]
+    reduce hs s f [::$VAN (VAL_int32 i); v_to_e (VAL_ref tabv); AI_basic (BI_table_set x)] hs s f [::]
 | r_table_size :
-  forall x tab sz s s' f hs,
+  forall x tab sz s f hs,
     stab s f.(f_inst) x = Some tab ->
     tab_size tab = sz ->
-    reduce hs s f [:: AI_basic (BI_table_size x)] hs s' f [::$VAN (VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat sz)))]
+    reduce hs s f [:: AI_basic (BI_table_size x)] hs s f [::$VAN (VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat sz)))]
 | r_table_grow_success :
   forall x n tab sz tabinit s s' f hs,
     stab s f.(f_inst) x = Some tab ->
@@ -304,11 +304,11 @@ Inductive reduce : host_state -> store_record -> frame -> list administrative_in
     reduce hs s f [::v_to_e (VAL_ref tabinit); $VAN (VAL_int32 n); AI_basic (BI_table_grow x)]
       hs s' f [::$VAN (VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat sz)))]
 | r_table_grow_failure :
-  forall x n tab sz tabinit s s' f hs,
+  forall x n tab sz tabinit s f hs,
     stab s f.(f_inst) x = Some tab ->
     tab_size tab = sz ->
     reduce hs s f [::v_to_e (VAL_ref tabinit); $VAN (VAL_int32 n); AI_basic (BI_table_grow x)]
-      hs s' f [::$VAN (VAL_int32 int32_minus_one)]
+      hs s f [::$VAN (VAL_int32 int32_minus_one)]
 | r_table_fill_bound :
   forall x i n tab tabv s f hs,
     stab s f.(f_inst) x = Some tab ->

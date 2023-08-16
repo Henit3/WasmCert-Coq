@@ -373,22 +373,21 @@ Qed.
 *)
 
 Lemma lf_composition_left: forall cs es e0 n (lh : lholed n),
-    basic_const_list cs ->
+    const_list cs ->
     lfilled lh e0 es ->
     exists (lh' : lholed n), lfilled lh' e0 (cs ++ es).
 Proof.
   move => cs es e0 n lh HConst HLF.
-  apply basic_const_list_alt in HConst. destruct HConst.
-  apply const_list_get in H0. destruct H0.
+  apply const_list_get in HConst. destruct HConst.
   destruct lh as [vs es' | n0 vs l es' lh' es''].
   - exists (LH_base (x ++ vs) es').
     unfold lfilled in *; simpl in *;
     apply/eqP; move/eqP in HLF; rewrite <- HLF.
-    rewrite <- v_to_e_cat. rewrite H0. by rewrite <- catA.
+    rewrite <- v_to_e_cat. rewrite H. by rewrite <- catA.
   - exists (LH_rec (x ++ vs) l es' lh' es'').
     unfold lfilled in *; simpl in *;
     apply/eqP; move/eqP in HLF; rewrite <- HLF.
-    rewrite <- v_to_e_cat. rewrite H0. by rewrite catA.
+    rewrite <- v_to_e_cat. rewrite H. by rewrite catA.
 Qed.
 
 
@@ -415,7 +414,7 @@ Proof.
 Qed.
 
 Lemma nlfbr_left: forall es n cs,
-    basic_const_list cs ->
+    const_list cs ->
     not_lf_br (cs ++ es) n ->
     not_lf_br es n.
 Proof.
@@ -430,7 +429,7 @@ Proof.
 Qed.
 
 Lemma nlfret_left: forall es n cs,
-    basic_const_list cs ->
+    const_list cs ->
     not_lf_return (cs ++ es) n ->
     not_lf_return es n.
 Proof.
@@ -1373,8 +1372,8 @@ Proof.
       apply const_list_typing in HType1; last apply v_to_e_is_const_list.
       subst t2s.
       edestruct IHHType2; eauto.
-      { eapply nlfbr_left; try apply v_to_e_is_const_list; eauto. admit. }
-      { eapply nlfret_left; try apply v_to_e_is_const_list; eauto. admit. }
+      { eapply nlfbr_left; try apply v_to_e_is_const_list; eauto. }
+      { eapply nlfret_left; try apply v_to_e_is_const_list; eauto. }
       { by rewrite -map_cat. }
       * left. rewrite to_e_list_cat. apply const_list_concat => //.
         rewrite -(e_b_elim Heqbcs H2). apply v_to_e_is_const_list.
@@ -1862,7 +1861,6 @@ Proof.
     { move => n.
       eapply nlfret_right. by apply HNRet. }
     + (* Terminal *)
-      (* both subcases make use of basic_const_list admissions *)
       unfold terminal_form in H. destruct H.
       * (* Const *)
         apply const_list_split in H. destruct H as [HC1 HC2].
@@ -1880,14 +1878,13 @@ Proof.
         { move => n lh k HLF.
           eapply lf_composition_left 
              with (cs := v_to_e_list esv) in HLF => //.
-          2: admit.
-          (* by apply v_to_e_is_const_list. [esv] *) 
           destruct HLF as [lh' HLF].
           eapply HBI_brDepth; eauto. }
         { move => n.
-          eapply nlfret_left. admit.
+          eapply nlfret_left.
           (* first by apply v_to_e_is_const_list. [esv] *)
           instantiate (1 := v_to_e_list esv).
+          apply v_to_e_is_const_list.
           by apply HNRet. }
         -- (* Terminal *)
           unfold terminal_form in H. destruct H.
@@ -2168,7 +2165,7 @@ Proof.
         right. by left.
     + (* reduce *)
       simpl in H0. right. right. by eauto.
-(* Qed. *) Admitted.
+Qed.
 
 Theorem t_progress: forall s f es ts hs,
     config_typing s f es ts ->

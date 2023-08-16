@@ -375,6 +375,21 @@ Proof.
   intros; by apply List.Forall_app.
 Qed.
 
+Lemma not_basic_concat: forall es1 es2,
+    es_all_not_basic (es1 ++ es2) ->
+    es_all_not_basic es1 /\ es_all_not_basic es2.
+Proof.
+  by apply List.Forall_app.
+Qed.
+  
+Lemma not_basic_split: forall es1 es2,
+    es_all_not_basic es1 ->
+    es_all_not_basic es2 ->
+    es_all_not_basic (es1 ++ es2).
+Proof.
+  intros; by apply List.Forall_app.
+Qed.
+
 (* No longer holds because AI_ref, AI_ref_extern are possible consts not in AI_basic *)
 (* Could technically create cases for these two every time this is invoked? *)
 (*
@@ -1229,6 +1244,7 @@ Proof.
       by apply bet_weakening.
 Qed.
 
+(* helper lemma for the more general variant *)
 Lemma e_composition_typing_single: forall s C es1 e t1s t2s,
     e_typing s C (es1 ++ [::e]) (Tf t1s t2s) ->
     exists ts t1s' t2s' t3s, t1s = ts ++ t1s' /\
@@ -1281,6 +1297,55 @@ Proof.
     + by apply ety_local.
 Qed.
 
+(* only basic instructions consume the stack *)
+Lemma e_composition_typing_single_not_basic: forall s C es1 e t1s t2s,
+    e_typing s C (es1 ++ [::e]) (Tf t1s t2s) ->
+    e_not_basic e ->
+    exists t3s, e_typing s C es1 (Tf t1s t3s) /\
+                e_typing s C [::e] (Tf t3s t2s).
+Proof.
+  move => s C es1 e t1s t2s HType.
+  gen_ind_subst HType; extract_listn.
+  - (* basic *)
+    apply b_e_elim in H3. destruct H3.
+    apply basic_concat in H1. destruct H1.
+    unfold es_is_basic in H2. unfold e_not_basic in H4.
+    apply List.Forall_inv in H2 => //.
+  - (* composition *)
+    apply concat_cancel_last in H2. destruct H2. subst.
+    by exists t2s.
+  - (* weakening *)
+    edestruct IHHType; eauto.
+    destruct H as [H H']. subst.
+    exists (ts ++ x).
+    by repeat split => //; apply ety_weakening.
+  - (* Trap *)
+    exists t1s.
+    repeat split => //=.
+    + apply ety_a' => //. apply bet_weakening_empty_both. by apply bet_empty.
+    + by apply ety_trap.
+  - (* External ref *)
+    exists [::]. repeat split => //=.
+    + by apply ety_a'.
+    + by apply ety_ref_extern.
+  - (* Funcref *)
+    exists [::]. repeat split => //=.
+    + by apply ety_a'.
+    + by eapply ety_ref; apply H.
+  - (* Invoke *)
+    exists t1s. repeat split => //=.
+    + apply ety_a' => //. apply bet_weakening_empty_both. by apply bet_empty.
+    + by eapply ety_invoke; eauto.
+  - (* Label *)
+    exists [::]. repeat split => //=.
+    + by apply ety_a' => //.
+    + by eapply ety_label; eauto.
+  - (* Local *)
+    exists [::]. repeat split => //=.
+    + by apply ety_a' => //.
+    + by apply ety_local.
+Qed.
+
 Lemma e_composition_typing: forall s C es1 es2 t1s t2s,
     e_typing s C (es1 ++ es2) (Tf t1s t2s) ->
     exists ts t1s' t2s' t3s, t1s = ts ++ t1s' /\
@@ -1313,6 +1378,83 @@ Proof.
     + by apply ety_weakening.
     + rewrite rev_cons. rewrite -cats1.
       eapply ety_composition; eauto.
+      by apply ety_weakening.
+Qed.
+
+Lemma e_composition_typing_all_not_basic: forall s C es1 es2 t1s t2s,
+    e_typing s C (es1 ++ es2) (Tf t1s t2s) ->
+    es_all_not_basic es2 ->
+    exists t3s, e_typing s C es1 (Tf t1s t3s) /\
+                e_typing s C es2 (Tf t3s t2s).
+Proof.
+  move => s C es1 es2.
+  remember (rev es2) as es2'.
+  assert (es2 = rev es2'); first by (rewrite Heqes2'; symmetry; apply revK).
+  generalize dependent es1.
+  clear Heqes2'. subst.
+  induction es2' => //=; move => es1 t1s t2s HType.
+  - unfold rev in HType; simpl in HType.
+    rewrite cats0 in HType.
+    exists t2s.
+    repeat split => //=.
+    apply ety_a'; first by unfold rev => //=.
+    apply bet_weakening_empty_both.
+    by apply bet_empty.
+  - rewrite rev_cons in HType.
+    rewrite -cats1 in HType. subst.
+    rewrite catA in HType.
+    intros.
+    apply e_composition_typing_single_not_basic in HType => //=.
+    2: {
+      unfold rev in H; simpl in H; rewrite catrevE in H.
+      apply not_basic_concat in H. destruct H.
+      unfold es_all_not_basic in H0. apply List.Forall_inv in H0 => //.
+    }
+    destruct HType as [t3s [H1 H2]]. subst.
+    apply IHes2' in H1.
+    2: {
+      unfold rev in H; simpl in H; rewrite catrevE in H.
+      apply not_basic_concat in H. destruct H.
+      unfold es_all_not_basic in H0. apply List.Forall_inv in H0 => //.
+    }
+    destruct H1 as [t3s' [H1' H2']]. subst.
+    exists t3s'.
+    repeat split => //.
+    + rewrite rev_cons. rewrite -cats1.
+      eapply ety_composition; eauto.
+Qed.
+
+Lemma e_composition_typing_const_list: forall s C vs es2 t1s t2s,
+    e_typing s C ((v_to_e_list vs) ++ es2) (Tf t1s t2s) ->
+    exists t3s, e_typing s C (v_to_e_list vs) (Tf t1s t3s) /\
+                e_typing s C es2 (Tf t3s t2s).
+Proof.
+  move => s C vs es2.
+  remember (rev es2) as es2'.
+  assert (es2 = rev es2'); first by (rewrite Heqes2'; symmetry; apply revK).
+  generalize dependent vs.
+  clear Heqes2'. subst.
+  induction es2' => //=; move => vs t1s t2s HType.
+  - unfold rev in HType; simpl in HType.
+    rewrite cats0 in HType.
+    exists t2s.
+    repeat split => //=.
+    apply ety_a'; first by unfold rev => //=.
+    apply bet_weakening_empty_both.
+    by apply bet_empty.
+  - rewrite rev_cons in HType.
+    rewrite -cats1 in HType. subst.
+    rewrite catA in HType.
+    apply e_composition_typing_single in HType.
+    destruct HType as [ts' [t1s' [t2s' [t3s' [H1 [H2 [H3 H4]]]]]]]. subst.
+    intros.
+    apply IHes2' in H3 => //=.
+    destruct H3 as [t3s2 [H5 H6]]. subst.
+    exists (ts' ++ t3s2).
+    repeat split => //.
+    + by apply ety_weakening.
+    + rewrite rev_cons. rewrite -cats1.
+      eapply ety_composition with (t2s := (ts' ++ t3s')); eauto;
       by apply ety_weakening.
 Qed.
 

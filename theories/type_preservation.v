@@ -3779,7 +3779,7 @@ Ltac invert_e_typing_step:=
 Ltac invert_e_typing:=
   repeat invert_e_typing_step.
 
-(*
+
 Lemma lfilled_es_type_exists: forall k lh es les s C tf,
     @lfilled k lh es les ->
     e_typing s C les tf ->
@@ -3794,10 +3794,9 @@ Proof.
   unfold lfilled in HLF; simpl in HLF; destruct tf;
   move/eqP in HLF; rewrite <- HLF in HType.
   - invert_e_typing.
-    exists (tc_label C), t1s0, t3s0 => //=.
+    exists (tc_label C), t1s0, t3s => //=.
     by rewrite upd_label_unchanged.
-  - edestruct IHlh; eauto.
-    unfold lfilled.
+  - unfold lfilled.
 
     rewrite -cat1s catA in HType.
     (* manual invert_e_typing to use special composition lemma *)
@@ -3807,11 +3806,14 @@ Proof.
       unfold e_not_basic, e_is_basic; intro; destruct H => //=.
     destruct H3 as [ts' [H1 H2]].
     invert_e_typing.
-    eapply IHlh; eauto. unfold lfilled.
-    edestruct IHlh with (les := l0); eauto. unfold lfilled.
-    (* matching es with es' or les' of LH_rec so not possible *)
-*)
-
+    eapply IHlh with (les := (lfill lh es)) (tf := (Tf [::] t1s0));
+      first by unfold lfilled.
+    admit.
+    (* H3: e_typing s (upd_label C ([:: ts0] ++ tc_label C)) 
+            (lfill lh es) (Tf [::] t1s0) *)
+    (* goal: e_typing s C (lfill lh es) (Tf [::] t1s0) *)
+Admitted.
+(*
 Lemma lfilled_es_type_exists: forall k lh es les s C tf,
     @lfilled k lh es les ->
     e_typing s C les tf ->
@@ -3851,7 +3853,7 @@ Proof.
         with (t2s := ((t1s ++ vs_to_vts l) ++ t1s0)) => //=.
       apply et_weakening_empty_1. eapply ety_label with (ts := ts0) => //=.
 (* Qed. *) Admitted.
-
+*)
 Lemma store_extension_same: forall s,
     store_extension s s.
 Proof.
@@ -5999,74 +6001,81 @@ typeof_ref tabv = tt_elem_type ttype
     
   (* From the structure, it seems that some form of induction is required to prove these
    2 cases. *)
-  - (* r_label *) admit. (* induction into lfilled *)
-    (* generalize dependent lh. generalize dependent les. generalize dependent les'.
+  - (* r_label *) (* induction into lfilled *)
+    generalize dependent k. generalize dependent les. generalize dependent les'.
     generalize dependent ty. generalize dependent tx. generalize dependent lab.
-    induction k; move => lab tx ty les' les HType lh HLF1 HLF2; move/lfilledP in HLF1; move/lfilledP in HLF2.
-    + inversion HLF1. inversion HLF2. subst. clear HLF1. clear HLF2.
-      inversion H5. subst. clear H5. clear H0.
-      apply e_composition_typing in HType.
-      destruct HType as [ts0 [t1s0 [t2s0 [t3s0 [H2 [H3 [H4 H5]]]]]]]. subst.
-      apply e_composition_typing in H5.
-      destruct H5 as [ts1 [t1s1 [t2s1 [t3s1 [H6 [H7 [H8 H9]]]]]]]. subst.
+    dependent induction lh; move => HLF1 HLF2;
+    unfold lfilled in HLF1, HLF2; move/eqP in HLF1; move/eqP in HLF2;
+    simpl in HLF1, HLF2; subst.
+    + invert_e_typing.
       eapply et_composition'.
-      -- instantiate (1 := ts0 ++ ts1 ++ t1s1).
-         apply ety_weakening.
-         by eapply t_const_ignores_context; eauto.
+      -- instantiate (1 := ts ++ ts0 ++ t1s0).
+        rewrite -H1 catA. apply et_weakening_empty_1.
+        assert (typing.e_typing s (upd_label (upd_local_label_return C
+                  (tc_local C ++ [seq typeof i | i <- f_locs f']) 
+                  (tc_label C) ret) lab) (v_to_e_list l)
+                (Tf [::] (vs_to_vts l))); first by
+          apply const_list_typing' => //=; first by apply v_to_e_is_const_list.
+        eapply store_extension_e_typing; try apply HST1 => //; try by [].
+        eapply store_extension_reduce; eauto.
+
       -- eapply et_composition'; eauto.
-         ++ instantiate (1 := ts0 ++ ts1 ++ t3s1).
+         ++ instantiate (1 := ts ++ ts0 ++ t3s).
             repeat apply ety_weakening.
             by eapply IHHReduce; eauto => //.
          ++ repeat apply ety_weakening.
             assert (HCEmpty: tc_local C = [::]); first by eapply inst_t_context_local_empty; eauto.
-            rewrite HCEmpty in H9. rewrite HCEmpty.
-            replace (map typeof f'.(f_locs)) with (map typeof f.(f_locs)) => //.
+            rewrite HCEmpty in H0. rewrite HCEmpty.
+            replace (map typeof f'.(f_locs)) with (map typeof f.(f_locs)) => //;
+              last by eapply t_preservation_vs_type; eauto.
             eapply store_extension_e_typing; try apply HST1 => //; try by [].
             eapply store_extension_reduce; eauto.
-            by eapply t_preservation_vs_type; eauto.
-    + inversion HLF1. inversion HLF2. subst.
-      inversion H8. subst. clear H8.
-      clear H6.
-      move/lfilledP in H1. move/lfilledP in H7.
-      apply e_composition_typing in HType.
-      destruct HType as [ts0 [t1s0 [t2s0 [t3s0 [H2 [H3 [H4 H5]]]]]]]. subst.
-      apply e_composition_typing in H5.
-      destruct H5 as [ts1 [t1s1 [t2s1 [t3s1 [H10 [H11 [H12 H13]]]]]]]. subst.
-      apply Label_typing in H12.
-      destruct H12 as [ts2 [t2s2 [H14 [H15 [H16 H17]]]]]. subst.
+    + rewrite -cat1s in HType. invert_e_typing.
       eapply et_composition'.
-      -- instantiate (1 := ts0 ++ ts1 ++ t1s1).
-         apply ety_weakening.
-         by eapply t_const_ignores_context; eauto.
-      -- eapply et_composition'; eauto.
-         ++ instantiate (1 := ts0 ++ ts1 ++ t1s1 ++ t2s2).
+      -- instantiate (1 := ts ++ ts0 ++ t1s0).
+        rewrite -H1 catA. apply et_weakening_empty_1.
+        assert (typing.e_typing s (upd_label (upd_local_label_return C
+                  (tc_local C ++ [seq typeof i | i <- f_locs f']) 
+                  (tc_label C) ret) lab) (v_to_e_list l)
+                (Tf [::] (vs_to_vts l))); first by
+          apply const_list_typing' => //=; first by apply v_to_e_is_const_list.
+        eapply store_extension_e_typing; try apply HST1 => //; try by [].
+        eapply store_extension_reduce with (ret := ret) (lab := lab)
+          (loc := (tc_local C ++ [seq typeof i | i <- f_locs f])); eauto.
+          simpl in H5. admit.
+
+      -- rewrite -cat1s. eapply et_composition'; eauto.
+         ++ instantiate (1 := ts ++ ts0 ++ t1s0 ++ t1s1).
             repeat apply ety_weakening.
             apply et_weakening_empty_1.
             eapply ety_label; eauto.
             * assert (HCEmpty: tc_local C = [::]); first by eapply inst_t_context_local_empty; eauto.
-              rewrite HCEmpty in H15. rewrite HCEmpty.
-              simpl in H16. rewrite upd_label_overwrite in H16.
-              eapply lfilled_es_type_exists in H16; eauto.
-              destruct H16 as [lab' [t1s' [t2s' H16]]].
-              rewrite upd_label_overwrite in H16.
+              rewrite HCEmpty in H4. rewrite HCEmpty.
+              simpl in H5. rewrite upd_label_overwrite in H5.
+              eapply lfilled_es_type_exists in H5; eauto.
+              2: { admit. (* instantiate (2 := (LH_rec )). *) }
+              destruct H5 as [lab' [t1s' [t2s' H5]]].
+              rewrite upd_label_overwrite in H5.
               replace (map typeof f'.(f_locs)) with (map typeof f.(f_locs)) => //.
               eapply store_extension_e_typing; try apply HST1 => //; try by [].
               eapply store_extension_reduce; eauto.
               by eapply t_preservation_vs_type; eauto.
             * simpl.
-              simpl in H16.
-              by eapply IHk; eauto.
+              simpl in H5.
+              admit. (* induction hypothesis has composition with l1 *)
+              (* eapply IHlh; eauto. *)
          ++ repeat apply ety_weakening.
             assert (HCEmpty: tc_local C = [::]); first by eapply inst_t_context_local_empty; eauto.
-            rewrite HCEmpty in H13. rewrite HCEmpty.
-            simpl in H16. rewrite upd_label_overwrite in H16.
-            eapply lfilled_es_type_exists in H16; eauto.
-            destruct H16 as [lab' [t1s' [t2s' H16]]].
-            rewrite upd_label_overwrite in H16.
+            rewrite HCEmpty in H0. rewrite HCEmpty.
+            simpl in H5. rewrite upd_label_overwrite in H5.
+            eapply lfilled_es_type_exists in H5; eauto.
+            2: { admit. (* instantiate (2 := (LH_rec )). *) }
+            destruct H5 as [lab' [t1s' [t2s' H5]]].
+            rewrite upd_label_overwrite in H5.
             replace (map typeof f'.(f_locs)) with (map typeof f.(f_locs)) => //.
             eapply store_extension_e_typing; try apply HST1 => //; try by [].
             eapply store_extension_reduce; eauto.
-            by eapply t_preservation_vs_type; eauto. *)
+            by eapply t_preservation_vs_type; eauto.
   - (* r_local *)
     apply Local_typing in HType.
     destruct HType as [ts [H1 [H2 H3]]]. subst.

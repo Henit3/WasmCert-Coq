@@ -2031,7 +2031,6 @@ Proof.
     inversion HTF; subst.
     symmetry in H0. invert_typeof_vcs.
     rewrite upd_label_overwrite in HType2. simpl in HType2.
-    apply r_simple.
     destruct (br_reduce_decidable es) as [HEMT | HEMF].
     { unfold br_reduce in HEMT.
       destruct HEMT as [n [lh HLF]].

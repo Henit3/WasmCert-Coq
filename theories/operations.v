@@ -529,14 +529,14 @@ Definition stab_update (s: store_record) (inst: instance) (x: N) (i: nat) (tabv:
   match lookup_N inst.(inst_tables) x with
   | Some tabaddr => 
       match lookup_N s.(s_tables) tabaddr with
-  | Some tab =>
-      if (Nat.ltb i (tab_size tab)) then
-        let: tab' := {| tableinst_type := tab.(tableinst_type);
-                       tableinst_elem := set_nth tabv tab.(tableinst_elem) i tabv |} in
-            let: tabs' := set_nth tab' s.(s_tables) (N.to_nat tabaddr) tab' in
-        Some (Build_store_record (s_funcs s) tabs' (s_mems s) (s_globals s) (s_elems s) (s_datas s))
-      else None
-  | None => None
+      | Some tab =>
+          if (Nat.ltb i (tab_size tab)) then
+            let: tab' := {| tableinst_type := tab.(tableinst_type);
+                          tableinst_elem := set_nth tabv tab.(tableinst_elem) i tabv |} in
+                let: tabs' := set_nth tab' s.(s_tables) (N.to_nat tabaddr) tab' in
+            Some (Build_store_record (s_funcs s) tabs' (s_mems s) (s_globals s) (s_elems s) (s_datas s))
+          else None
+      | None => None
       end
   | _ => None
   end.
@@ -558,14 +558,14 @@ Definition stab_grow (s: store_record) (inst: instance) (x: N) (n: N) (tabinit: 
   match lookup_N inst.(inst_tables) x with
   | Some tabaddr => 
       match lookup_N s.(s_tables) tabaddr with
-  | Some tab =>
-      match growtable tab n tabinit with
-      | Some tab' => 
-              let tabs' := (set_nth tab' s.(s_tables) (N.to_nat tabaddr) tab') in
-          Some (Build_store_record (s_funcs s) tabs' (s_mems s) (s_globals s) (s_elems s) (s_datas s))
+      | Some tab =>
+          match growtable tab n tabinit with
+          | Some tab' => 
+                  let tabs' := (set_nth tab' s.(s_tables) (N.to_nat tabaddr) tab') in
+              Some (Build_store_record (s_funcs s) tabs' (s_mems s) (s_globals s) (s_elems s) (s_datas s))
+          | None => None
+          end
       | None => None
-      end
-  | None => None
       end
   | None => None
   end.
@@ -583,11 +583,11 @@ Definition selem_drop (s: store_record) (inst: instance) (x: elemaddr) : option 
   match lookup_N inst.(inst_elems) x with
   | Some eaddr =>
       match lookup_N s.(s_elems) eaddr with
-  | Some elem =>
-      let empty_elem := {| eleminst_type := elem.(eleminst_type); eleminst_elem := [::] |} in
-          let: elems' := set_nth empty_elem s.(s_elems) (N.to_nat eaddr) empty_elem in
-      Some (Build_store_record (s_funcs s) (s_tables s) (s_mems s) (s_globals s) elems' (s_datas s))
-  | None => None
+      | Some elem =>
+          let empty_elem := {| eleminst_type := elem.(eleminst_type); eleminst_elem := [::] |} in
+              let: elems' := set_nth empty_elem s.(s_elems) (N.to_nat eaddr) empty_elem in
+          Some (Build_store_record (s_funcs s) (s_tables s) (s_mems s) (s_globals s) elems' (s_datas s))
+      | None => None
       end
   | _ => None
   end.
@@ -605,11 +605,11 @@ Definition sdata_drop (s: store_record) (inst: instance) (x: dataaddr) : option 
   match lookup_N inst.(inst_datas) x with
   | Some daddr => 
       match lookup_N s.(s_datas) daddr with
-  | Some data =>
-      let empty_data := {| datainst_data := [::] |} in
-          let: datas' := set_nth empty_data s.(s_datas) (N.to_nat daddr) empty_data in
-      Some (Build_store_record (s_funcs s) (s_tables s) (s_mems s) (s_globals s) (s_elems s) datas')
-  | None => None
+      | Some data =>
+          let empty_data := {| datainst_data := [::] |} in
+              let: datas' := set_nth empty_data s.(s_datas) (N.to_nat daddr) empty_data in
+          Some (Build_store_record (s_funcs s) (s_tables s) (s_mems s) (s_globals s) (s_elems s) datas')
+      | None => None
       end
   | None => None
   end.

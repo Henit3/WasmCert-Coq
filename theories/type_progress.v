@@ -986,7 +986,7 @@ Proof.
     + exists s, f, [::AI_trap], hs.
       by apply r_table_get_failure.
 
-    (* NEXT *) (* try to figure out how to link instance with context and store *)
+    (* TODO: try to figure out how to link instance with context and store *)
 
   - (* Table_set *)
     right. invert_typeof_vcs.
@@ -1370,6 +1370,7 @@ Proof.
       eapply ety_a with (s := s) in HType1.
       rewrite -(e_b_elim Heqbcs H2) in HType1.
       apply const_list_typing in HType1; last apply v_to_e_is_const_list.
+      destruct HType1 as [HType1f HType1].
       subst t2s.
       edestruct IHHType2; eauto.
       { eapply nlfbr_left; try apply v_to_e_is_const_list; eauto. }
@@ -1597,6 +1598,7 @@ Proof.
     apply const_es_exists in H.
     destruct H as [vs' H]. subst.
     apply const_list_typing in H3 => //=. simpl in H3.
+    destruct H3 as [H3f H3].
     rewrite catA in H3. symmetry in H3.
     apply cat_split in H3. destruct H3.
     replace l with (take (size (ts1 ++ ts3')) l
@@ -1676,6 +1678,7 @@ Proof.
     apply const_es_exists in H.
     destruct H as [vs' H]. subst.
     apply const_list_typing in H3 => //=. simpl in H3.
+    destruct H3 as [H3f H3].
     rewrite catA in H3. symmetry in H3.
     apply cat_split in H3. destruct H3.
     replace l with (take (size (ts1 ++ ts2')) l
@@ -1873,6 +1876,8 @@ Proof.
           rewrite -H. destruct x0, v => //=.
         }
         apply const_list_typing in HType1 => //=. subst.
+        destruct HType1 as [HType1f HType1].
+        subst t2s.
         edestruct IHHType2; eauto.
         { by apply map_cat. }
         { move => n lh k HLF.
@@ -2152,12 +2157,9 @@ Proof.
         split => //.
         apply const_es_exists in H0. destruct H0.
         rewrite H0 in HType.
-        apply const_list_typing in HType. 2: {
-          unfold v_to_e_list, v_to_e, const_list.
-          apply List.forallb_forall. intros x0 H1.
-          apply List.in_map_iff in H1. destruct H1 as [x1 [H1 H2]].
-          rewrite -H1. destruct x1, v => //=.
-        }
+        apply const_list_typing in HType;
+          last by apply v_to_e_is_const_list.
+        destruct HType as [HTypef HType].
         simpl in HType.
         rewrite HType H0 => //=. unfold v_to_e_list, vs_to_vts.
         repeat rewrite length_is_size. by repeat rewrite size_map.

@@ -535,16 +535,6 @@ Ltac solve_progress_cont cont :=
 Ltac solve_progress :=
   solve_progress_cont ltac:(fail).
 
-(* tableinst -> tableinst_type
- *         |    |
- *         V    V
- * value_ref -> value_type   *)
-Lemma table_val_type_rect: forall t h tail,
-  tableinst_elem t = h :: tail ->
-  tt_elem_type (tableinst_type t) = typeof_ref h.
-Proof.
-Admitted.
-
 Lemma t_progress_be: forall C bes ts1 ts2 vcs lab ret s f hs,
     store_typing s ->
     inst_typing s f.(f_inst) C ->
@@ -998,63 +988,150 @@ Proof.
     destruct v as [[]| |], v0 => //=.
     destruct (stab_update s f.(f_inst) x (Wasm_int.N_of_uint i32m s0) v) eqn:Es.
     + unfold stab_update, stab in Es.
-      exists s, f, [::], hs.
-      apply r_table_set_success.
-      admit. (* s1 = s *)
+      exists s1, f, [::], hs.
+      apply r_table_set_success. apply Es.
     + exists s, f, [::], hs.
       by apply r_table_set_failure.
   
   - (* Table_size *)
     right. invert_typeof_vcs.
     simpl in *. clear H0 H1 HConstType ETf.
-    (* same as using HIT:inst_typing to get [tabtype] using
-       "lookup_N (s_tables s)"@ "inst_tables (f_inst f)"@ x *)
-    destruct (stab s f.(f_inst) x) eqn:Etab.
-    + exists s, f, [:: $VAN VAL_int32
+
+    assert (exists t, stab s f.(f_inst) x = Some t) as Ht.
+    {
+      unfold stab.
+      unfold store_typing in HST.
+      unfold inst_typing, typing.inst_typing in HIT.
+
+      (* destruct s => //=. destruct HST as [HSTf [HSTt HSTm]]. *)
+      
+      (* unfold tab_agree in HSTt.
+      eapply all2_projection in HSTt.
+      unfold tab_agree in HSTt. *)
+
+      destruct C0, (f_inst f), tc_elem, tc_data,
+              tc_local, tc_label, tc_return, tc_ref => //.
+      remove_bools_options.
+      simpl in H. unfold tabi_agree in H2.
+
+      assert (exists a, lookup_N inst_tables x = Some a) as Ha.
+      admit. destruct Ha as [a Ha].
+      (* same length so use this somehow? *)
+      (* lookup_N tc_table x = Some tabtype *)
+      (* lookup_N inst_tables x = Some a *)
+
+      eapply all2_projection with (x1 := ?[x]) in H2; eauto. simpl.
+      remove_bools_options. rewrite Ha; eauto.
+    }
+    destruct Ht as [t Ht].
+    
+    exists s, f, [:: $VAN VAL_int32
             (Wasm_int.int_of_Z i32m (Z.of_nat (tab_size t)))], hs.
-      eapply r_table_size with (tab := t) => //=.
-    + admit. (* fix using above, this is impossible *)
+    eapply r_table_size with (tab := t) => //=.
   
   - (* Table_grow *)
     right. invert_typeof_vcs.
     simpl in *. destruct v => //=. destruct v0 as [[]| |] => //=.
-    (* same as using HIT:inst_typing to get [tabtype] using
-        "lookup_N (s_tables s)"@ "inst_tables (f_inst f)"@ x *)
-    destruct (stab s f.(f_inst) x) eqn:Etab.
-    + destruct (stab_grow s (f_inst f) x (Wasm_int.N_of_uint i32m s0) v) eqn:Etabg.
-      * exists s1, f, [:: $VAN VAL_int32
-            (Wasm_int.int_of_Z i32m (Z.of_nat (tab_size t)))], hs.
-        apply r_table_grow_success with (tab := t) => //=.
-      * exists s, f, [:: $VAN VAL_int32 int32_minus_one], hs.
-        destruct (tab_size t) eqn:Etabs.
-        -- apply r_table_grow_failure with (tab := t) (sz := 0) => //=.
-        -- apply r_table_grow_failure with (tab := t) (sz := n.+1) => //=.
-    + admit. (* fix using above, this is impossible *)
+    clear H1 H8 ETf HConstType.
+
+    (* rewrite -cat1s -(cat1s _ [:: T_num T_i32]) in HConstType.
+    apply concat_cancel_last in HConstType. destruct HConstType.
+    inversion H0. subst. simpl in H7. clear H1 ETf. *)
+    
+    assert (exists t, stab s f.(f_inst) x = Some t) as Ht.
+    {
+      unfold stab.
+      unfold store_typing in HST.
+      unfold inst_typing, typing.inst_typing in HIT.
+
+      (* destruct s => //=. destruct HST as [HSTf [HSTt HSTm]]. *)
+      
+      (* unfold tab_agree in HSTt.
+      eapply all2_projection in HSTt.
+      unfold tab_agree in HSTt. *)
+
+      destruct C0, (f_inst f), tc_elem, tc_data,
+              tc_local, tc_label, tc_return, tc_ref => //.
+      remove_bools_options.
+      simpl in H. unfold tabi_agree in H2.
+
+      assert (exists a, lookup_N inst_tables x = Some a) as Ha.
+      admit. destruct Ha as [a Ha].
+      (* same length so use this somehow? *)
+      (* lookup_N tc_table x = Some tabtype *)
+      (* lookup_N inst_tables x = Some a *)
+
+      eapply all2_projection with (x1 := ?[x]) in H3; eauto. simpl.
+      remove_bools_options. rewrite Ha; eauto.
+      unfold tabi_agree, option_map in H3.
+      remove_bools_options; eauto.
+    }
+    destruct Ht as [t Ht].
+
+    destruct (stab_grow s (f_inst f) x (Wasm_int.N_of_uint i32m s0) v) eqn:Etabg.
+    + exists s1, f, [:: $VAN VAL_int32
+          (Wasm_int.int_of_Z i32m (Z.of_nat (tab_size t)))], hs.
+      apply r_table_grow_success with (tab := t) => //=.
+    + exists s, f, [:: $VAN VAL_int32 int32_minus_one], hs.
+      destruct (tab_size t) eqn:Etabs.
+      * apply r_table_grow_failure with (tab := t) (sz := 0) => //=.
+      * apply r_table_grow_failure with (tab := t) (sz := n.+1) => //=.
   
   - (* Table_fill *)
     right. invert_typeof_vcs. simpl in *.
     destruct v as [[]| |], v0, v1 as [[]| |] => //=.
-    (* same as using HIT:inst_typing to get [tabtype] using
-        "lookup_N (s_tables s)"@ "inst_tables (f_inst f)"@ x *)
-    destruct (stab s f.(f_inst) x) eqn:Etab.
-    + destruct (tab_size t >= Wasm_int.N_of_uint i32m s0 + Wasm_int.N_of_uint i32m s1) eqn:Etabs.
-      * destruct (s1 == Wasm_int.int_zero i32m) eqn:En; move/eqP in En.
-        -- exists s, f, [::], hs.
-          apply r_table_fill_return with (tab := t) => //=.
-        -- remember (Wasm_int.int_sub i32m s0 Wasm_int.Int32.one) as s0'.
-          remember (Wasm_int.int_add i32m s1 Wasm_int.Int32.one) as s1'.
-          exists s, f, [:: $VAN VAL_int32 s0; v_to_e (VAL_ref v);
-              AI_basic (BI_table_set x); $VAN VAL_int32 s0';
-              v_to_e (VAL_ref v); $VAN VAL_int32 s1';
-              AI_basic (BI_table_fill x)], hs.
-          apply r_table_fill_step with (tab := t) => //=.
-          (* obtain s0' and s1' legitimately *)
-          admit. admit.
-      * exists s, f, [:: AI_trap], hs.
-        apply r_table_fill_bound with (tab := t) => //=.
-        admit. (* not <= to > *)
-    + admit. (* fix using above, this is impossible *)
-  
+    clear H1 H2 ETf HConstType.
+    
+    assert (exists t, stab s f.(f_inst) x = Some t) as Ht.
+    {
+      unfold stab.
+      unfold store_typing in HST.
+      unfold inst_typing, typing.inst_typing in HIT.
+
+      (* destruct s => //=. destruct HST as [HSTf [HSTt HSTm]]. *)
+      
+      (* unfold tab_agree in HSTt.
+      eapply all2_projection in HSTt.
+      unfold tab_agree in HSTt. *)
+
+      destruct C0, (f_inst f), tc_elem, tc_data,
+              tc_local, tc_label, tc_return, tc_ref => //.
+      remove_bools_options.
+      simpl in H. unfold tabi_agree in H2.
+
+      assert (exists a, lookup_N inst_tables x = Some a) as Ha.
+      admit. destruct Ha as [a Ha].
+      (* same length so use this somehow? *)
+      (* lookup_N tc_table x = Some tabtype *)
+      (* lookup_N inst_tables x = Some a *)
+
+      eapply all2_projection with (x1 := ?[x]) in H4; eauto. simpl.
+      remove_bools_options. rewrite Ha; eauto.
+      unfold tabi_agree, option_map in H4.
+      remove_bools_options; eauto.
+    }
+    destruct Ht as [t Ht].
+
+    destruct (tab_size t >= Wasm_int.N_of_uint i32m s0 + Wasm_int.N_of_uint i32m s1) eqn:Etabs.
+    + destruct (s1 == Wasm_int.int_zero i32m) eqn:En; move/eqP in En.
+      * exists s, f, [::], hs.
+        apply r_table_fill_return with (tab := t) => //=.
+      * remember (Wasm_int.int_sub i32m s0 Wasm_int.Int32.one) as s0'.
+        remember (Wasm_int.int_add i32m s1 Wasm_int.Int32.one) as s1'.
+        exists s, f, [:: $VAN VAL_int32 s0; v_to_e (VAL_ref v);
+            AI_basic (BI_table_set x); $VAN VAL_int32 s0';
+            v_to_e (VAL_ref v); $VAN VAL_int32 s1';
+            AI_basic (BI_table_fill x)], hs.
+        apply r_table_fill_step with (tab := t) => //=.
+        rewrite Heqs1'; simpl.
+        (* coerce s0 and s1 to match *)
+        Set Printing All.
+        admit. admit.
+    + exists s, f, [:: AI_trap], hs.
+      apply r_table_fill_bound with (tab := t) => //=.
+      move/negP in Etabs. move/negP in Etabs.
+      rewrite -ltnNge in Etabs. by rewrite Etabs.
+
   - (* Table_copy *)
     right. invert_typeof_vcs. simpl in *.
     destruct v as [[]| |], v0 as [[]| |], v1 as [[]| |] => //=.
@@ -1092,18 +1169,22 @@ Proof.
               AI_basic (BI_table_copy x y)], hs.
             apply r_table_copy_backward
               with (tabx := tx) (taby := ty) => //=.
-            admit. (* not <= to > *)
+            move/negP in Emode. move/negP in Emode.
+            rewrite -ltnNge in Emode. by rewrite Emode.
             (* obtain s0', s1' and s2' legitimately *)
             admit. admit. admit.
       * exists s, f, [:: AI_trap], hs.
         apply r_table_copy_bound with (tabx := tx) (taby := ty) => //=.
-        left. admit. (* not <= to > *)
+        left. move/negP in Etabsy. move/negP in Etabsy.
+        rewrite -ltnNge in Etabsy. by rewrite Etabsy.
       * exists s, f, [:: AI_trap], hs.
         apply r_table_copy_bound with (tabx := tx) (taby := ty) => //=.
-        right. admit. (* not <= to > *)
+        right. move/negP in Etabsx. move/negP in Etabsx.
+        rewrite -ltnNge in Etabsx. by rewrite Etabsx.
       * exists s, f, [:: AI_trap], hs.
         apply r_table_copy_bound with (tabx := tx) (taby := ty) => //=.
-        (* any *) right. admit. (* not <= to > *)
+        right. move/negP in Etabsx. move/negP in Etabsx.
+        rewrite -ltnNge in Etabsx. by rewrite Etabsx.
     admit. admit. admit. (* fix using above, this is impossible *)
   
   - (* Table_init *)
@@ -1134,13 +1215,16 @@ Proof.
           ++ admit. (* fix using above, this is impossible *)
       * exists s, f, [:: AI_trap], hs.
         apply r_table_init_bound with (tab := t) (elem := e) => //=.
-        left. admit. (* not <= to > *)
+        left. move/negP in Eelems. move/negP in Eelems.
+        rewrite -ltnNge in Eelems. by rewrite Eelems.
       * exists s, f, [:: AI_trap], hs.
         apply r_table_init_bound with (tab := t) (elem := e) => //=.
-        right. admit. (* not <= to > *)
+        right. move/negP in Etabs. move/negP in Etabs.
+        rewrite -ltnNge in Etabs. by rewrite Etabs.
       * exists s, f, [:: AI_trap], hs.
         apply r_table_init_bound with (tab := t) (elem := e) => //=.
-        (* any *) right. admit. (* not <= to > *)
+        right. move/negP in Etabs. move/negP in Etabs.
+        rewrite -ltnNge in Etabs. by rewrite Etabs.
     + admit. admit. admit. (* fix using above, this is impossible *)
   
   - (* Elem_drop *)
@@ -1248,7 +1332,8 @@ Proof.
           admit. admit.
       * exists s, f, [:: AI_trap], hs.
         apply r_memory_fill_bound with (mem := mem) => //=.
-        admit. (* not <= to > *)
+        move/negP in Etabs. move/negP in Etabs.
+        rewrite -ltnNge in Etabs. by rewrite Etabs.
     + admit. (* fix using above, this is impossible *)
 
   - (* Memory_copy *)
@@ -1288,18 +1373,22 @@ Proof.
               $VAN VAL_int32 s0; $VAN VAL_int32 s1; $VAN VAL_int32 s2';
               AI_basic BI_memory_copy], hs.
             apply r_memory_copy_backward with (mem := mem) => //=.
-            admit. (* not <= to > *)
+            move/negP in Emode. move/negP in Emode.
+            rewrite -ltnNge in Emode. by rewrite Emode.
             (* obtain s0', s1' and s2' legitimately *)
             admit. admit. admit.
       * exists s, f, [:: AI_trap], hs.
         apply r_memory_copy_bound with (mem := mem) => //=.
-        left. admit. (* not <= to > *)
+        left. move/negP in Ememss. move/negP in Ememss.
+        rewrite -ltnNge in Ememss. by rewrite Ememss.
       * exists s, f, [:: AI_trap], hs.
         apply r_memory_copy_bound with (mem := mem) => //=.
-        right. admit. (* not <= to > *)
+        right. move/negP in Ememsd. move/negP in Ememsd.
+        rewrite -ltnNge in Ememsd. by rewrite Ememsd.
       * exists s, f, [:: AI_trap], hs.
         apply r_memory_copy_bound with (mem := mem)=> //=.
-        (* any *) right. admit. (* not <= to > *)
+        right. move/negP in Ememsd. move/negP in Ememsd.
+        rewrite -ltnNge in Ememsd. by rewrite Ememsd.
     admit. (* fix using above, this is impossible *)
 
   - (* Memory_init *)
@@ -1331,13 +1420,16 @@ Proof.
           ++ admit. (* fix using above, this is impossible *)
       * exists s, f, [:: AI_trap], hs.
         apply r_memory_init_bound with (mem := mem) (data := data) => //=.
-        left. admit. (* not <= to > *)
+        left. move/negP in Eelems. move/negP in Eelems.
+        rewrite -ltnNge in Eelems. by rewrite Eelems.
       * exists s, f, [:: AI_trap], hs.
         apply r_memory_init_bound with (mem := mem) (data := data) => //=.
-        right. admit. (* not <= to > *)
+        right. move/negP in Etabs. move/negP in Etabs.
+        rewrite -ltnNge in Etabs. by rewrite Etabs.
       * exists s, f, [:: AI_trap], hs.
         apply r_memory_init_bound with (mem := mem) (data := data) => //=.
-        (* any *) right. admit. (* not <= to > *)
+        right. move/negP in Etabs. move/negP in Etabs.
+        rewrite -ltnNge in Etabs. by rewrite Etabs.
     + admit. admit. admit. (* fix using above, this is impossible *)
   
   - (* Data_drop *)
@@ -1492,11 +1584,12 @@ Lemma br_reduce_label_length: forall n k lh es s C ts2,
     e_typing s C es (Tf [::] ts2) ->
     length (tc_label C) > k.
 Proof.
-  move => n k lh es s C ts2 HLF.
-  generalize dependent ts2. generalize dependent C.
-  generalize dependent s.
-  generalize dependent k.
-  induction lh => //; move => k' HLF s C ts2 HType;
+  move => n k.
+  generalize dependent k;
+  induction n; dependent destruction lh => //;
+  [| replace (nat_of_bin (bin_of_nat n.+1)) with (n.+1);
+      last by symmetry; apply bin_of_natK ];
+  move => es s C ts2 HLF HType;
   unfold lfilled in HLF; simpl in HLF; move/eqP in HLF; subst es;
   rewrite -cat1s in HType; invert_e_typing;
   destruct ts => //=; destruct t1s => //=; clear H1.
@@ -1505,35 +1598,21 @@ Proof.
     simpl in H5. eapply Break_typing in H5; eauto.
     destruct H5 as [ts [ts2 [H7 [H8 H9]]]].
     unfold lookup_N in H8.
-    assert (List.nth_error (tc_label C) (N.to_nat (bin_of_nat k')) <> None);
+    assert (List.nth_error (tc_label C) (N.to_nat (bin_of_nat k)) <> None);
     first by rewrite H8.
     apply/ltP.
     rewrite nat_of_bin_is_N_to_nat in H8 => //=.
-    replace (nat_of_bin (bin_of_nat k')) with (k') in H8;
+    replace (nat_of_bin (bin_of_nat k)) with (k) in H8;
       last by symmetry; rewrite bin_of_natK.
     apply List.nth_error_Some. by rewrite H8.
-  - 
-    (* remember (lfill lh [:: AI_basic (BI_br (N.pos
-              (pos_of_nat (k0 + k)%Nrec (k0 + k)%Nrec)))]) as es.
-    symmetry in Heqes. move/eqP in Heqes. unfold lfilled in IHlh. *)
-    (* assert (const_list (v_to_e_list l)).
-      unfold const_list, is_const. apply List.forallb_forall. intros.
-      unfold v_to_e_list, v_to_e in H. apply List.in_map_iff in H.
-      destruct H as [? []]. rewrite -H. destruct x0, v => //=.
-    apply const_list_typing in H3. simpl in H3. subst => //=.
-    apply Label_typing in H4. *)
-    (* unfold lfilled in IHlh. simpl in IHlh. *)
-    assert (Inf : k'+1 < length (tc_label (upd_label C ([::ts1] ++ tc_label C)))).
-    { eapply IHlh; eauto. (**) apply/eqP.
-      replace (N.pos (pos_of_nat (k + k')%Nrec (k + k')%Nrec))
-         with (bin_of_nat (k.+1 + k')) in *; eauto.
-      rewrite addn1 -addSnnS.
-      (* used to match (@lfilled k)'s es with (@lfilled k+1)'s es *)
-      admit. admit.
-      (* repeat (f_equal; try by lias). *)
-    }
+  - replace (N.pos (pos_of_nat (n + k)%Nrec (n + k)%Nrec))
+      with (bin_of_nat (n.+1 + k)) in * => //.
+    
+    assert (Inf : k+1 < length (tc_label (upd_label C ([::ts1] ++ tc_label C))));
+      first by eapply IHn with (lh := lh); eauto;
+      rewrite addSnnS addn1; unfold lfilled.
     simpl in Inf. by lias.
-(* Qed. *) Admitted.
+Qed.
 
 Lemma return_reduce_return_some: forall n lh es s C ts2,
     @lfilled n lh [::AI_basic BI_return] es ->
@@ -1568,15 +1647,15 @@ Lemma br_reduce_extract_vs: forall n k lh es s C ts ts2,
       @lfilled (nat_of_bin (bin_of_nat n)) lh' (vs ++ [::AI_basic (BI_br (bin_of_nat (n + k)))]) es /\
       length vs = length ts.
 Proof.
-  move => n k lh es s C ts ts2 HLF.
-  (* move/lfilledP in HLF. *)
-  generalize dependent ts2. generalize dependent ts.
-  generalize dependent C. generalize dependent s.
-  generalize dependent k.
-  dependent induction lh => //; move => k' HLF s C ts ts2 HType HN;
+  move => n k.
+  generalize dependent k;
+  induction n; dependent destruction lh => //;
+  [| replace (nat_of_bin (bin_of_nat n.+1)) with (n.+1);
+      last by symmetry; apply bin_of_natK ];
+  move => es s C ts ts2 HLF HType HN;
   unfold lfilled in HLF; simpl in HLF; move/eqP in HLF; subst es;
   rewrite -cat1s in HType; invert_e_typing;
-  destruct ts0 => //=; destruct t1s => //=; clear H1.
+  destruct ts0 => //; destruct t1s => //; clear H1.
   (* dependent induction HLF; subst; move => s C ts2 ts HType HN. *)
   - rewrite add0n in H5.
     apply et_to_bet in H5; auto_basic.
@@ -1586,7 +1665,7 @@ Proof.
     (* unfold plop2 in H8. move/eqP in H8. *)
     unfold lookup_N in H8.
     rewrite nat_of_bin_is_N_to_nat in H8 => //=.
-    replace (nat_of_bin (bin_of_nat k')) with (k') in H8;
+    replace (nat_of_bin (bin_of_nat k)) with (k) in H8;
       last by symmetry; rewrite bin_of_natK.
     rewrite HN in H8. inversion H8. subst. clear H8.
     assert (const_list (v_to_e_list l)). {
@@ -1610,42 +1689,28 @@ Proof.
     + by apply v_to_e_is_const_list.
     + (* apply/lfilledP. *)
       rewrite -v_to_e_cat. rewrite -catA.
-      rewrite -(cat1s (AI_basic (BI_br (bin_of_nat (0 + k')))) l0).
+      rewrite -(cat1s (AI_basic (BI_br (bin_of_nat (0 + k)))) l0).
       rewrite cat_abcd_a_bc_d. unfold lfilled. apply/eqP. simpl.
       f_equal.
     + rewrite H1. unfold v_to_e_list, vs_to_vts.
       repeat rewrite length_is_size. rewrite -map_drop.
       repeat rewrite size_map => //=.
-  - replace (N.pos (pos_of_nat (k + k')%Nrec (k + k')%Nrec))
-       with (bin_of_nat (k.+1 + k')) in * => //.
-    edestruct IHlh with (k0 := k'.+1); eauto;
-      first by rewrite addSnnS; unfold lfilled.
-    replace (nat_of_bin (bin_of_nat k)) with k in H;
+  - replace (N.pos (pos_of_nat (n + k)%Nrec (n + k)%Nrec))
+       with (bin_of_nat (n.+1 + k)) in * => //.
+    edestruct IHn with (k := k.+1) (lh := lh); eauto;
+      first by rewrite addnS addSn; unfold lfilled.
+    replace (nat_of_bin (bin_of_nat n)) with n in H;
       last by symmetry; apply bin_of_natK.
     destruct H as [lh2 [HConst [HLF2 HLength]]].
-    repeat eexists. repeat split => //; eauto. 2: apply HLength.
-    unfold lfilled in HLF2. unfold lfilled.
-    rewrite -addSnnS in HLF2.
-
-    (* instantiate (1 := lh2). *)
-    (* doesn't match with expected type -> used like lh(k+1) *)
-    (* used to match (@lfilled k)'s es with (@lfilled k+1)'s es *)
-
-    (* replace (v_to_e_list l ++ AI_label (length ts2) l0
-            (lfill lh [:: AI_basic (BI_br (bin_of_nat (k.+1 + k')))]) :: l1)
-       with (lfill (LH_rec l (length ts2) l0 lh l1)
-              [:: AI_basic (BI_br (bin_of_nat (k.+1 + k')))]) => //.
-    instantiate (1 := (LH_rec l (length ts2) l0 lh l1)). *)
-    (* doesn't match with expected type -> defined as lh(k) *)
-    (* es would still have a leading "x ++" *)
-    (* perhaps use HLF2 to remove that? *)
-
-    admit.
-    (* move/lfilledP in HLF2. apply/lfilledP. *)
-    (* instantiate (1 := (LH_rec vs (length ts2) es' lh2 es'')).
-    apply LfilledRec => //.
-    by apply HLength. *)
-(* Qed. *) Admitted.
+    exists x, (LH_rec l (length ts2) l0 lh2 l1).
+    (* LH_rec _ vs n es' lh' les' =>
+        (v_to_e_list vs ++ [:: AI_label n es' (lfill lh' es)] ++ les') *)
+    repeat split => //. unfold lfilled in * => //.
+    move/eqP in HLF2. rewrite -addSnnS in HLF2. simpl.
+    replace (N.pos (pos_of_nat (n + k)%Nrec (n + k)%Nrec))
+       with (bin_of_nat (n.+1 + k)) in * => //.
+    by rewrite HLF2.
+Qed.
 
 Lemma return_reduce_extract_vs: forall n lh es s C ts ts2,
     @lfilled n lh [::AI_basic BI_return] es ->
@@ -1655,15 +1720,13 @@ Lemma return_reduce_extract_vs: forall n lh es s C ts ts2,
       @lfilled (nat_of_bin (bin_of_nat n)) lh' (vs ++ [::AI_basic BI_return]) es /\
       length vs = length ts.
 Proof.
-  move => n lh es s C ts ts2 HLF.
-  (* move/lfilledP in HLF. *)
-  generalize dependent ts2. generalize dependent ts.
-  generalize dependent C. generalize dependent s.
-  (* generalize dependent k. *)
-  dependent induction lh => //=; move => s C ts ts2 HType HN;
+  dependent induction lh => //;
+  [| replace (nat_of_bin (bin_of_nat k.+1)) with (k.+1);
+      last by symmetry; apply bin_of_natK ];
+  move => es s C ts ts2 HLF HType HN;
   unfold lfilled in HLF; simpl in HLF; move/eqP in HLF; subst es;
   rewrite -cat1s in HType; invert_e_typing;
-  destruct ts0 => //=; destruct t1s => //=; clear H1.
+  destruct ts0 => //; destruct t1s => //; clear H1.
   - apply et_to_bet in H5; auto_basic.
     simpl in H5.
     eapply Return_typing in H5; eauto.
@@ -1688,38 +1751,21 @@ Proof.
           (LH_base (take (size (ts1 ++ ts2')) l) l0).
     repeat split.
     + by apply v_to_e_is_const_list.
-    + (* apply/lfilledP. *)
-      rewrite -v_to_e_cat. rewrite -catA.
+    + rewrite -v_to_e_cat. rewrite -catA.
       rewrite -(cat1s (AI_basic (BI_return)) l0).
       rewrite cat_abcd_a_bc_d. unfold lfilled. apply/eqP. simpl.
       f_equal.
     + rewrite H1. unfold v_to_e_list, vs_to_vts.
       repeat rewrite length_is_size. rewrite -map_drop.
       repeat rewrite size_map => //=.
-  - edestruct IHlh; eauto; first by unfold lfilled.
+  - replace (nat_of_bin (bin_of_nat k)) with (k) in IHlh;
+      last by symmetry; apply bin_of_natK.
+    edestruct IHlh; eauto; first by unfold lfilled.
     destruct H as [lh2 [HConst [HLF2 HLength]]].
-    repeat eexists. repeat split => //; eauto. 2: apply HLength.
-    unfold lfilled in HLF2. unfold lfilled.
-
-    (* similar to the above *)
-    (* instantiate (1 := lh2). *)
-    (* doesn't match with expected type -> used like lh(k+1) *)
-    (* used to match (@lfilled k)'s es with (@lfilled k+1)'s es *)
-
-    (* replace (v_to_e_list l ++ AI_label (length ts2) l0
-            (lfill lh [:: AI_basic BI_return]) :: l1)
-       with (lfill (LH_rec l (length ts2) l0 lh l1)
-              [:: AI_basic BI_return]) => //.
-    instantiate (1 := (LH_rec l (length ts2) l0 lh l1)). *)
-    (* doesn't match with expected type -> defined as lh(k) *)
-    (* es would still have a leading "x ++" *)
-    (* perhaps use HLF2 to remove that? *)
-
-    admit.
-    (* instantiate (1 := (LH_rec vs (length ts2) es' lh2 es'')).
-    apply LfilledRec => //.
-    by apply HLength. *)
-(* Qed. *) Admitted.
+    exists x, (LH_rec l (length ts2) l0 lh2 l1).
+    repeat split => //=. unfold lfilled in * => //.
+    move/eqP in HLF2. simpl. by rewrite HLF2.
+Qed.
 
 Lemma le_add: forall n m,
     n <= m ->

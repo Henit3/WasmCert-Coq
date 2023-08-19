@@ -871,6 +871,24 @@ Proof.
     eapply IHn; by eauto.
 Qed.
 
+Lemma all2_func_projection: forall l1 l2 n x1 x2,
+    all2 (@func_extension host_function) l1 l2 ->
+    x1 == x2 ->
+    List.nth_error l1 n = Some x1 ->
+    List.nth_error l2 n = Some x2.
+Proof.
+  move => l1 l2 n.
+  move: l2 l1.
+  induction n => //=; move => l2 l1 x1 x2 HALL HN1 HN2.
+  - destruct l1 => //=. destruct l2 => //=.
+    move/eqP in HN1. inversion HN2. subst.
+    move/andP in HALL. destruct HALL.
+    unfold func_extension in H. move/eqP in H. subst => //=.
+  - destruct l1 => //=. destruct l2 => //=.
+    simpl in HALL. move/andP in HALL. destruct HALL.
+    eapply IHn; by eauto.
+Qed.
+
 Definition function {X Y:Type} (f: X -> Y -> Prop) : Prop :=
   forall x y1 y2, ((f x y1 /\ f x y2) -> y1 = y2).
 

@@ -1467,6 +1467,7 @@ Proof.
   f_equal. by rewrite catA.
 Qed.
 
+(*
 Lemma lfilled_case_test1: forall {k: nat} (lh: lholed k),
   exists es, lfilled lh [::] es.
 Proof.
@@ -1484,8 +1485,7 @@ Proof.
   induction k; dependent destruction lh;
   by unfold lfilled; eexists; apply/eqP.
 Qed.
-
-
+*)
 
 Lemma br_reduce_label_length: forall n k lh es s C ts2,
     @lfilled n lh [::AI_basic (BI_br (bin_of_nat (n + k)))] es ->
@@ -1508,7 +1508,7 @@ Proof.
     assert (List.nth_error (tc_label C) (N.to_nat (bin_of_nat k')) <> None);
     first by rewrite H8.
     apply/ltP.
-    rewrite (@nat_of_bin_is_N_to_nat host_function _) in H8 => //=.
+    rewrite nat_of_bin_is_N_to_nat in H8 => //=.
     replace (nat_of_bin (bin_of_nat k')) with (k') in H8;
       last by symmetry; rewrite bin_of_natK.
     apply List.nth_error_Some. by rewrite H8.
@@ -1585,7 +1585,7 @@ Proof.
     destruct H5 as [ts3 [ts3' [H7 [H8 H9]]]]. subst.
     (* unfold plop2 in H8. move/eqP in H8. *)
     unfold lookup_N in H8.
-    rewrite (@nat_of_bin_is_N_to_nat host_function _) in H8 => //=.
+    rewrite nat_of_bin_is_N_to_nat in H8 => //=.
     replace (nat_of_bin (bin_of_nat k')) with (k') in H8;
       last by symmetry; rewrite bin_of_natK.
     rewrite HN in H8. inversion H8. subst. clear H8.
@@ -1846,7 +1846,7 @@ Proof.
       repeat eexists. by apply HType.
     + unfold not_lf_br. move => k lh HContra.
       remember (N.to_nat k) as k'. assert (bin_of_nat k' = k);
-        first by rewrite Heqk' (@nat_of_bin_is_N_to_nat host_function _) => //;
+        first by rewrite Heqk' nat_of_bin_is_N_to_nat => //;
         apply nat_of_binK.
       rewrite -H in HContra. apply HBI_brDepth in HContra => //=.
 

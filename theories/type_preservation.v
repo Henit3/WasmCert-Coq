@@ -3102,11 +3102,7 @@ Lemma inst_t_context_local_empty: forall s i C,
     tc_local C = [::].
 Proof.
   move => s i C HInstType.
-  unfold inst_typing in HInstType.
-  destruct i => //=.
-  destruct C => //=.
-  destruct tc_elem; destruct tc_data;
-  destruct tc_local => //=.
+  destruct i, C, tc_elem, tc_data, tc_local => //=.
 Qed.
 
 Lemma inst_t_context_label_empty: forall s i C,
@@ -3114,15 +3110,218 @@ Lemma inst_t_context_label_empty: forall s i C,
     tc_label C = [::].
 Proof.
   move => s i C HInstType.
-  unfold inst_typing in HInstType.
-  destruct i => //=.
-  destruct C => //=.
-  destruct tc_elem; destruct tc_data;
-  destruct tc_local; destruct tc_label => //=.
+  destruct i, C, tc_elem, tc_data, tc_local, tc_label => //=.
 Qed.
 
 
-(* use this to resolve ety_ref and other relational problems? *)
+Lemma inst_index_get_contextval_mem: forall s i j C a,
+  inst_typing s i C ->
+  List.nth_error i.(inst_mems) j = Some a ->
+  exists x, List.nth_error C.(tc_memory) j = Some x.
+Proof.
+  move => s i j C a HIT HNth.
+  destruct s, i, C, tc_elem, tc_data, tc_local,
+          tc_label, tc_return, tc_ref => //=;
+  unfold inst_typing, typing.inst_typing in * => //=;
+  remove_bools_options; simpl in * => //=.
+
+  rewrite all2E in H0. remove_bools_options.
+  assert (List.nth_error inst_mems j <> None);
+    first by rewrite HNth.
+  apply List.nth_error_Some in H5.
+  repeat rewrite -length_is_size in H0.
+  rewrite H0 in H5.
+  apply List.nth_error_Some in H5.
+  destruct (List.nth_error tc_memory j) => //=; eauto.
+Qed.
+Lemma inst_index_get_instval_mem: forall s i j C x,
+  inst_typing s i C ->
+  List.nth_error C.(tc_memory) j = Some x ->
+  exists a, List.nth_error i.(inst_mems) j = Some a.
+Proof.
+  move => s i j C x HIT HNth.
+  destruct s, i, C, tc_elem, tc_data, tc_local,
+          tc_label, tc_return, tc_ref => //=;
+  unfold inst_typing, typing.inst_typing in * => //=;
+  remove_bools_options; simpl in * => //=.
+
+  rewrite all2E in H0. remove_bools_options.
+  assert (List.nth_error tc_memory j <> None);
+    first by rewrite HNth.
+  apply List.nth_error_Some in H5.
+  repeat rewrite -length_is_size in H0.
+  rewrite -H0 in H5.
+  apply List.nth_error_Some in H5.
+  destruct (List.nth_error inst_mems j) => //=; eauto.
+Qed.
+Lemma inst_typing_mem: forall s i j C a x,
+  inst_typing s i C ->
+  List.nth_error i.(inst_mems) j = Some a ->
+  List.nth_error C.(tc_memory) j = Some x ->
+  exists cl, List.nth_error s.(s_mems) (N.to_nat a) = Some cl.
+Proof.
+  move => s i j C a x HIT HNth1 HNth2.
+  destruct s, i, C, tc_elem, tc_data, tc_local,
+          tc_label, tc_return, tc_ref => //=;
+  unfold inst_typing, typing.inst_typing in * => //=;
+  remove_bools_options; simpl in * => //=.
+  unfold memi_agree, lookup_N in H0.
+  eapply all2_projection in H0; eauto.
+  by remove_bools_options; eauto.
+Qed.
+
+Lemma inst_index_get_contextval_tab: forall s i j C a,
+  inst_typing s i C ->
+  List.nth_error i.(inst_tables) j = Some a ->
+  exists x, List.nth_error C.(tc_table) j = Some x.
+Proof.
+  move => s i j C a HIT HNth.
+  destruct s, i, C, tc_elem, tc_data, tc_local,
+          tc_label, tc_return, tc_ref => //=;
+  unfold inst_typing, typing.inst_typing in * => //=;
+  remove_bools_options; simpl in * => //=.
+
+  rewrite all2E in H1. remove_bools_options.
+  assert (List.nth_error inst_tables j <> None);
+    first by rewrite HNth.
+  apply List.nth_error_Some in H5.
+  repeat rewrite -length_is_size in H1.
+  rewrite H1 in H5.
+  apply List.nth_error_Some in H5.
+  destruct (List.nth_error tc_table j) => //=; eauto.
+Qed.
+Lemma inst_index_get_instval_tab: forall s i j C x,
+  inst_typing s i C ->
+  List.nth_error C.(tc_table) j = Some x ->
+  exists a, List.nth_error i.(inst_tables) j = Some a.
+Proof.
+  move => s i j C x HIT HNth.
+  destruct s, i, C, tc_elem, tc_data, tc_local,
+          tc_label, tc_return, tc_ref => //=;
+  unfold inst_typing, typing.inst_typing in * => //=;
+  remove_bools_options; simpl in * => //=.
+
+  rewrite all2E in H1. remove_bools_options.
+  assert (List.nth_error tc_table j <> None);
+    first by rewrite HNth.
+  apply List.nth_error_Some in H5.
+  repeat rewrite -length_is_size in H1.
+  rewrite -H1 in H5.
+  apply List.nth_error_Some in H5.
+  destruct (List.nth_error inst_tables j) => //=; eauto.
+Qed.
+Lemma inst_typing_tab: forall s i j C a x,
+  inst_typing s i C ->
+  List.nth_error i.(inst_tables) j = Some a ->
+  List.nth_error C.(tc_table) j = Some x ->
+  exists cl, List.nth_error s.(s_tables) (N.to_nat a) = Some cl.
+Proof.
+  move => s i j C a x HIT HNth1 HNth2.
+  destruct s, i, C, tc_elem, tc_data, tc_local,
+          tc_label, tc_return, tc_ref => //=;
+  unfold inst_typing, typing.inst_typing in * => //=;
+  remove_bools_options; simpl in * => //=.
+  unfold tabi_agree, lookup_N in H1.
+  eapply all2_projection in H1; eauto.
+  by remove_bools_options; eauto.
+Qed.
+
+Lemma inst_index_get_contextval_global: forall s i j C a,
+  inst_typing s i C ->
+  List.nth_error i.(inst_globals) j = Some a ->
+  exists x, List.nth_error C.(tc_global) j = Some x.
+Proof.
+  move => s i j C a HIT HNth.
+  destruct s, i, C, tc_elem, tc_data, tc_local,
+          tc_label, tc_return, tc_ref => //=;
+  unfold inst_typing, typing.inst_typing in * => //=;
+  remove_bools_options; simpl in * => //=.
+
+  rewrite all2E in H2. remove_bools_options.
+  assert (List.nth_error inst_globals j <> None);
+    first by rewrite HNth.
+  apply List.nth_error_Some in H5.
+  repeat rewrite -length_is_size in H2.
+  rewrite H2 in H5.
+  apply List.nth_error_Some in H5.
+  destruct (List.nth_error tc_global j) => //=; eauto.
+Qed.
+Lemma inst_index_get_instval_global: forall s i j C x,
+  inst_typing s i C ->
+  List.nth_error C.(tc_global) j = Some x ->
+  exists a, List.nth_error i.(inst_globals) j = Some a.
+Proof.
+  move => s i j C x HIT HNth.
+  destruct s, i, C, tc_elem, tc_data, tc_local,
+          tc_label, tc_return, tc_ref => //=;
+  unfold inst_typing, typing.inst_typing in * => //=;
+  remove_bools_options; simpl in * => //=.
+
+  rewrite all2E in H2. remove_bools_options.
+  assert (List.nth_error tc_global j <> None);
+    first by rewrite HNth.
+  apply List.nth_error_Some in H5.
+  repeat rewrite -length_is_size in H2.
+  rewrite -H2 in H5.
+  apply List.nth_error_Some in H5.
+  destruct (List.nth_error inst_globals j) => //=; eauto.
+Qed.
+Lemma inst_typing_global: forall s i j C a x,
+  inst_typing s i C ->
+  List.nth_error i.(inst_globals) j = Some a ->
+  List.nth_error C.(tc_global) j = Some x ->
+  exists cl, List.nth_error s.(s_globals) (N.to_nat a) = Some cl.
+Proof.
+  move => s i j C a x HIT HNth1 HNth2.
+  destruct s, i, C, tc_elem, tc_data, tc_local,
+          tc_label, tc_return, tc_ref => //=;
+  unfold inst_typing, typing.inst_typing in * => //=;
+  remove_bools_options; simpl in * => //=.
+  unfold globali_agree, lookup_N in H2.
+  eapply all2_projection in H2; eauto.
+  by remove_bools_options; eauto.
+Qed.
+
+Lemma inst_index_get_contextval_func: forall s i j C a,
+  inst_typing s i C ->
+  List.nth_error i.(inst_funcs) j = Some a ->
+  exists x, List.nth_error C.(tc_func) j = Some x.
+Proof.
+  move => s i j C a HIT HNth.
+  destruct s, i, C, tc_elem, tc_data, tc_local,
+          tc_label, tc_return, tc_ref => //=;
+  unfold inst_typing, typing.inst_typing in * => //=;
+  remove_bools_options; simpl in * => //=.
+
+  rewrite all2E in H3. remove_bools_options.
+  assert (List.nth_error inst_funcs j <> None);
+    first by rewrite HNth.
+  apply List.nth_error_Some in H5.
+  repeat rewrite -length_is_size in H3.
+  rewrite H3 in H5.
+  apply List.nth_error_Some in H5.
+  destruct (List.nth_error tc_func j) => //=; eauto.
+Qed.
+Lemma inst_index_get_instval_func: forall s i j C x,
+  inst_typing s i C ->
+  List.nth_error C.(tc_func) j = Some x ->
+  exists a, List.nth_error i.(inst_funcs) j = Some a.
+Proof.
+  move => s i j C x HIT HNth.
+  destruct s, i, C, tc_elem, tc_data, tc_local,
+          tc_label, tc_return, tc_ref => //=;
+  unfold inst_typing, typing.inst_typing in * => //=;
+  remove_bools_options; simpl in * => //=.
+
+  rewrite all2E in H3. remove_bools_options.
+  assert (List.nth_error tc_func j <> None);
+    first by rewrite HNth.
+  apply List.nth_error_Some in H5.
+  repeat rewrite -length_is_size in H3.
+  rewrite -H3 in H5.
+  apply List.nth_error_Some in H5.
+  destruct (List.nth_error inst_funcs j) => //=; eauto.
+Qed.
 Lemma inst_typing_func: forall s i j C a x,
   inst_typing s i C ->
   List.nth_error i.(inst_funcs) j = Some a ->
@@ -3130,38 +3329,16 @@ Lemma inst_typing_func: forall s i j C a x,
   exists cl, List.nth_error s.(s_funcs) (N.to_nat a) = Some cl.
 Proof.
   move => s i j C a x HIT HNth1 HNth2.
-  destruct s; destruct i; destruct C.
-  inversion HIT.
-  destruct tc_elem; destruct tc_data;
-  destruct tc_local; destruct tc_label; destruct tc_return;
-  destruct tc_ref => //=;
+  destruct s, i, C, tc_elem, tc_data, tc_local,
+          tc_label, tc_return, tc_ref => //=;
   unfold inst_typing, typing.inst_typing in * => //=;
   remove_bools_options; simpl in * => //=.
-  remove_bools_options.
-  unfold funci_agree, lookup_N in H8.
-  eapply all2_projection in H8; eauto. move/eqP in H8.
-  remove_bools_options; eauto.
+  unfold funci_agree, lookup_N in H3.
+  eapply all2_projection in H3; eauto.
+  by remove_bools_options; eauto.
 Qed.
 
-Lemma inst_typing_tab_ttype: forall s i x C a ttype tab,
-  inst_typing s i C ->
-  List.nth_error i.(inst_tables) x = Some a ->
-  List.nth_error C.(tc_table) x = Some ttype ->
-  List.nth_error s.(s_tables) (N.to_nat a) = Some tab ->
-  tableinst_type tab = ttype.
-Proof.
-  move => s i x C a ttype tab HIT HILU HCLU HSLU.
-  destruct s, i, C, tc_elem, tc_data, tc_local, tc_label, tc_return, tc_ref => //=;
-  unfold inst_typing, typing.inst_typing in * => //=;
-  remove_bools_options; simpl in * => //=.
 
-  unfold tabi_agree in H1.
-  eapply all2_projection in H1; eauto. move/eqP in H1.
-  remove_bools_options; eauto.
-  unfold lookup_N in Hoption.
-  rewrite Hoption in HSLU. inversion HSLU. subst.
-  unfold tab_typing in H5. by remove_bools_options.
-Qed.
 
 (* Need something similar for elem but lack definition in inst_typing
 Lemma store_typing_elemv_type: forall s i C x y j a ttype elem elemv,
@@ -3191,16 +3368,38 @@ List.nth_error (tableinst_elem tab) (Z.to_N (Wasm_int.Int32.unsigned ?j)) =
 *)
 *)
 
+Lemma inst_typing_tab_ttype: forall s i x C a ttype tab,
+  inst_typing s i C ->
+  List.nth_error i.(inst_tables) x = Some a ->
+  List.nth_error C.(tc_table) x = Some ttype ->
+  List.nth_error s.(s_tables) (N.to_nat a) = Some tab ->
+  tableinst_type tab = ttype.
+Proof.
+  move => s i x C a ttype tab HIT HILU HCLU HSLU.
+  destruct s, i, C, tc_elem, tc_data, tc_local,
+          tc_label, tc_return, tc_ref => //=;
+  unfold inst_typing, typing.inst_typing in * => //=;
+  remove_bools_options; simpl in * => //=.
+
+  unfold tabi_agree in H1.
+  eapply all2_projection in H1; eauto.
+  remove_bools_options; eauto.
+  unfold lookup_N in Hoption.
+  rewrite Hoption in HSLU. inversion HSLU. subst.
+  unfold tab_typing in H5. by remove_bools_options.
+Qed.
+
 Lemma store_typing_tabv_type: forall s i C x j a tab tabv,
   store_typing s ->
   inst_typing s i C ->
   List.nth_error i.(inst_tables) x = Some a ->
   List.nth_error s.(s_tables) (N.to_nat a) = Some tab ->
-  List.nth_error (tableinst_elem tab) (Z.to_N (Wasm_int.Int32.unsigned j)) = Some tabv ->
+  List.nth_error (tableinst_elem tab) (Z.to_nat (Wasm_int.Int32.unsigned j)) = Some tabv ->
   tt_elem_type (tableinst_type tab) = typeof_ref tabv.
 Proof.
   move => s i C x j a tab tabv HST HIT HILU HSLU HTLU.
-  destruct s, i, C, tc_elem, tc_data, tc_local, tc_label, tc_return, tc_ref => //=;
+  destruct s, i, C, tc_elem, tc_data,
+          tc_local, tc_label, tc_return, tc_ref => //=;
   unfold inst_typing, typing.inst_typing in * => //=;
   remove_bools_options; simpl in * => //=.
   destruct HST as [HSTf [HSTt HSTm]].
@@ -4659,7 +4858,7 @@ Proof.
     assert (store_extension s s') as Hext.
     {
       remove_bools_options.
-      destruct (Z.to_N (Wasm_int.Int32.unsigned i) <? tab_size t0) eqn:Etsize => //=.
+      destruct (Z.to_nat (Wasm_int.Int32.unsigned i) <? tab_size t0) eqn:Etsize => //=.
       remove_bools_options.
       repeat (apply/andP; split) => //=;
       try apply Nat.leb_refl; try (rewrite List.firstn_all).
@@ -4673,7 +4872,7 @@ Proof.
           tableinst_type := tableinst_type t0;
           tableinst_elem :=
             set_nth tabv (tableinst_elem t0)
-              (Z.to_N (Wasm_int.Int32.unsigned i)) tabv
+              (Z.to_nat (Wasm_int.Int32.unsigned i)) tabv
         |} as t'.
   
         assert (lookup_N (s_tables s) t <> None);
@@ -4693,7 +4892,7 @@ Proof.
         unfold table_extension. apply/andP. split; rewrite Heqt' => //=.
         unfold tab_size. repeat rewrite length_is_size. simpl.
         rewrite size_set_nth. unfold maxn.
-        destruct ((Z.to_N (Wasm_int.Int32.unsigned i)).+1 < size (tableinst_elem t0)) eqn:Emax;
+        destruct ((Z.to_nat (Wasm_int.Int32.unsigned i)).+1 < size (tableinst_elem t0)) eqn:Emax;
           symmetry; symmetry; rewrite Nat.leb_le; first by apply Nat.le_refl.
         move/negP in Emax. move/negP in Emax.
         rewrite -leqNgt in Emax. by apply/leP.
@@ -4710,7 +4909,7 @@ Proof.
     rewrite -> List.Forall_forall in HST2.
 
     repeat split => //=; remove_bools_options;
-    destruct (Z.to_N (Wasm_int.Int32.unsigned i) <? tab_size t0) eqn:Etsize => //=;
+    destruct (Z.to_nat (Wasm_int.Int32.unsigned i) <? tab_size t0) eqn:Etsize => //=;
     remove_bools_options => //=; eauto;
     try (
       rewrite -> List.Forall_forall; move => x' HIN;
@@ -4723,7 +4922,7 @@ Proof.
       tableinst_type := tableinst_type t0;
       tableinst_elem :=
         set_nth tabv (tableinst_elem t0)
-          (Z.to_N (Wasm_int.Int32.unsigned i)) tabv
+          (Z.to_nat (Wasm_int.Int32.unsigned i)) tabv
     |} as t'.
 
     (* unfold store_extension, operations.store_extension in Hext.
@@ -5312,7 +5511,6 @@ Proof.
     split_et_composition.
     invert_e_typing.
     convert_et_to_bet.
-    destruct tb => //=. admit. (* If_typing needed for bt_id *)
     apply If_typing in H6.
     destruct H6 as [ts' [t1s' [t2s' [Ht1s [Ht2s [Hes1 Hes2]]]]]].
     apply ety_weakening. simpl in *.
@@ -5455,13 +5653,6 @@ Proof.
   - (* Set_Global *)
     invert_e_typing. convert_et_to_bet. invert_be_typing.
     apply ety_a' => //. apply bet_weakening_empty_both. apply bet_empty.
-
-(*
-inst_typing s (f_inst f) C
-lookup_N (tc_table C) x = Some ttype
-stab_elem s (f_inst f) x (Wasm_int.N_of_uint i32m i) = Some tabv
-typeof_ref tabv = tt_elem_type ttype
-*)
 
   - (* Table Get *)
     convert_et_to_bet. invert_be_typing.

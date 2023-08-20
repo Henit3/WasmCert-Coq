@@ -506,7 +506,7 @@ Definition smem_ind (s : store_record) (i : instance) : option memaddr :=
 Definition smem (s: store_record) (inst: instance) : option meminst :=
   match inst.(inst_mems) with
   | nil => None
-  | cons k _ => List.nth_error s.(s_mems) k
+  | cons k _ => List.nth_error s.(s_mems) (N.to_nat k)
   end.
 
 

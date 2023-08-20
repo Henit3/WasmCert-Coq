@@ -373,7 +373,7 @@ Qed.
 *)
 
 Lemma lf_composition_left: forall cs es e0 n (lh : lholed n),
-    basic_const_list cs ->
+    const_list cs ->
     lfilled lh e0 es ->
     exists (lh' : lholed n), lfilled lh' e0 (cs ++ es).
 Proof.
@@ -483,8 +483,7 @@ Ltac split_et_composition:=
     destruct H as [ts [t1s [t2s [t3s [H1 [H2 [H3 H4]]]]]]]; subst
   end.
 
-(* Label_typing result from type_preservation; blocks progress here.
-
+(* different from type_preservation in current state *)
 Ltac invert_e_typing:=
   repeat lazymatch goal with
   | H: e_typing _ _ (_ ++ _) _ |- _ =>
@@ -632,6 +631,7 @@ Proof.
   - (* Unop *)
     right. invert_typeof_vcs.
     by destruct v => //=; solve_progress.
+
   - (* Binop *)
     right. invert_typeof_vcs.
     destruct v, v0 => //=.
@@ -2421,4 +2421,3 @@ Proof.
 Qed.
 
 End Host.
-

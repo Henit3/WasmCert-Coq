@@ -535,6 +535,65 @@ Ltac solve_progress_cont cont :=
 Ltac solve_progress :=
   solve_progress_cont ltac:(fail).
 
+
+(* For proving the numerics in init, copy, and fill instructions *)
+Lemma Int32_decrement: forall s s',
+  s' = Wasm_int.int_sub i32m s Wasm_int.Int32.one ->
+  Z.to_N (Wasm_int.Int32.unsigned s')
+    = (Z.to_N (Wasm_int.Int32.unsigned s) - 1)%N.
+Proof.
+  intros. rewrite H. simpl.
+  replace (Wasm_int.Int32.Z_mod_modulus
+          (Z.sub (Wasm_int.Int32.unsigned s) 1))
+     with (Z.sub (Wasm_int.Int32.unsigned s) 1) => //.
+  2: {
+    symmetry. eapply Wasm_int.Int32.Z_mod_modulus_id; eauto.
+    (* -1 < s1 - 1, since s1 <> 0 and s1 unsigned, so s1 > 0 *)
+    (* s1 - 1 < Int32.modulus, since s1 was valid (s1 < Int32.modulus) *)
+    admit.
+  }
+  rewrite Z2N.inj_sub => //.
+Admitted.
+Lemma Int32_increment: forall s s',
+  s' = Wasm_int.int_add i32m s Wasm_int.Int32.one ->
+  Z.to_N (Wasm_int.Int32.unsigned s')
+    = (Z.to_N (Wasm_int.Int32.unsigned s) + 1)%N.
+Proof.
+  intros. rewrite H. simpl.
+  replace (Wasm_int.Int32.Z_mod_modulus
+          (Z.add (Wasm_int.Int32.unsigned s) 1))
+     with (Z.add (Wasm_int.Int32.unsigned s) 1) => //.
+  2: {
+    symmetry. eapply Wasm_int.Int32.Z_mod_modulus_id; eauto.
+    (* -1 < s0 + 1, s0 unsigned, so s0 >= 0 *)
+    (* s0 + 1 < Int32.modulus, since s0 + s1 <= tab_size t,
+        (tab_size t < Int32.modulus)? *)
+    admit.
+  }
+  rewrite Z2N.inj_add => //. admit. (* 0 <= s0, s0 unsigned *)
+Admitted.
+Lemma Int32_add_decrement: forall s1 s2 s1',
+  s1' = Wasm_int.int_sub i32m
+        (Wasm_int.int_add i32m s1 s2) Wasm_int.Int32.one ->
+  Z.to_N (Wasm_int.Int32.unsigned s1') =
+    (Z.to_N (Wasm_int.Int32.unsigned s1) +
+    Z.to_N (Wasm_int.Int32.unsigned s2) - 1)%N.
+Proof.
+  intros. rewrite H. simpl.
+  remember (Z.add (Wasm_int.Int32.unsigned s1)
+            (Wasm_int.Int32.unsigned s2)) as s.
+  replace (Wasm_int.Int32.Z_mod_modulus s) with (s) => //.
+  2: {
+    rewrite Heqs. symmetry.
+    eapply Wasm_int.Int32.Z_mod_modulus_id; eauto.
+    (* -1 < s1 + s2, s1 and s2 unsigned, so s1 + s2 >= 0 *)
+    (* s1 + s2 < Int32.modulus, since s1 + s2 <= tab_size t,
+        (tab_size t < Int32.modulus)? *)
+    admit.
+  }
+Admitted.
+
+
 Lemma t_progress_be: forall C bes ts1 ts2 vcs lab ret s f hs,
     store_typing s ->
     inst_typing s f.(f_inst) C ->
@@ -1079,8 +1138,7 @@ Proof.
     + destruct (s1 == Wasm_int.int_zero i32m) eqn:En; move/eqP in En.
       * exists s, f, [::], hs.
         apply r_table_fill_return with (tab := t) => //=.
-      * 
-        (* destruct s0 eqn:Es0. destruct s1 eqn:Es1. simpl in *. unfold Wasm_int.int_zero in En. *)
+      * (* destruct s0 eqn:Es0. destruct s1 eqn:Es1. simpl in *. unfold Wasm_int.int_zero in En. *)
         remember (Wasm_int.int_add i32m s0 Wasm_int.Int32.one) as s0'.
         remember (Wasm_int.int_sub i32m s1 Wasm_int.Int32.one) as s1'.
         exists s, f, [:: $VAN VAL_int32 s0; v_to_e (VAL_ref v);
@@ -1088,33 +1146,8 @@ Proof.
             v_to_e (VAL_ref v); $VAN VAL_int32 s1';
             AI_basic (BI_table_fill x)], hs.
         apply r_table_fill_step with (tab := t) => //=.
-        (* coerce s0 and s1 to match *)
-        (* Set Printing All. *)
-
-        -- rewrite Heqs1'. simpl.
-          replace (Wasm_int.Int32.Z_mod_modulus
-                  (Z.sub (Wasm_int.Int32.unsigned s1) 1))
-            with (Z.sub (Wasm_int.Int32.unsigned s1) 1) => //.
-          2: {
-            symmetry. eapply Wasm_int.Int32.Z_mod_modulus_id; eauto.
-            (* -1 < s1 - 1, since s1 <> 0 and s1 unsigned, so s1 > 0 *)
-            (* s1 - 1 < Int32.modulus, since s1 was valid (s1 < Int32.modulus) *)
-            admit.
-          }
-          rewrite Z2N.inj_sub => //.
-        -- rewrite Heqs0'. simpl.
-          replace (Wasm_int.Int32.Z_mod_modulus
-                  (Z.add (Wasm_int.Int32.unsigned s0) 1))
-            with (Z.add (Wasm_int.Int32.unsigned s0) 1) => //.
-          2: {
-            symmetry. eapply Wasm_int.Int32.Z_mod_modulus_id; eauto.
-            (* -1 < s0 + 1, s0 unsigned, so s0 >= 0 *)
-            (* s0 + 1 < Int32.modulus, since s0 + s1 <= tab_size t,
-                (tab_size t < Int32.modulus)? *)
-            admit.
-          }
-          (* Search (Wasm_int.Int32.unsigned). *)
-          rewrite Z2N.inj_add => //. admit. (* 0 <= s0, s0 unsigned *)
+        -- apply Int32_decrement => //=.
+        -- apply Int32_increment => //=.
     + exists s, f, [:: AI_trap], hs.
       apply r_table_fill_bound with (tab := t) => //=.
       move/negP in Etabs. move/negP in Etabs.
@@ -1178,8 +1211,9 @@ Proof.
             AI_basic (BI_table_copy x y)], hs.
           apply r_table_copy_forward
             with (tabx := tx) (taby := ty) => //=.
-          (* obtain s0', s1' and s2' legitimately *)
-          admit. admit. admit.
+          ++ apply Int32_decrement => //=.
+          ++ apply Int32_increment => //=.
+          ++ apply Int32_increment => //=.
         -- (* backward *)
           remember (Wasm_int.int_sub i32m (Wasm_int.int_add i32m s0 s2)
                       Wasm_int.Int32.one) as s0'.
@@ -1194,8 +1228,9 @@ Proof.
             with (tabx := tx) (taby := ty) => //=.
           move/negP in Emode. move/negP in Emode.
           rewrite -ltnNge in Emode. by rewrite Emode.
-          (* obtain s0', s1' and s2' legitimately *)
-          admit. admit. admit.
+          ++ apply Int32_increment => //=.
+          ++ apply Int32_add_decrement => //=.
+          ++ apply Int32_add_decrement => //=.
     + exists s, f, [:: AI_trap], hs.
       apply r_table_copy_bound with (tabx := tx) (taby := ty) => //=.
       left. move/negP in Etabsy. move/negP in Etabsy.
@@ -1268,8 +1303,9 @@ Proof.
               $VAN VAL_int32 s1'; $VAN VAL_int32 s2';
               AI_basic (BI_table_init x y)], hs.
           apply r_table_init_step with (tab := t) (elem := e) => //=.
-          (* obtain s0', s1' and s2' legitimately *)
-          admit. admit. admit.
+          ++ apply Int32_decrement => //=.
+          ++ apply Int32_increment => //=.
+          ++ apply Int32_increment => //=.
         -- admit. (* fix using above, this is impossible *)
     + exists s, f, [:: AI_trap], hs.
       apply r_table_init_bound with (tab := t) (elem := e) => //=.
@@ -1408,11 +1444,11 @@ Proof.
         remember (Wasm_int.int_sub i32m s2 Wasm_int.Int32.one) as s2'.
         exists s, f, [:: $VAN VAL_int32 s0; $VAN VAL_int32 s1;
             AI_basic (BI_store T_i32 (Some Tp_i8) 0%N 0%N);
-            $VAN VAL_int32 s0; $VAN VAL_int32 s1; $VAN VAL_int32 s2';
+            $VAN VAL_int32 s0'; $VAN VAL_int32 s1; $VAN VAL_int32 s2';
             AI_basic BI_memory_fill], hs.
         apply r_memory_fill_step with (mem := mem) => //=.
-        (* obtain s0' and s2' legitimately *)
-        admit. admit.
+        -- apply Int32_decrement => //=.
+        -- apply Int32_increment => //=.
     + exists s, f, [:: AI_trap], hs.
       apply r_memory_fill_bound with (mem := mem) => //=.
       move/negP in Etabs. move/negP in Etabs.
@@ -1464,8 +1500,9 @@ Proof.
             $VAN VAL_int32 s0'; $VAN VAL_int32 s1'; $VAN VAL_int32 s2';
             AI_basic BI_memory_copy], hs.
           apply r_memory_copy_forward with (mem := mem) => //=.
-          (* obtain s0', s1' and s2' legitimately *)
-          admit. admit. admit.
+          ++ apply Int32_decrement => //=.
+          ++ apply Int32_increment => //=.
+          ++ apply Int32_increment => //=.
         -- (* backward *)
           remember (Wasm_int.int_sub i32m (Wasm_int.int_add i32m s0 s2)
                       Wasm_int.Int32.one) as s0'.
@@ -1480,8 +1517,9 @@ Proof.
           apply r_memory_copy_backward with (mem := mem) => //=.
           move/negP in Emode. move/negP in Emode.
           rewrite -ltnNge in Emode. by rewrite Emode.
-          (* obtain s0', s1' and s2' legitimately *)
-          admit. admit. admit.
+          ++ apply Int32_increment => //=.
+          ++ apply Int32_add_decrement => //=.
+          ++ apply Int32_add_decrement => //=.
     + exists s, f, [:: AI_trap], hs.
       apply r_memory_copy_bound with (mem := mem) => //=.
       left. move/negP in Ememss. move/negP in Ememss.
@@ -1561,8 +1599,9 @@ Proof.
               $VAN VAL_int32 s0'; $VAN VAL_int32 s1'; $VAN VAL_int32 s2';
               AI_basic (BI_memory_init x)], hs.
           apply r_memory_init_step with (mem := mem) (data := data) => //=.
-          (* obtain s0', s1' and s2' legitimately *)
-          admit. admit. admit.
+          ++ apply Int32_decrement => //=.
+          ++ apply Int32_increment => //=.
+          ++ apply Int32_increment => //=.
         -- admit. (* fix using above, this is impossible *)
     + exists s, f, [:: AI_trap], hs.
       apply r_memory_init_bound with (mem := mem) (data := data) => //=.

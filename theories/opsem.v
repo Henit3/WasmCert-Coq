@@ -82,33 +82,15 @@ to the spec *)
   reduce_simple [::AI_basic BI_nop] [::]
 | rs_drop :
   forall v,
-    reduce_simple [::$VAN v; AI_basic BI_drop] [::]
-| rs_select_none_false :
-  forall n v1 v2,
-    (forall v, typeof v1 <> T_ref v) ->
-    (forall v, typeof v2 <> T_ref v) ->
-    typeof v1 = typeof v2 ->
+    reduce_simple [:: v_to_e v; AI_basic BI_drop] [::]
+| rs_select_false :
+  forall n v1 v2 ot,
     n = Wasm_int.int_zero i32m ->
-    reduce_simple [:: v_to_e v1; v_to_e v2; $VAN (VAL_int32 n); AI_basic (BI_select None)] [:: v_to_e v2]
-| rs_select_none_true :
-  forall n v1 v2,
-    (forall v, typeof v1 <> T_ref v) ->
-    (forall v, typeof v2 <> T_ref v) ->
-    typeof v1 = typeof v2 ->
+    reduce_simple [:: v_to_e v1; v_to_e v2; $VAN (VAL_int32 n); AI_basic (BI_select ot)] [:: v_to_e v2]
+| rs_select_true :
+  forall n v1 v2 ot,
     n <> Wasm_int.int_zero i32m ->
-    reduce_simple [:: v_to_e v1; v_to_e v2; $VAN (VAL_int32 n); AI_basic (BI_select None)] [:: v_to_e v1]
-| rs_select_some_false :
-  forall n v1 v2 t,
-    typeof v1 = t ->
-    typeof v2 = t ->
-    n = Wasm_int.int_zero i32m ->
-    reduce_simple [:: v_to_e v1; v_to_e v2; $VAN (VAL_int32 n); AI_basic (BI_select (Some [::t]))] [:: v_to_e v2]
-| rs_select_some_true :
-  forall n v1 v2 t,
-    typeof v1 = t ->
-    typeof v2 = t ->
-    n <> Wasm_int.int_zero i32m ->
-    reduce_simple [:: v_to_e v1; v_to_e v2; $VAN (VAL_int32 n); AI_basic (BI_select (Some [::t]))] [:: v_to_e v1]
+    reduce_simple [:: v_to_e v1; v_to_e v2; $VAN (VAL_int32 n); AI_basic (BI_select ot)] [:: v_to_e v1]
 | rs_label_const :
   forall n es vs,
     const_list vs ->
@@ -117,7 +99,7 @@ to the spec *)
   forall n es,
     reduce_simple [::AI_label n es [::AI_trap]] [::AI_trap]
 | rs_br :
-  forall n vs es (i: labelidx) LI (lh: lholed (N.to_nat i)),
+  forall n vs es (i: labelidx) LI (lh: lholed (nat_of_bin i)),
     const_list vs ->
     length vs = n ->
     lfilled lh (vs ++ [::AI_basic (BI_br i)]) LI ->
@@ -148,12 +130,12 @@ to the spec *)
   forall n f,
     reduce_simple [::AI_local n f [::AI_trap]] [::AI_trap]
 | rs_return :
-  forall n (i: labelidx) vs es (lh: lholed (N.to_nat i)) f,
+  forall n (i: labelidx) vs es (lh: lholed (nat_of_bin i)) f,
     const_list vs ->
     length vs = n ->
     lfilled lh (vs ++ [::AI_basic BI_return]) es ->
     reduce_simple [::AI_local n f es] vs
-| rs_tee_local :
+| rs_local_tee :
   forall i v,
     is_const v ->
     reduce_simple [::v; AI_basic (BI_local_tee i)] [::v; v; AI_basic (BI_local_set i)]
@@ -295,55 +277,55 @@ Inductive reduce : host_state -> store_record -> frame -> list administrative_in
 (** table **)
 | r_table_get_success :
   forall x i tabv s f hs,
-    stab_elem s f.(f_inst) x (Wasm_int.N_of_uint i32m i) = Some tabv ->
+    stab_elem s f.(f_inst) x (Wasm_int.nat_of_uint i32m i) = Some tabv ->
     reduce hs s f [::$VAN (VAL_int32 i); AI_basic (BI_table_get x)] hs s f [::v_to_e (VAL_ref tabv)]
 | r_table_get_failure :
   forall x i s f hs,
-    stab_elem s f.(f_inst) x (Wasm_int.N_of_uint i32m i) = None ->
+    stab_elem s f.(f_inst) x (Wasm_int.nat_of_uint i32m i) = None ->
     reduce hs s f [::$VAN (VAL_int32 i); AI_basic (BI_table_get x)] hs s f [::AI_trap]
 | r_table_set_success :
   forall x i tabv s s' f hs,
-    stab_update s f.(f_inst) x (Wasm_int.N_of_uint i32m i) tabv = Some s' ->
+    stab_update s f.(f_inst) x (Wasm_int.nat_of_uint i32m i) tabv = Some s' ->
     reduce hs s f [::$VAN (VAL_int32 i); v_to_e (VAL_ref tabv); AI_basic (BI_table_set x)] hs s' f [::]
 | r_table_set_failure :
-  forall x i tabv s s' f hs,
-    stab_update s f.(f_inst) x (Wasm_int.N_of_uint i32m i) tabv = None ->
-    reduce hs s f [::$VAN (VAL_int32 i); v_to_e (VAL_ref tabv); AI_basic (BI_table_set x)] hs s' f [::]
+  forall x i tabv s f hs,
+    stab_update s f.(f_inst) x (Wasm_int.nat_of_uint i32m i) tabv = None ->
+    reduce hs s f [::$VAN (VAL_int32 i); v_to_e (VAL_ref tabv); AI_basic (BI_table_set x)] hs s f [::]
 | r_table_size :
-  forall x tab sz s s' f hs,
+  forall x tab sz s f hs,
     stab s f.(f_inst) x = Some tab ->
     tab_size tab = sz ->
-    reduce hs s f [:: AI_basic (BI_table_size x)] hs s' f [::$VAN (VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat sz)))]
+    reduce hs s f [:: AI_basic (BI_table_size x)] hs s f [::$VAN (VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat sz)))]
 | r_table_grow_success :
   forall x n tab sz tabinit s s' f hs,
     stab s f.(f_inst) x = Some tab ->
     tab_size tab = sz ->
     stab_grow s f.(f_inst) x (Wasm_int.N_of_uint i32m n) tabinit = Some s' ->
-    reduce hs s f [::v_to_e (VAL_ref tabinit); $VAN (VAL_int32 n); AI_basic (BI_table_set x)]
+    reduce hs s f [::v_to_e (VAL_ref tabinit); $VAN (VAL_int32 n); AI_basic (BI_table_grow x)]
       hs s' f [::$VAN (VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat sz)))]
 | r_table_grow_failure :
-  forall x n tab sz tabinit s s' f hs,
+  forall x n tab sz tabinit s f hs,
     stab s f.(f_inst) x = Some tab ->
     tab_size tab = sz ->
-    reduce hs s f [::v_to_e (VAL_ref tabinit); $VAN (VAL_int32 n); AI_basic (BI_table_set x)]
-      hs s' f [::$VAN (VAL_int32 int32_minus_one)]
+    reduce hs s f [::v_to_e (VAL_ref tabinit); $VAN (VAL_int32 n); AI_basic (BI_table_grow x)]
+      hs s f [::$VAN (VAL_int32 int32_minus_one)]
 | r_table_fill_bound :
-  forall x i n tab tabv s s' f hs,
+  forall x i n tab tabv s f hs,
     stab s f.(f_inst) x = Some tab ->
-    (Wasm_int.N_of_uint i32m i) + (Wasm_int.N_of_uint i32m n) > tab_size tab ->
+    (Wasm_int.nat_of_uint i32m i) + (Wasm_int.nat_of_uint i32m n) > tab_size tab ->
     reduce hs s f [::$VAN (VAL_int32 i); v_to_e (VAL_ref tabv); $VAN (VAL_int32 n); AI_basic (BI_table_fill x)]
-      hs s' f [::AI_trap]
+      hs s f [::AI_trap]
 | r_table_fill_return :
   forall x i n tab tabv s f hs,
     stab s f.(f_inst) x = Some tab ->
-    (Wasm_int.N_of_uint i32m i) + (Wasm_int.N_of_uint i32m n) <= tab_size tab ->
+    (Wasm_int.nat_of_uint i32m i) + (Wasm_int.nat_of_uint i32m n) <= tab_size tab ->
     n = Wasm_int.int_zero i32m ->
     reduce hs s f [::$VAN (VAL_int32 i); v_to_e (VAL_ref tabv); $VAN (VAL_int32 n); AI_basic (BI_table_fill x)]
       hs s f [::]
 | r_table_fill_step :
   forall x i n tab tabv n' i' s f hs,
     stab s f.(f_inst) x = Some tab ->
-    (Wasm_int.N_of_uint i32m i) + (Wasm_int.N_of_uint i32m n) <= tab_size tab ->
+    (Wasm_int.nat_of_uint i32m i) + (Wasm_int.nat_of_uint i32m n) <= tab_size tab ->
     n <> Wasm_int.int_zero i32m ->
     Wasm_int.N_of_uint i32m n' = N.sub (Wasm_int.N_of_uint i32m n) 1 ->
     Wasm_int.N_of_uint i32m i' = N.add (Wasm_int.N_of_uint i32m i) 1 ->
@@ -354,16 +336,16 @@ Inductive reduce : host_state -> store_record -> frame -> list administrative_in
   forall x y src dst n tabx taby s f hs,
     stab s f.(f_inst) x = Some tabx ->
     stab s f.(f_inst) y = Some taby ->
-    (((Wasm_int.N_of_uint i32m src) + (Wasm_int.N_of_uint i32m n) > tab_size taby) \/
-       ((Wasm_int.N_of_uint i32m dst) + (Wasm_int.N_of_uint i32m n) > tab_size tabx)) ->
+    (((Wasm_int.nat_of_uint i32m src) + (Wasm_int.nat_of_uint i32m n) > tab_size taby) \/
+       ((Wasm_int.nat_of_uint i32m dst) + (Wasm_int.nat_of_uint i32m n) > tab_size tabx)) ->
     reduce hs s f [::$VAN (VAL_int32 dst); $VAN (VAL_int32 src); $VAN (VAL_int32 n); AI_basic (BI_table_copy x y)]
       hs s f [::AI_trap]
 | r_table_copy_return :
   forall x y src dst n tabx taby s f hs,
     stab s f.(f_inst) x = Some tabx ->
     stab s f.(f_inst) y = Some taby ->
-    ((Wasm_int.N_of_uint i32m src) + (Wasm_int.N_of_uint i32m n) <= tab_size taby) ->
-    ((Wasm_int.N_of_uint i32m dst) + (Wasm_int.N_of_uint i32m n) <= tab_size tabx) ->
+    ((Wasm_int.nat_of_uint i32m src) + (Wasm_int.nat_of_uint i32m n) <= tab_size taby) ->
+    ((Wasm_int.nat_of_uint i32m dst) + (Wasm_int.nat_of_uint i32m n) <= tab_size tabx) ->
     n = Wasm_int.int_zero i32m ->
     reduce hs s f [::$VAN (VAL_int32 dst); $VAN (VAL_int32 src); $VAN (VAL_int32 n); AI_basic (BI_table_copy x y)]
       hs s f [::]
@@ -371,8 +353,8 @@ Inductive reduce : host_state -> store_record -> frame -> list administrative_in
   forall x y src dst n tabx taby src' dst' n' s f hs,
     stab s f.(f_inst) x = Some tabx ->
     stab s f.(f_inst) y = Some taby ->
-    ((Wasm_int.N_of_uint i32m src) + (Wasm_int.N_of_uint i32m n) <= tab_size taby) ->
-    ((Wasm_int.N_of_uint i32m dst) + (Wasm_int.N_of_uint i32m n) <= tab_size tabx) ->
+    ((Wasm_int.nat_of_uint i32m src) + (Wasm_int.nat_of_uint i32m n) <= tab_size taby) ->
+    ((Wasm_int.nat_of_uint i32m dst) + (Wasm_int.nat_of_uint i32m n) <= tab_size tabx) ->
     n <> Wasm_int.int_zero i32m ->
     Wasm_int.N_of_uint i32m dst <= Wasm_int.N_of_uint i32m src ->
     Wasm_int.N_of_uint i32m n' = N.sub (Wasm_int.N_of_uint i32m n) 1 ->
@@ -385,8 +367,8 @@ Inductive reduce : host_state -> store_record -> frame -> list administrative_in
   forall x y src dst n tabx taby src' dst' n' s f hs,
     stab s f.(f_inst) x = Some tabx ->
     stab s f.(f_inst) y = Some taby ->
-    ((Wasm_int.N_of_uint i32m src) + (Wasm_int.N_of_uint i32m n) <= tab_size taby) ->
-    ((Wasm_int.N_of_uint i32m dst) + (Wasm_int.N_of_uint i32m n) <= tab_size tabx) ->
+    ((Wasm_int.nat_of_uint i32m src) + (Wasm_int.nat_of_uint i32m n) <= tab_size taby) ->
+    ((Wasm_int.nat_of_uint i32m dst) + (Wasm_int.nat_of_uint i32m n) <= tab_size tabx) ->
     n <> Wasm_int.int_zero i32m ->
     Wasm_int.N_of_uint i32m dst > Wasm_int.N_of_uint i32m src ->
     Wasm_int.N_of_uint i32m n' = N.add (Wasm_int.N_of_uint i32m n) 1 ->
@@ -399,16 +381,16 @@ Inductive reduce : host_state -> store_record -> frame -> list administrative_in
   forall x y src dst n tab elem s f hs,
     stab s f.(f_inst) x = Some tab ->
     selem s f.(f_inst) y = Some elem ->
-    (((Wasm_int.N_of_uint i32m src) + (Wasm_int.N_of_uint i32m n) > elem_size elem) \/
-       ((Wasm_int.N_of_uint i32m dst) + (Wasm_int.N_of_uint i32m n) > tab_size tab)) ->
+    (((Wasm_int.nat_of_uint i32m src) + (Wasm_int.nat_of_uint i32m n) > elem_size elem) \/
+       ((Wasm_int.nat_of_uint i32m dst) + (Wasm_int.nat_of_uint i32m n) > tab_size tab)) ->
     reduce hs s f [::$VAN (VAL_int32 dst); $VAN (VAL_int32 src); $VAN (VAL_int32 n); AI_basic (BI_table_init x y)]
       hs s f [::AI_trap]
 | r_table_init_return :
   forall x y src dst n tab elem s f hs,
     stab s f.(f_inst) x = Some tab ->
     selem s f.(f_inst) y = Some elem ->
-    ((Wasm_int.N_of_uint i32m src) + (Wasm_int.N_of_uint i32m n) <= elem_size elem) ->
-    ((Wasm_int.N_of_uint i32m dst) + (Wasm_int.N_of_uint i32m n) <= tab_size tab) ->
+    ((Wasm_int.nat_of_uint i32m src) + (Wasm_int.nat_of_uint i32m n) <= elem_size elem) ->
+    ((Wasm_int.nat_of_uint i32m dst) + (Wasm_int.nat_of_uint i32m n) <= tab_size tab) ->
     n = Wasm_int.int_zero i32m ->
     reduce hs s f [::$VAN (VAL_int32 dst); $VAN (VAL_int32 src); $VAN (VAL_int32 n); AI_basic (BI_table_init x y)]
       hs s f [::]
@@ -416,8 +398,8 @@ Inductive reduce : host_state -> store_record -> frame -> list administrative_in
   forall x y src dst n tab elem src' dst' n' v s f hs,
     stab s f.(f_inst) x = Some tab ->
     selem s f.(f_inst) y = Some elem ->
-    ((Wasm_int.N_of_uint i32m src) + (Wasm_int.N_of_uint i32m n) <= elem_size elem) ->
-    ((Wasm_int.N_of_uint i32m dst) + (Wasm_int.N_of_uint i32m n) <= tab_size tab) ->
+    ((Wasm_int.nat_of_uint i32m src) + (Wasm_int.nat_of_uint i32m n) <= elem_size elem) ->
+    ((Wasm_int.nat_of_uint i32m dst) + (Wasm_int.nat_of_uint i32m n) <= tab_size tab) ->
     n <> Wasm_int.int_zero i32m ->
     lookup_N elem.(eleminst_elem) (Wasm_int.N_of_uint i32m src) = Some v ->
     Wasm_int.N_of_uint i32m n' = N.sub (Wasm_int.N_of_uint i32m n) 1 ->
@@ -462,7 +444,7 @@ Inductive reduce : host_state -> store_record -> frame -> list administrative_in
     smem_ind s f.(f_inst) = Some i ->
     lookup_N s.(s_mems) i = Some m ->
     store m (Wasm_int.N_of_uint i32m k) off (bits v) (tnum_length t) = Some mem' ->
-    reduce hs s f [::$VAN (VAL_int32 k); $VAN v; AI_basic (BI_store t None a off)] hs (upd_s_mem s (set_nth mem' s.(s_mems) i mem')) f [::]
+    reduce hs s f [::$VAN (VAL_int32 k); $VAN v; AI_basic (BI_store t None a off)] hs (upd_s_mem s (set_nth mem' s.(s_mems) (N.to_nat i) mem')) f [::]
 | r_store_failure :
   forall t v s i f m k off a hs,
     typeof_num v = t ->
@@ -476,7 +458,7 @@ Inductive reduce : host_state -> store_record -> frame -> list administrative_in
     smem_ind s f.(f_inst) = Some i ->
     lookup_N s.(s_mems) i = Some m ->
     store_packed m (Wasm_int.N_of_uint i32m k) off (bits v) (tp_length tp) = Some mem' ->
-    reduce hs s f [::$VAN (VAL_int32 k); $VAN v; AI_basic (BI_store t (Some tp) a off)] hs (upd_s_mem s (set_nth mem' s.(s_mems) i mem')) f [::]
+    reduce hs s f [::$VAN (VAL_int32 k); $VAN v; AI_basic (BI_store t (Some tp) a off)] hs (upd_s_mem s (set_nth mem' s.(s_mems) (N.to_nat i) mem')) f [::]
 | r_store_packed_failure :
   forall t v s i f m k off a tp hs,
     typeof_num v = t ->
@@ -496,7 +478,7 @@ Inductive reduce : host_state -> store_record -> frame -> list administrative_in
     lookup_N s.(s_mems) i = Some m ->
     mem_size m = n ->
     mem_grow m (Wasm_int.N_of_uint i32m c) = Some mem' ->
-    reduce hs s f [::$VAN (VAL_int32 c); AI_basic BI_memory_grow] hs (upd_s_mem s (set_nth mem' s.(s_mems) i mem')) f [::$VAN (VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat n)))]
+    reduce hs s f [::$VAN (VAL_int32 c); AI_basic BI_memory_grow] hs (upd_s_mem s (set_nth mem' s.(s_mems) (N.to_nat i) mem')) f [::$VAN (VAL_int32 (Wasm_int.int_of_Z i32m (Z.of_nat n)))]
 | r_memory_grow_failure :
   forall i f m n s c hs,
     smem_ind s f.(f_inst) = Some i ->
@@ -571,7 +553,7 @@ Inductive reduce : host_state -> store_record -> frame -> list administrative_in
   forall x src dst n mem data s f hs,
     smem s f.(f_inst) = Some mem ->
     sdata s f.(f_inst) x = Some data ->
-    (((Wasm_int.N_of_uint i32m src) + (Wasm_int.N_of_uint i32m n) > data_size data) \/
+    (((Wasm_int.nat_of_uint i32m src) + (Wasm_int.nat_of_uint i32m n) > data_size data) \/
        ((Wasm_int.N_of_uint i32m dst) + (Wasm_int.N_of_uint i32m n) > mem_length mem)) ->
     reduce hs s f [::$VAN (VAL_int32 dst); $VAN (VAL_int32 src); $VAN (VAL_int32 n); AI_basic (BI_memory_init x)]
       hs s f [::AI_trap]
@@ -579,7 +561,7 @@ Inductive reduce : host_state -> store_record -> frame -> list administrative_in
   forall x src dst n mem data s f hs,
     smem s f.(f_inst) = Some mem ->
     sdata s f.(f_inst) x = Some data ->
-    ((Wasm_int.N_of_uint i32m src) + (Wasm_int.N_of_uint i32m n) <= data_size data) ->
+    ((Wasm_int.nat_of_uint i32m src) + (Wasm_int.nat_of_uint i32m n) <= data_size data) ->
     ((Wasm_int.N_of_uint i32m dst) + (Wasm_int.N_of_uint i32m n) <= mem_length mem) ->
     n = Wasm_int.int_zero i32m ->
     reduce hs s f [::$VAN (VAL_int32 dst); $VAN (VAL_int32 src); $VAN (VAL_int32 n); AI_basic (BI_memory_init x)]
@@ -588,7 +570,7 @@ Inductive reduce : host_state -> store_record -> frame -> list administrative_in
   forall x src dst n mem data src' dst' n' b s f hs,
     smem s f.(f_inst) = Some mem ->
     sdata s f.(f_inst) x = Some data ->
-    ((Wasm_int.N_of_uint i32m src) + (Wasm_int.N_of_uint i32m n) <= data_size data) ->
+    ((Wasm_int.nat_of_uint i32m src) + (Wasm_int.nat_of_uint i32m n) <= data_size data) ->
     ((Wasm_int.N_of_uint i32m dst) + (Wasm_int.N_of_uint i32m n) <= mem_length mem) ->
     n <> Wasm_int.int_zero i32m ->
     lookup_N data.(datainst_data) (Wasm_int.N_of_uint i32m src) = Some b ->

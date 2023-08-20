@@ -506,7 +506,7 @@ Definition smem_ind (s : store_record) (i : instance) : option memaddr :=
 Definition smem (s: store_record) (inst: instance) : option meminst :=
   match inst.(inst_mems) with
   | nil => None
-  | cons k _ => List.nth_error s.(s_mems) k
+  | cons k _ => List.nth_error s.(s_mems) (N.to_nat k)
   end.
 
 
@@ -526,17 +526,20 @@ Definition stab_elem (s: store_record) (inst: instance) (x: N) (i: nat) : option
   end.
 
 Definition stab_update (s: store_record) (inst: instance) (x: N) (i: nat) (tabv: value_ref) : option store_record :=
-  match stab s inst x with
-  | Some tab =>
-      if (Nat.ltb i (tab_size tab)) then
-        let: tab' := {| tableinst_type := tab.(tableinst_type);
-                       tableinst_elem := set_nth tabv tab.(tableinst_elem) i tabv |} in
-        let: tabs' := set_nth tab' s.(s_tables) (N.to_nat x) tab' in
-        Some (Build_store_record (s_funcs s) tabs' (s_mems s) (s_globals s) (s_elems s) (s_datas s))
-      else None
-  | None => None
+  match lookup_N inst.(inst_tables) x with
+  | Some tabaddr => 
+      match lookup_N s.(s_tables) tabaddr with
+      | Some tab =>
+          if (Nat.ltb i (tab_size tab)) then
+            let: tab' := {| tableinst_type := tab.(tableinst_type);
+                          tableinst_elem := set_nth tabv tab.(tableinst_elem) i tabv |} in
+                let: tabs' := set_nth tab' s.(s_tables) (N.to_nat tabaddr) tab' in
+            Some (Build_store_record (s_funcs s) tabs' (s_mems s) (s_globals s) (s_elems s) (s_datas s))
+          else None
+      | None => None
+      end
+  | _ => None
   end.
-
 
 Definition growtable (tab: tableinst) (n: N) (tabinit: value_ref) : option tableinst :=
   let len := (N.of_nat (tab_size tab) + n)%N in
@@ -552,17 +555,20 @@ Definition growtable (tab: tableinst) (n: N) (tabinit: value_ref) : option table
       None.
 
 Definition stab_grow (s: store_record) (inst: instance) (x: N) (n: N) (tabinit: value_ref) : option store_record :=
-  match stab s inst x with
-  | Some tab =>
-      match growtable tab n tabinit with
-      | Some tab' => 
-          let tabs' := (set_nth tab' s.(s_tables) (N.to_nat x) tab') in
-          Some (Build_store_record (s_funcs s) tabs' (s_mems s) (s_globals s) (s_elems s) (s_datas s))
+  match lookup_N inst.(inst_tables) x with
+  | Some tabaddr => 
+      match lookup_N s.(s_tables) tabaddr with
+      | Some tab =>
+          match growtable tab n tabinit with
+          | Some tab' => 
+                  let tabs' := (set_nth tab' s.(s_tables) (N.to_nat tabaddr) tab') in
+              Some (Build_store_record (s_funcs s) tabs' (s_mems s) (s_globals s) (s_elems s) (s_datas s))
+          | None => None
+          end
       | None => None
       end
   | None => None
   end.
-
 
 Definition elem_size (e: eleminst) : nat :=
   length (eleminst_elem e).
@@ -574,12 +580,16 @@ Definition selem (s: store_record) (inst: instance) (x: elemaddr): option elemin
   end.
 
 Definition selem_drop (s: store_record) (inst: instance) (x: elemaddr) : option store_record :=
-  match selem s inst x with
-  | Some elem =>
-      let empty_elem := {| eleminst_type := elem.(eleminst_type); eleminst_elem := [::] |} in
-      let: elems' := set_nth empty_elem s.(s_elems) (N.to_nat x) empty_elem in
-      Some (Build_store_record (s_funcs s) (s_tables s) (s_mems s) (s_globals s) elems' (s_datas s))
-  | None => None
+  match lookup_N inst.(inst_elems) x with
+  | Some eaddr =>
+      match lookup_N s.(s_elems) eaddr with
+      | Some elem =>
+          let empty_elem := {| eleminst_type := elem.(eleminst_type); eleminst_elem := [::] |} in
+              let: elems' := set_nth empty_elem s.(s_elems) (N.to_nat eaddr) empty_elem in
+          Some (Build_store_record (s_funcs s) (s_tables s) (s_mems s) (s_globals s) elems' (s_datas s))
+      | None => None
+      end
+  | _ => None
   end.
 
 Definition data_size (d: datainst) : nat :=
@@ -592,11 +602,15 @@ Definition sdata (s: store_record) (inst: instance) (x: dataaddr): option datain
   end.
 
 Definition sdata_drop (s: store_record) (inst: instance) (x: dataaddr) : option store_record :=
-  match sdata s inst x with
-  | Some data =>
-      let empty_data := {| datainst_data := [::] |} in
-      let: datas' := set_nth empty_data s.(s_datas) (N.to_nat x) empty_data in
-      Some (Build_store_record (s_funcs s) (s_tables s) (s_mems s) (s_globals s) (s_elems s) datas')
+  match lookup_N inst.(inst_datas) x with
+  | Some daddr => 
+      match lookup_N s.(s_datas) daddr with
+      | Some data =>
+          let empty_data := {| datainst_data := [::] |} in
+              let: datas' := set_nth empty_data s.(s_datas) (N.to_nat daddr) empty_data in
+          Some (Build_store_record (s_funcs s) (s_tables s) (s_mems s) (s_globals s) (s_elems s) datas')
+      | None => None
+      end
   | None => None
   end.
 
@@ -622,6 +636,14 @@ Definition v_to_e (v: value) : administrative_instruction :=
   | VAL_ref (VAL_ref_null t) => AI_basic (BI_ref_null t)
   | VAL_ref (VAL_ref_func addr) => AI_ref addr
   | VAL_ref (VAL_ref_extern ext) => AI_ref_extern ext
+  end.
+
+Definition v_to_be (v: value) : basic_instruction :=
+  match v with
+  | VAL_num v => BI_const_num v
+  | VAL_vec v => BI_const_vec v
+  | VAL_ref (VAL_ref_null t) => BI_ref_null t
+  | _ => $VBN (VAL_int32 (Wasm_int.Int32.zero))
   end.
 
 Definition be_to_v (be: basic_instruction) : option value :=
@@ -705,13 +727,28 @@ Definition to_b_list (es: seq administrative_instruction) : seq basic_instructio
 Definition e_is_basic (e: administrative_instruction) :=
   exists be, e = AI_basic be.
 
+Definition e_not_basic (e: administrative_instruction) :=
+  e_is_basic e -> False.
+
+(* Definition e_is_basic_bool (e: administrative_instruction) :=
+  match e with
+  | AI_basic be => true
+  | _ => false
+  end. *)
+
 Definition es_is_basic (es: list administrative_instruction) :=
   List.Forall e_is_basic es.
+
+Definition es_all_not_basic (es: list administrative_instruction) :=
+  List.Forall e_not_basic es.
 
 (** [v_to_e_list]: 
     takes a list of [v] and gives back a list where each [v] is mapped to the corresponding instruction. **)
 Definition v_to_e_list (ves : list value) : list administrative_instruction :=
   map v_to_e ves.
+
+Definition v_to_be_list (ves : list value) : list basic_instruction :=
+  map v_to_be ves.
 
 (* interpreter related *)
 

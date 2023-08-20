@@ -32,16 +32,16 @@ Proof.
   apply IHvs1 in H0. destruct H0.
   split => //.
   by apply/andP.
-Qed.    
+Qed.
 
 (** This lemma justifies the computation “to the first non-[const_list]”. **)
 Lemma const_list_concat_inv : forall vs1 vs2 e1 e2 es1 es2,
-  const_list vs1 ->
-  const_list vs2 ->
-  ~ is_const e1 ->
-  ~ is_const e2 ->
-  vs1 ++ e1 :: es1 = vs2 ++ e2 :: es2 ->
-  vs1 = vs2 /\ e1 = e2 /\ es1 = es2.
+    const_list vs1 ->
+    const_list vs2 ->
+    ~ is_const e1 ->
+    ~ is_const e2 ->
+    vs1 ++ e1 :: es1 = vs2 ++ e2 :: es2 ->
+    vs1 = vs2 /\ e1 = e2 /\ es1 = es2.
 Proof.
   induction vs1 => vs2 e1 e2 es1 es2 C1 C2 N1 N2; destruct vs2 => /=; inversion 1; subst;
     try move: C1 => /= /andP [? ?] //;
@@ -91,6 +91,12 @@ Proof.
   intros. unfold v_to_e_list.
   by rewrite map_cat.
 Qed.
+Lemma v_to_be_cat: forall vs1 vs2,
+    v_to_be_list vs1 ++ v_to_be_list vs2 = v_to_be_list (vs1 ++ vs2).
+Proof.
+  intros. unfold v_to_be_list.
+  by rewrite map_cat.
+Qed.
 
 Lemma split_vals_e_v_to_e_duality: forall es vs es',
     split_vals_e es = (vs, es') ->
@@ -112,19 +118,30 @@ Lemma const_list_cons : forall a l,
   const_list (a :: l) = is_const a && const_list l.
 Proof. by []. Qed.
 
+Lemma const_get: forall e,
+  is_const e <->
+  exists v, e = v_to_e v.
+Proof.
+  intros e. split; intros H.
+  - unfold v_to_e. destruct e => //=; [destruct b => //=| |].
+    + exists (VAL_ref (VAL_ref_null r)) => //=.
+    + exists (VAL_num v) => //=.
+    + exists (VAL_vec v) => //=.
+    + exists (VAL_ref (VAL_ref_func f)) => //=.
+    + exists (VAL_ref (VAL_ref_extern e)) => //=.
+  - destruct H as [v H]. unfold is_const. rewrite H.
+    destruct v => //=. destruct v => //=.
+Qed.
+
 Lemma const_list_get: forall es,
   const_list es <->
   exists vs, es = v_to_e_list vs.
 Proof.
   intros es. split; intros H.
-  - induction es => //=. by exists [::].
+  - unfold v_to_e_list. induction es => //=. by exists [::].
     move/andP in H. destruct H. apply IHes in H0. destruct H0.
-    destruct a => //=; [destruct b | |] => //=; rewrite H0.
-    + exists (VAL_ref (VAL_ref_null r) :: x) => //=.
-    + exists (VAL_num v :: x) => //=.
-    + exists (VAL_vec v :: x) => //=.
-    + exists (VAL_ref (VAL_ref_func f) :: x) => //=.
-    + exists (VAL_ref (VAL_ref_extern e) :: x) => //=.
+    apply const_get in H. destruct H. rewrite H.
+    exists (x0 :: x) => //=. by f_equal.
   - destruct H as [vs H]. generalize dependent vs.
     induction es => //=. intros vs H.
     unfold v_to_e_list in H. induction vs => //=.
@@ -248,6 +265,21 @@ Proof.
   intros; by apply List.Forall_app.
 Qed.
 
+Lemma not_basic_concat: forall es1 es2,
+    es_all_not_basic (es1 ++ es2) ->
+    es_all_not_basic es1 /\ es_all_not_basic es2.
+Proof.
+  by apply List.Forall_app.
+Qed.
+  
+Lemma not_basic_split: forall es1 es2,
+    es_all_not_basic es1 ->
+    es_all_not_basic es2 ->
+    es_all_not_basic (es1 ++ es2).
+Proof.
+  intros; by apply List.Forall_app.
+Qed.
+
 (* No longer holds because AI_ref, AI_ref_extern are possible consts not in AI_basic *)
 (* Could technically create cases for these two every time this is invoked? *)
 (*
@@ -304,6 +336,14 @@ Lemma vs_to_vts_rev: forall vs,
   vs_to_vts (rev vs) = rev (vs_to_vts vs).
 Proof.
   unfold vs_to_vts. intros. by rewrite map_rev.
+Qed.
+
+Lemma bes_to_e_list_is_basic: forall bes,
+  es_is_basic (to_e_list bes).
+Proof.
+  induction bes => //=.
+  unfold es_is_basic. apply List.Forall_cons => //=.
+  unfold e_is_basic. eauto.
 Qed.
 
 Lemma const_e_exists: forall e,
@@ -590,8 +630,8 @@ Ltac fold_upd_context :=
   | |- context [upd_local (upd_return ?C ?ret) ?loc] =>
     replace (upd_local (upd_return C ret) loc) with
         (upd_local_label_return C loc (tc_label C) ret); try by destruct C
-  | |- context [upd_return (upd_local ?C ?ret) ?loc] =>
-    replace (upd_return (upd_local C ret) loc) with
+  | |- context [upd_return (upd_local ?C ?loc) ?ret] =>
+    replace (upd_return (upd_local C loc) ret) with
         (upd_local_label_return C loc (tc_label C) ret); try by destruct C
   end.
 
@@ -685,6 +725,24 @@ Proof.
   - destruct l1 => //=. destruct l2 => //=.
     inversion HN1. inversion HN2. subst. clear HN1. clear HN2.
     simpl in HALL. move/andP in HALL. by destruct HALL.
+  - destruct l1 => //=. destruct l2 => //=.
+    simpl in HALL. move/andP in HALL. destruct HALL.
+    eapply IHn; by eauto.
+Qed.
+
+Lemma all2_func_projection: forall l1 l2 n x1 x2,
+    all2 (@func_extension host_function) l1 l2 ->
+    x1 == x2 ->
+    List.nth_error l1 n = Some x1 ->
+    List.nth_error l2 n = Some x2.
+Proof.
+  move => l1 l2 n.
+  move: l2 l1.
+  induction n => //=; move => l2 l1 x1 x2 HALL HN1 HN2.
+  - destruct l1 => //=. destruct l2 => //=.
+    move/eqP in HN1. inversion HN2. subst.
+    move/andP in HALL. destruct HALL.
+    unfold func_extension in H. move/eqP in H. subst => //=.
   - destruct l1 => //=. destruct l2 => //=.
     simpl in HALL. move/andP in HALL. destruct HALL.
     eapply IHn; by eauto.
@@ -964,21 +1022,20 @@ Proof.
   - f_equal. by eapply IHHType.
 Qed.
 
-(* attempted equivalent statement for AIs *)
-Lemma empty_e_typing: forall s C t1s t2s,
+Lemma e_empty_typing: forall s C t1s t2s,
     e_typing s C [::] (Tf t1s t2s) ->
     t1s = t2s.
 Proof.
   move => s C t1s t2s HType.
   gen_ind_subst HType => //.
   - induction bes.
-    inversion H; subst => //=. admit.
-      (* (es ++ [::e])%list = [::] -> discriminate H0? *)
+    inversion H; subst => //=.
+    induction es => //=.
     by apply empty_typing in H.
   - apply IHbes; inversion Enil.
   - induction es. eapply IHHType1 => //=. discriminate Enil.
   - f_equal. eapply IHHType => //=.
-Admitted.
+Qed.
 
 Lemma et_to_bet: forall s C es ts,
     es_is_basic es ->
@@ -1064,6 +1121,7 @@ Proof.
       by apply bet_weakening.
 Qed.
 
+(* helper lemma for the more general variant *)
 Lemma e_composition_typing_single: forall s C es1 e t1s t2s,
     e_typing s C (es1 ++ [::e]) (Tf t1s t2s) ->
     exists ts t1s' t2s' t3s, t1s = ts ++ t1s' /\
@@ -1116,6 +1174,55 @@ Proof.
     + by apply ety_local.
 Qed.
 
+(* only basic instructions consume the stack *)
+Lemma e_composition_typing_single_not_basic: forall s C es1 e t1s t2s,
+    e_typing s C (es1 ++ [::e]) (Tf t1s t2s) ->
+    e_not_basic e ->
+    exists t3s, e_typing s C es1 (Tf t1s t3s) /\
+                e_typing s C [::e] (Tf t3s t2s).
+Proof.
+  move => s C es1 e t1s t2s HType.
+  gen_ind_subst HType; extract_listn.
+  - (* basic *)
+    apply b_e_elim in H3. destruct H3.
+    apply basic_concat in H1. destruct H1.
+    unfold es_is_basic in H2. unfold e_not_basic in H4.
+    apply List.Forall_inv in H2 => //.
+  - (* composition *)
+    apply concat_cancel_last in H2. destruct H2. subst.
+    by exists t2s.
+  - (* weakening *)
+    edestruct IHHType; eauto.
+    destruct H as [H H']. subst.
+    exists (ts ++ x).
+    by repeat split => //; apply ety_weakening.
+  - (* Trap *)
+    exists t1s.
+    repeat split => //=.
+    + apply ety_a' => //. apply bet_weakening_empty_both. by apply bet_empty.
+    + by apply ety_trap.
+  - (* External ref *)
+    exists [::]. repeat split => //=.
+    + by apply ety_a'.
+    + by apply ety_ref_extern.
+  - (* Funcref *)
+    exists [::]. repeat split => //=.
+    + by apply ety_a'.
+    + by eapply ety_ref; apply H.
+  - (* Invoke *)
+    exists t1s. repeat split => //=.
+    + apply ety_a' => //. apply bet_weakening_empty_both. by apply bet_empty.
+    + by eapply ety_invoke; eauto.
+  - (* Label *)
+    exists [::]. repeat split => //=.
+    + by apply ety_a' => //.
+    + by eapply ety_label; eauto.
+  - (* Local *)
+    exists [::]. repeat split => //=.
+    + by apply ety_a' => //.
+    + by apply ety_local.
+Qed.
+
 Lemma e_composition_typing: forall s C es1 es2 t1s t2s,
     e_typing s C (es1 ++ es2) (Tf t1s t2s) ->
     exists ts t1s' t2s' t3s, t1s = ts ++ t1s' /\
@@ -1148,6 +1255,83 @@ Proof.
     + by apply ety_weakening.
     + rewrite rev_cons. rewrite -cats1.
       eapply ety_composition; eauto.
+      by apply ety_weakening.
+Qed.
+
+Lemma e_composition_typing_all_not_basic: forall s C es1 es2 t1s t2s,
+    e_typing s C (es1 ++ es2) (Tf t1s t2s) ->
+    es_all_not_basic es2 ->
+    exists t3s, e_typing s C es1 (Tf t1s t3s) /\
+                e_typing s C es2 (Tf t3s t2s).
+Proof.
+  move => s C es1 es2.
+  remember (rev es2) as es2'.
+  assert (es2 = rev es2'); first by (rewrite Heqes2'; symmetry; apply revK).
+  generalize dependent es1.
+  clear Heqes2'. subst.
+  induction es2' => //=; move => es1 t1s t2s HType.
+  - unfold rev in HType; simpl in HType.
+    rewrite cats0 in HType.
+    exists t2s.
+    repeat split => //=.
+    apply ety_a'; first by unfold rev => //=.
+    apply bet_weakening_empty_both.
+    by apply bet_empty.
+  - rewrite rev_cons in HType.
+    rewrite -cats1 in HType. subst.
+    rewrite catA in HType.
+    intros.
+    apply e_composition_typing_single_not_basic in HType => //=.
+    2: {
+      unfold rev in H; simpl in H; rewrite catrevE in H.
+      apply not_basic_concat in H. destruct H.
+      unfold es_all_not_basic in H0. apply List.Forall_inv in H0 => //.
+    }
+    destruct HType as [t3s [H1 H2]]. subst.
+    apply IHes2' in H1.
+    2: {
+      unfold rev in H; simpl in H; rewrite catrevE in H.
+      apply not_basic_concat in H. destruct H.
+      unfold es_all_not_basic in H0. apply List.Forall_inv in H0 => //.
+    }
+    destruct H1 as [t3s' [H1' H2']]. subst.
+    exists t3s'.
+    repeat split => //.
+    + rewrite rev_cons. rewrite -cats1.
+      eapply ety_composition; eauto.
+Qed.
+
+Lemma e_composition_typing_const_list: forall s C vs es2 t1s t2s,
+    e_typing s C ((v_to_e_list vs) ++ es2) (Tf t1s t2s) ->
+    exists t3s, e_typing s C (v_to_e_list vs) (Tf t1s t3s) /\
+                e_typing s C es2 (Tf t3s t2s).
+Proof.
+  move => s C vs es2.
+  remember (rev es2) as es2'.
+  assert (es2 = rev es2'); first by (rewrite Heqes2'; symmetry; apply revK).
+  generalize dependent vs.
+  clear Heqes2'. subst.
+  induction es2' => //=; move => vs t1s t2s HType.
+  - unfold rev in HType; simpl in HType.
+    rewrite cats0 in HType.
+    exists t2s.
+    repeat split => //=.
+    apply ety_a'; first by unfold rev => //=.
+    apply bet_weakening_empty_both.
+    by apply bet_empty.
+  - rewrite rev_cons in HType.
+    rewrite -cats1 in HType. subst.
+    rewrite catA in HType.
+    apply e_composition_typing_single in HType.
+    destruct HType as [ts' [t1s' [t2s' [t3s' [H1 [H2 [H3 H4]]]]]]]. subst.
+    intros.
+    apply IHes2' in H3 => //=.
+    destruct H3 as [t3s2 [H5 H6]]. subst.
+    exists (ts' ++ t3s2).
+    repeat split => //.
+    + by apply ety_weakening.
+    + rewrite rev_cons. rewrite -cats1.
+      eapply ety_composition with (t2s := (ts' ++ t3s')); eauto;
       by apply ety_weakening.
 Qed.
 

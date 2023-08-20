@@ -199,7 +199,7 @@ Inductive be_typing : t_context -> seq basic_instruction -> function_type -> Pro
 | bet_table_fill : forall C x tabtype t,
   lookup_N (tc_table C) x = Some tabtype ->
   tabtype.(tt_elem_type) = t ->
-  be_typing C [::BI_table_fill x] (Tf [::T_num T_i32; T_ref t; T_num T_i32] [::T_num T_i32])
+  be_typing C [::BI_table_fill x] (Tf [::T_num T_i32; T_ref t; T_num T_i32] [::])
 | bet_table_copy : forall C x y tabtype1 tabtype2 t,
   lookup_N (tc_table C) x = Some tabtype1 ->
   tabtype1.(tt_elem_type) = t ->
@@ -238,6 +238,9 @@ Inductive be_typing : t_context -> seq basic_instruction -> function_type -> Pro
   tc_memory C <> nil ->
   N.to_nat x < length (tc_data C) ->
   be_typing C [::BI_memory_init x] (Tf [::T_num T_i32; T_num T_i32; T_num T_i32] [::])
+| bet_data_drop : forall C x t,
+  lookup_N (tc_data C) x = Some t ->
+  be_typing C [::BI_data_drop x] (Tf [::] [::])
 | bet_empty : forall C,
   be_typing C [::] (Tf [::] [::])
 | bet_composition : forall C es e t1s t2s t3s,
@@ -415,7 +418,7 @@ Definition cl_type_check_single (s:store_record) (f:function_closure):=
 Definition tabcl_agree (s : store_record) (tref: reference_type) (v : value_ref) : Prop :=
   match v with
   | VAL_ref_null tref' => tref = tref'
-  | VAL_ref_func a => (a < length s.(s_funcs)) /\ (tref = T_funcref)
+  | VAL_ref_func a => ((N.to_nat a) < length s.(s_funcs)) /\ (tref = T_funcref)
   | VAL_ref_extern _ => tref = T_externref
   end.
 

@@ -57,37 +57,25 @@ Proof.
   by [].
 Qed.
 
-(* TODO: fix preservation *)
-
 (*
   These proofs are largely similar.
   A sensible thing to do is to make tactics for all of them.
   However, some of the proofs depend on the previous ones...
 *)
 
-
-(*
-  Perhaps have some inductive containing const_num | const_vec?
-  No guarantee of mapping between same type (unless hardcoded)
-  
-  Inductive basic_constant : Type :=
-    | [::BI_const_num econst_num]
-    | [::BI_const_vec econst_vec]
-*)
-
 (*
 Lemma BI_const_typing: forall C econst t1s t2s,
-be_typing C [::BI_const econst] (Tf t1s t2s) ->
-t2s = t1s ++ [::typeof econst].
+  be_typing C [::BI_const econst] (Tf t1s t2s) ->
+  t2s = t1s ++ [::typeof econst].
 Proof.
-move => C econst t1s t2s HType.
-gen_ind_subst HType => //.
-- apply extract_list1 in H1; inversion H1; subst.
-apply empty_typing in HType1; subst.
-by eapply IHHType2.
-- rewrite - catA. f_equal.
-+ intros. by subst.
-+ by eapply IHHType.
+  move => C econst t1s t2s HType.
+  gen_ind_subst HType => //.
+  - apply extract_list1 in H1; inversion H1; subst.
+    apply empty_typing in HType1; subst.
+    by eapply IHHType2.
+  - rewrite - catA. f_equal.
+    + intros. by subst.
+    + by eapply IHHType.
 Qed.
 *)
 
@@ -360,47 +348,6 @@ Proof.
   - rewrite - catA. f_equal.
     + intros. by subst.
     + by eapply IHHType.
-Qed.
-
-Lemma basic_const_list_typing_empty: forall C vs,
-  basic_const_list (v_to_e_list vs) ->
-  be_typing C (to_b_list (v_to_e_list vs)) (Tf [::] (vs_to_vts vs)).
-Proof.
-  move => C vs.
-  generalize dependent vs.
-  induction vs => //=.
-  - intro H. by apply bet_empty.
-  - intros H. move/andP in H. destruct H. apply IHvs in H0.
-    rewrite - cat1s.
-    replace (typeof a :: vs_to_vts vs) with ([::typeof a] ++ vs_to_vts vs) => //.
-    eapply bet_composition' with (t2s := [:: typeof a]) => //;
-    last by apply bet_weakening_empty_1.
-    destruct a => //=.
-    - apply bet_const_num.
-    - apply bet_const_vec.
-    - destruct v => //=. apply bet_ref_null.
-Qed.
-
-Lemma basic_const_list_typing: forall C vs t1s t2s,
-  basic_const_list (v_to_e_list vs) ->
-  be_typing C (to_b_list (v_to_e_list vs)) (Tf t1s t2s) ->
-  t2s = t1s ++ (vs_to_vts vs).
-Proof.
-  move => C vs.
-  induction vs => //=; move => t1s t2s H HType.
-  - apply empty_typing in HType. subst. by rewrite cats0.
-  - move/andP in H. destruct H.
-    rewrite -cat1s in HType.
-    rewrite -cat1s.
-    apply composition_typing in HType.
-    destruct HType as [ts [ts1' [ts2' [ts3 [H1 [H2 [H3 H4]]]]]]].
-    subst.
-    destruct a => //=;
-    [ apply BI_const_num_typing in H3
-    | apply BI_const_vec_typing in H3
-    | destruct v => //=; apply BI_ref_null_typing in H3];
-    eapply IHvs in H4 => //=; subst;
-    rewrite <- catA; rewrite cat1s; by rewrite <- catA.
 Qed.
 
 Definition func_type_exists v s f :=
@@ -1300,11 +1247,6 @@ Ltac invert_be_typing_step:=
     extract_listn
   | H: be_typing _ [::] _ |- _ =>
     apply empty_typing in H; subst
-  | H: be_typing _ (v_to_be_list ?vs) _ |- _ =>
-    lazymatch goal with
-    | H': basic_const_list (v_to_e_list vs) |- _ =>
-      apply basic_const_list_typing in H; subst
-    end
   | H: be_typing _ [:: BI_const_num _] _ |- _ =>
     apply BI_const_num_typing in H; subst
   | H: be_typing _ [:: BI_const_vec _] _ |- _ =>

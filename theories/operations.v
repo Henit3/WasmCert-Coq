@@ -721,19 +721,6 @@ Definition to_b_single (e: administrative_instruction) : basic_instruction :=
   | _ => BI_const_num (VAL_int32 (Wasm_int.Int32.zero))
   end.
 
-Definition is_basic_const (e : administrative_instruction) : bool :=
-  match e_to_v e with
-  | Some x1 => 
-      match be_to_v (to_b_single e) with
-      | Some x2 => x1 == x2
-      | _ => false
-      end
-  | _ => false
-  end.
-
-Definition basic_const_list (es : list administrative_instruction) : bool :=
-  List.forallb is_basic_const es.
-
 Definition to_b_list (es: seq administrative_instruction) : seq basic_instruction :=
   map to_b_single es.
 

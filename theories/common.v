@@ -342,6 +342,41 @@ Proof.
         by apply F in I'.
 Qed.
 
+Lemma nth_error_nil: forall X n,
+  List.nth_error (@nil X) n = None.
+Proof.
+  intros. induction n => //=.
+Qed.
+
+Lemma nth_error_firstn: forall X (l: seq X) lim a x,
+  lim <= length l ->
+  List.nth_error (List.firstn lim l) a = Some x ->
+  List.nth_error l a = Some x.
+Proof.
+  intros X l lim a x HLen H.
+  rewrite -(List.firstn_skipn lim l).
+  rewrite List.nth_error_app1 => //=.
+
+  assert (List.nth_error (List.firstn lim l) a <> None) as H';
+    first by rewrite H.
+  apply List.nth_error_Some in H' => //=.
+Qed.
+
+Lemma nth_error_firstn': forall X (l: seq X) lim a x,
+  lim <= length l ->
+  a < lim ->
+  List.nth_error l a = Some x ->
+  List.nth_error (List.firstn lim l) a = Some x.
+Proof.
+  intros X l lim a x HLen HLen' H.
+  rewrite -(List.firstn_skipn lim l) in H.
+  rewrite List.nth_error_app1 in H => //=.
+
+  move/leP in HLen.
+  apply List.firstn_length_le in HLen. rewrite HLen.
+  apply/ltP => //=.
+Qed.
+
 Lemma nil_rcons : forall A l (a : A),
   [::] <> rcons l a.
 Proof. move=> A. by case. Qed.

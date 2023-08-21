@@ -1744,26 +1744,6 @@ Proof.
   f_equal. by rewrite catA.
 Qed.
 
-(*
-Lemma lfilled_case_test1: forall {k: nat} (lh: lholed k),
-  exists es, lfilled lh [::] es.
-Proof.
-  move => k lh.
-  induction lh => //=; unfold lfilled;
-  [ exists (v_to_e_list l ++ [::] ++ l0)
-  | exists (v_to_e_list l ++ [:: AI_label n l0 (lfill lh [::])] ++ l1)
-  ]; by apply/eqP.
-Qed.
-
-Lemma lfilled_case_test2: forall {k: nat} (lh: lholed k),
-  exists es, lfilled lh [::] es.
-Proof.
-  move => k.
-  induction k; dependent destruction lh;
-  by unfold lfilled; eexists; apply/eqP.
-Qed.
-*)
-
 Lemma br_reduce_label_length: forall n k lh es s C ts2,
     @lfilled n lh [::AI_basic (BI_br (bin_of_nat (n + k)))] es ->
     e_typing s C es (Tf [::] ts2) ->
@@ -1888,8 +1868,6 @@ Proof.
       last by symmetry; apply bin_of_natK.
     destruct H as [lh2 [HConst [HLF2 HLength]]].
     exists x, (LH_rec l (length ts2) l0 lh2 l1).
-    (* LH_rec _ vs n es' lh' les' =>
-        (v_to_e_list vs ++ [:: AI_label n es' (lfill lh' es)] ++ les') *)
     repeat split => //. unfold lfilled in * => //.
     move/eqP in HLF2. rewrite -addSnnS in HLF2. simpl.
     replace (N.pos (pos_of_nat (n + k)%Nrec (n + k)%Nrec))

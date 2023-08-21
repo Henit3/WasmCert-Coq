@@ -284,8 +284,28 @@ Definition mem_typing (m : meminst) (m_t : memory_type) : bool :=
 Definition memi_agree (ms : list meminst) (n : memaddr) (mem_t : memory_type) : bool :=
   option_map (fun mem => mem_typing mem mem_t) (lookup_N ms n) == Some true.
 
+Definition global_typing (g : globalinst) (tg : global_type) : bool :=
+  (* (typeof (g.(g_val)) == tg_t tg) && *)
+  (g.(g_type) == tg).
+
 Definition globali_agree (gs : list globalinst) (n : globaladdr) (tg : global_type) : bool :=
-  option_map g_type (lookup_N gs n) == Some tg.
+  option_map (fun g => global_typing g tg) (lookup_N gs n) == Some true.
+
+(* Definition globali_agree (gs : list globalinst) (n : globaladdr) (tg : global_type) : bool :=
+  option_map g_type (lookup_N gs n) == Some tg. *)
+
+Definition elem_typing (e : eleminst) (et : reference_type) : bool :=
+  (* (typeof (e.(eleminst_val)) == et) && *)
+  (e.(eleminst_type) == et).
+
+Definition elemi_agree (es : list eleminst) (n : elemaddr) (et : reference_type) : bool :=
+  option_map (fun e => elem_typing e et) (lookup_N es n) == Some true.
+
+(* Definition elemi_agree (es : list eleminst) (n : elemaddr) (et : reference_type) : bool :=
+  option_map eleminst_type (lookup_N es n) == Some et. *)
+
+(* Definition datai_agree (ds : list datainst) (n : dataaddr) (dt : ???) : bool :=
+  option_map (fun d => data_typing d dt) (lookup_N ds n) == Some true. *)
 
 (* TODO: figure out what's missing for elem/data/ref *)
 (** std-doc:
@@ -295,12 +315,16 @@ Definition inst_typing (s : store_record) (inst : instance) (C : t_context) : bo
   let '{| inst_types := ts; inst_funcs := fs; inst_tables := tbs; inst_mems := ms; inst_globals := gs;
        inst_elems := es; inst_datas := ds; inst_exports := exps |} := inst in
   match C with
-  | {| tc_type := ts'; tc_func := tfs; tc_table := tabs_t; tc_memory := mems_t; tc_global := tgs; tc_elem := nil; tc_data := nil; tc_local := nil; tc_label := nil; tc_return := None; tc_ref := nil; |} =>
+  | {| tc_type := ts'; tc_func := tfs; tc_table := tabs_t; tc_memory := mems_t;
+       tc_global := tgs; tc_elem := tes; tc_data := (*tds*) nil;
+       tc_local := nil; tc_label := nil; tc_return := None; tc_ref := nil; |} =>
     (ts == ts') &&
+    (all2 (elemi_agree s.(s_elems)) es tes) &&
     (all2 (funci_agree s.(s_funcs)) fs tfs) &&
     (all2 (globali_agree s.(s_globals)) gs tgs) &&
     (all2 (tabi_agree s.(s_tables)) tbs tabs_t) &&
-    (all2 (memi_agree s.(s_mems)) ms mems_t)
+    (all2 (memi_agree s.(s_mems)) ms mems_t) (*&&
+    (all2 (datai_agree s.(s_datas)) ds tds)*)
   | _ => false
   end.
 
@@ -310,7 +334,7 @@ Lemma inst_typing_expand (s: store_record) (inst: instance) (C: t_context) (tb: 
   expand inst tb = expand_t C tb.
 Proof.
   destruct tb, inst, C => //=.
-  destruct tc_elem, tc_data, tc_local, tc_label, tc_return, tc_ref => //.
+  destruct tc_data, tc_local, tc_label, tc_return, tc_ref => //.
   move => Htype.
   repeat (move/andP in Htype; destruct Htype as [Htype _]).
   by move/eqP in Htype; subst.

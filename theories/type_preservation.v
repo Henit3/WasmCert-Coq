@@ -2810,8 +2810,9 @@ Lemma globs_agree_function: forall s,
     function (globali_agree (s_globals s)).
 Proof.
   move => s. unfold function. move => x y1 y2 [H1 H2].
-  unfold globali_agree in H1. unfold globali_agree in H2.
+  unfold globali_agree, option_map, global_typing in H1, H2.
   remove_bools_options => //=.
+  move/eqP in H0. move/eqP in H1. subst => //=.
 Qed.
 
 Lemma functions_agree_function: forall s,
@@ -2830,15 +2831,7 @@ Lemma tc_func_reference1: forall j k i s f C tf,
   tf = cl_type f.
 Proof.
   move => j k i s f C tf HN1 HN2 HInstType HN3.
-  unfold inst_typing in HInstType.
-  destruct i => //=.
-  destruct C => //=.
-  destruct tc_elem => //=.
-  destruct tc_data => //=.
-  destruct tc_local => //=.
-  destruct tc_label => //=.
-  destruct tc_return => //=.
-  destruct tc_ref => //=.
+  destruct i, C, tc_data, tc_local, tc_label, tc_return, tc_ref => //=.
   move/andP in HInstType. destruct HInstType.
   repeat (move/andP in H; destruct H).
   simpl in HN1. simpl in HN3.
@@ -2856,14 +2849,7 @@ Lemma tc_func_reference2: forall s C i j cl tf,
 Proof.
   move => s C i j cl tf HN1 HIT HN2.
   unfold inst_typing in HIT.
-  destruct i => //=.
-  destruct C => //=.
-  destruct tc_elem => //=.
-  destruct tc_data => //=.
-  destruct tc_local => //=.
-  destruct tc_label => //=.
-  destruct tc_return => //=.
-  destruct tc_ref => //=.
+  destruct i, C, tc_data, tc_local, tc_label, tc_return, tc_ref => //=.
   move/andP in HIT. destruct HIT.
   repeat (move/andP in H; destruct H).
   simpl in HN1. simpl in HN2.
@@ -2947,7 +2933,7 @@ Lemma inst_t_context_local_empty: forall s i C,
     tc_local C = [::].
 Proof.
   move => s i C HInstType.
-  destruct i, C, tc_elem, tc_data, tc_local => //=.
+  destruct i, C, tc_data, tc_local => //=.
 Qed.
 
 Lemma inst_t_context_label_empty: forall s i C,
@@ -2955,7 +2941,7 @@ Lemma inst_t_context_label_empty: forall s i C,
     tc_label C = [::].
 Proof.
   move => s i C HInstType.
-  destruct i, C, tc_elem, tc_data, tc_local, tc_label => //=.
+  destruct i, C, tc_data, tc_local, tc_label => //=.
 Qed.
 
 
@@ -2965,7 +2951,7 @@ Lemma inst_index_get_contextval_mem: forall s i j C a,
   exists x, List.nth_error C.(tc_memory) j = Some x.
 Proof.
   move => s i j C a HIT HNth.
-  destruct s, i, C, tc_elem, tc_data, tc_local,
+  destruct s, i, C, tc_data, tc_local,
           tc_label, tc_return, tc_ref => //=;
   unfold inst_typing, typing.inst_typing in * => //=;
   remove_bools_options; simpl in * => //=.
@@ -2973,10 +2959,10 @@ Proof.
   rewrite all2E in H0. remove_bools_options.
   assert (List.nth_error inst_mems j <> None);
     first by rewrite HNth.
-  apply List.nth_error_Some in H5.
+  apply List.nth_error_Some in H6.
   repeat rewrite -length_is_size in H0.
-  rewrite H0 in H5.
-  apply List.nth_error_Some in H5.
+  rewrite H0 in H6.
+  apply List.nth_error_Some in H6.
   destruct (List.nth_error tc_memory j) => //=; eauto.
 Qed.
 Lemma inst_index_get_instval_mem: forall s i j C x,
@@ -2985,7 +2971,7 @@ Lemma inst_index_get_instval_mem: forall s i j C x,
   exists a, List.nth_error i.(inst_mems) j = Some a.
 Proof.
   move => s i j C x HIT HNth.
-  destruct s, i, C, tc_elem, tc_data, tc_local,
+  destruct s, i, C, tc_data, tc_local,
           tc_label, tc_return, tc_ref => //=;
   unfold inst_typing, typing.inst_typing in * => //=;
   remove_bools_options; simpl in * => //=.
@@ -2993,10 +2979,10 @@ Proof.
   rewrite all2E in H0. remove_bools_options.
   assert (List.nth_error tc_memory j <> None);
     first by rewrite HNth.
-  apply List.nth_error_Some in H5.
+  apply List.nth_error_Some in H6.
   repeat rewrite -length_is_size in H0.
-  rewrite -H0 in H5.
-  apply List.nth_error_Some in H5.
+  rewrite -H0 in H6.
+  apply List.nth_error_Some in H6.
   destruct (List.nth_error inst_mems j) => //=; eauto.
 Qed.
 Lemma inst_typing_mem: forall s i j C a x,
@@ -3006,7 +2992,7 @@ Lemma inst_typing_mem: forall s i j C a x,
   exists cl, List.nth_error s.(s_mems) (N.to_nat a) = Some cl.
 Proof.
   move => s i j C a x HIT HNth1 HNth2.
-  destruct s, i, C, tc_elem, tc_data, tc_local,
+  destruct s, i, C, tc_data, tc_local,
           tc_label, tc_return, tc_ref => //=;
   unfold inst_typing, typing.inst_typing in * => //=;
   remove_bools_options; simpl in * => //=.
@@ -3021,7 +3007,7 @@ Lemma inst_index_get_contextval_tab: forall s i j C a,
   exists x, List.nth_error C.(tc_table) j = Some x.
 Proof.
   move => s i j C a HIT HNth.
-  destruct s, i, C, tc_elem, tc_data, tc_local,
+  destruct s, i, C, tc_data, tc_local,
           tc_label, tc_return, tc_ref => //=;
   unfold inst_typing, typing.inst_typing in * => //=;
   remove_bools_options; simpl in * => //=.
@@ -3029,10 +3015,10 @@ Proof.
   rewrite all2E in H1. remove_bools_options.
   assert (List.nth_error inst_tables j <> None);
     first by rewrite HNth.
-  apply List.nth_error_Some in H5.
+  apply List.nth_error_Some in H6.
   repeat rewrite -length_is_size in H1.
-  rewrite H1 in H5.
-  apply List.nth_error_Some in H5.
+  rewrite H1 in H6.
+  apply List.nth_error_Some in H6.
   destruct (List.nth_error tc_table j) => //=; eauto.
 Qed.
 Lemma inst_index_get_instval_tab: forall s i j C x,
@@ -3041,7 +3027,7 @@ Lemma inst_index_get_instval_tab: forall s i j C x,
   exists a, List.nth_error i.(inst_tables) j = Some a.
 Proof.
   move => s i j C x HIT HNth.
-  destruct s, i, C, tc_elem, tc_data, tc_local,
+  destruct s, i, C, tc_data, tc_local,
           tc_label, tc_return, tc_ref => //=;
   unfold inst_typing, typing.inst_typing in * => //=;
   remove_bools_options; simpl in * => //=.
@@ -3049,10 +3035,10 @@ Proof.
   rewrite all2E in H1. remove_bools_options.
   assert (List.nth_error tc_table j <> None);
     first by rewrite HNth.
-  apply List.nth_error_Some in H5.
+  apply List.nth_error_Some in H6.
   repeat rewrite -length_is_size in H1.
-  rewrite -H1 in H5.
-  apply List.nth_error_Some in H5.
+  rewrite -H1 in H6.
+  apply List.nth_error_Some in H6.
   destruct (List.nth_error inst_tables j) => //=; eauto.
 Qed.
 Lemma inst_typing_tab: forall s i j C a x,
@@ -3062,7 +3048,7 @@ Lemma inst_typing_tab: forall s i j C a x,
   exists cl, List.nth_error s.(s_tables) (N.to_nat a) = Some cl.
 Proof.
   move => s i j C a x HIT HNth1 HNth2.
-  destruct s, i, C, tc_elem, tc_data, tc_local,
+  destruct s, i, C, tc_data, tc_local,
           tc_label, tc_return, tc_ref => //=;
   unfold inst_typing, typing.inst_typing in * => //=;
   remove_bools_options; simpl in * => //=.
@@ -3077,7 +3063,7 @@ Lemma inst_index_get_contextval_global: forall s i j C a,
   exists x, List.nth_error C.(tc_global) j = Some x.
 Proof.
   move => s i j C a HIT HNth.
-  destruct s, i, C, tc_elem, tc_data, tc_local,
+  destruct s, i, C, tc_data, tc_local,
           tc_label, tc_return, tc_ref => //=;
   unfold inst_typing, typing.inst_typing in * => //=;
   remove_bools_options; simpl in * => //=.
@@ -3085,10 +3071,10 @@ Proof.
   rewrite all2E in H2. remove_bools_options.
   assert (List.nth_error inst_globals j <> None);
     first by rewrite HNth.
-  apply List.nth_error_Some in H5.
+  apply List.nth_error_Some in H6.
   repeat rewrite -length_is_size in H2.
-  rewrite H2 in H5.
-  apply List.nth_error_Some in H5.
+  rewrite H2 in H6.
+  apply List.nth_error_Some in H6.
   destruct (List.nth_error tc_global j) => //=; eauto.
 Qed.
 Lemma inst_index_get_instval_global: forall s i j C x,
@@ -3097,7 +3083,7 @@ Lemma inst_index_get_instval_global: forall s i j C x,
   exists a, List.nth_error i.(inst_globals) j = Some a.
 Proof.
   move => s i j C x HIT HNth.
-  destruct s, i, C, tc_elem, tc_data, tc_local,
+  destruct s, i, C, tc_data, tc_local,
           tc_label, tc_return, tc_ref => //=;
   unfold inst_typing, typing.inst_typing in * => //=;
   remove_bools_options; simpl in * => //=.
@@ -3105,10 +3091,10 @@ Proof.
   rewrite all2E in H2. remove_bools_options.
   assert (List.nth_error tc_global j <> None);
     first by rewrite HNth.
-  apply List.nth_error_Some in H5.
+  apply List.nth_error_Some in H6.
   repeat rewrite -length_is_size in H2.
-  rewrite -H2 in H5.
-  apply List.nth_error_Some in H5.
+  rewrite -H2 in H6.
+  apply List.nth_error_Some in H6.
   destruct (List.nth_error inst_globals j) => //=; eauto.
 Qed.
 Lemma inst_typing_global: forall s i j C a x,
@@ -3118,7 +3104,7 @@ Lemma inst_typing_global: forall s i j C a x,
   exists cl, List.nth_error s.(s_globals) (N.to_nat a) = Some cl.
 Proof.
   move => s i j C a x HIT HNth1 HNth2.
-  destruct s, i, C, tc_elem, tc_data, tc_local,
+  destruct s, i, C, tc_data, tc_local,
           tc_label, tc_return, tc_ref => //=;
   unfold inst_typing, typing.inst_typing in * => //=;
   remove_bools_options; simpl in * => //=.
@@ -3133,7 +3119,7 @@ Lemma inst_index_get_contextval_func: forall s i j C a,
   exists x, List.nth_error C.(tc_func) j = Some x.
 Proof.
   move => s i j C a HIT HNth.
-  destruct s, i, C, tc_elem, tc_data, tc_local,
+  destruct s, i, C, tc_data, tc_local,
           tc_label, tc_return, tc_ref => //=;
   unfold inst_typing, typing.inst_typing in * => //=;
   remove_bools_options; simpl in * => //=.
@@ -3141,10 +3127,10 @@ Proof.
   rewrite all2E in H3. remove_bools_options.
   assert (List.nth_error inst_funcs j <> None);
     first by rewrite HNth.
-  apply List.nth_error_Some in H5.
+  apply List.nth_error_Some in H6.
   repeat rewrite -length_is_size in H3.
-  rewrite H3 in H5.
-  apply List.nth_error_Some in H5.
+  rewrite H3 in H6.
+  apply List.nth_error_Some in H6.
   destruct (List.nth_error tc_func j) => //=; eauto.
 Qed.
 Lemma inst_index_get_instval_func: forall s i j C x,
@@ -3153,7 +3139,7 @@ Lemma inst_index_get_instval_func: forall s i j C x,
   exists a, List.nth_error i.(inst_funcs) j = Some a.
 Proof.
   move => s i j C x HIT HNth.
-  destruct s, i, C, tc_elem, tc_data, tc_local,
+  destruct s, i, C, tc_data, tc_local,
           tc_label, tc_return, tc_ref => //=;
   unfold inst_typing, typing.inst_typing in * => //=;
   remove_bools_options; simpl in * => //=.
@@ -3161,10 +3147,10 @@ Proof.
   rewrite all2E in H3. remove_bools_options.
   assert (List.nth_error tc_func j <> None);
     first by rewrite HNth.
-  apply List.nth_error_Some in H5.
+  apply List.nth_error_Some in H6.
   repeat rewrite -length_is_size in H3.
-  rewrite -H3 in H5.
-  apply List.nth_error_Some in H5.
+  rewrite -H3 in H6.
+  apply List.nth_error_Some in H6.
   destruct (List.nth_error inst_funcs j) => //=; eauto.
 Qed.
 Lemma inst_typing_func: forall s i j C a x,
@@ -3174,7 +3160,7 @@ Lemma inst_typing_func: forall s i j C a x,
   exists cl, List.nth_error s.(s_funcs) (N.to_nat a) = Some cl.
 Proof.
   move => s i j C a x HIT HNth1 HNth2.
-  destruct s, i, C, tc_elem, tc_data, tc_local,
+  destruct s, i, C, tc_data, tc_local,
           tc_label, tc_return, tc_ref => //=;
   unfold inst_typing, typing.inst_typing in * => //=;
   remove_bools_options; simpl in * => //=.
@@ -3221,7 +3207,7 @@ Lemma inst_typing_tab_ttype: forall s i x C a ttype tab,
   tableinst_type tab = ttype.
 Proof.
   move => s i x C a ttype tab HIT HILU HCLU HSLU.
-  destruct s, i, C, tc_elem, tc_data, tc_local,
+  destruct s, i, C, tc_data, tc_local,
           tc_label, tc_return, tc_ref => //=;
   unfold inst_typing, typing.inst_typing in * => //=;
   remove_bools_options; simpl in * => //=.
@@ -3231,7 +3217,7 @@ Proof.
   remove_bools_options; eauto.
   unfold lookup_N in Hoption.
   rewrite Hoption in HSLU. inversion HSLU. subst.
-  unfold tab_typing in H5. by remove_bools_options.
+  unfold tab_typing in H6. by remove_bools_options.
 Qed.
 
 Lemma store_typing_tabv_type: forall s i C x j a tab tabv,
@@ -3243,14 +3229,14 @@ Lemma store_typing_tabv_type: forall s i C x j a tab tabv,
   tt_elem_type (tableinst_type tab) = typeof_ref tabv.
 Proof.
   move => s i C x j a tab tabv HST HIT HILU HSLU HTLU.
-  destruct s, i, C, tc_elem, tc_data,
+  destruct s, i, C, tc_data,
           tc_local, tc_label, tc_return, tc_ref => //=;
   unfold inst_typing, typing.inst_typing in * => //=;
   remove_bools_options; simpl in * => //=.
   destruct HST as [HSTf [HSTt HSTm]].
   move/List.Forall_forall in HSTt.
   destruct (HSTt tab); first by eapply List.nth_error_In; eauto.
-  move/List.Forall_forall in H4.
+  move/List.Forall_forall in H5.
   assert (tabcl_agree
           {|
             s_funcs := s_funcs;
@@ -3260,10 +3246,10 @@ Proof.
             s_elems := s_elems;
             s_datas := s_datas
           |} (tt_elem_type (tableinst_type tab)) tabv);
-  first by apply H4; eapply List.nth_error_In; eauto.
-  unfold tabcl_agree in H6.
+  first by apply H5; eapply List.nth_error_In; eauto.
+  unfold tabcl_agree in H7.
   destruct tabv => //=.
-  destruct H6 => //=.
+  destruct H7 => //=.
 Qed.
 
 
@@ -3297,13 +3283,13 @@ Proof.
   unfold option_bind in Hoption0.
   remove_bools_options.
   unfold inst_typing in HInstType.
-  destruct i, C, tc_elem, tc_data, tc_local,
+  destruct i, C, tc_data, tc_local,
     tc_label, tc_return, tc_ref => //=.
   move/andP in HInstType. destruct HInstType.
   remove_bools_options.
   eapply all2_projection in H2; eauto.
-  unfold globali_agree in H2.
-  remove_bools_options.
+  unfold globali_agree, option_map, global_typing in H2.
+  remove_bools_options. move/eqP in H6. subst.
   apply global_val_type_rect.
 Qed.
 
@@ -3319,7 +3305,7 @@ Proof.
   destruct (lookup_N (inst_tables (f_inst f)) x) eqn:Hx => //=.
   remove_bools_options.
   unfold inst_typing, typing.inst_typing in HInstType.
-  destruct (f_inst f), C, tc_elem, tc_data, tc_local,
+  destruct (f_inst f), C, tc_data, tc_local,
     tc_label, tc_return, tc_ref => //=.
   move/andP in HInstType. destruct HInstType.
   remove_bools_options.
@@ -3477,11 +3463,13 @@ Proof.
     clear H1. remember Hext as Hext1. clear HeqHext1.
     eapply all2_projection in Hext1; eauto.
     apply/andP. split => //=.
-    + unfold globali_agree.
-      unfold option_map. unfold lookup_N.
-      assert (List.nth_error sg' (N.to_nat a) = Some g);
+    + unfold globali_agree, option_map, lookup_N, global_typing.
+      assert (List.nth_error sg' (N.to_nat a) = Some g1);
         first by eapply nth_error_firstn; eauto.
-      rewrite H1. by eapply global_agree_extension; eauto.
+      unfold globali_agree, option_map, lookup_N, global_typing in H2.
+      move/eqP in H2. rewrite -H2.
+      rewrite H1. apply/eqP. f_equal.
+      by eapply global_agree_extension; eauto.
     + by eapply IHig; eauto.
 Qed.
 
@@ -3523,7 +3511,6 @@ Proof.
   eapply N.le_trans; eauto.
 Qed.
 
-
 Lemma mem_extension_C: forall sm sm' im tcm,
   size sm <= size sm' ->
   all2 (memi_agree sm) im tcm ->
@@ -3536,12 +3523,6 @@ Proof.
   simpl in HA. remove_bools_options.
   apply/andP; split => //=; last by eapply IHim; eauto.
   eapply memi_agree_extension; eauto.
-Qed.
-
-Lemma nth_error_nil: forall X n,
-  List.nth_error (@nil X) n = None.
-Proof.
-  intros. induction n => //=.
 Qed.
 
 Lemma tabi_agree_extension: forall t0 t1 n t,
@@ -3602,6 +3583,84 @@ Proof.
   by eapply tabi_agree_extension; eauto.
 Qed.
 
+Lemma elem_agree_extension: forall e0 e1 n e,
+  size e0 <= size e1 ->
+  elemi_agree e0 n e ->
+  all2 elem_extension e0 (List.firstn (length (e0)) e1) ->
+  elemi_agree e1 n e.
+Proof.
+  move => e0 e1 n e HLen H1 H2.
+  assert (size e0 = size (List.firstn (length (e0)) e1)) as HSize;
+    first by eapply all2_size; eauto.
+  unfold elemi_agree, option_map, elem_typing.
+  unfold elemi_agree, option_map, elem_typing in H1.
+  unfold elem_extension in H2.
+  remove_bools_options.
+
+  assert (lookup_N e0 n <> None);
+    first by rewrite Hoption.
+  apply lookup_N_Some in H.
+  repeat rewrite -length_is_size in HSize.
+
+  assert (lookup_N e1 n <> None);
+    first by apply lookup_N_Some;
+    repeat rewrite -length_is_size in HLen; lias.
+  destruct (lookup_N e1 n) eqn:E1 => //=.
+  apply/eqP. f_equal. f_equal.
+
+  remember H as H'. clear HeqH'.
+  rewrite HSize in H. apply lookup_N_Some in H.
+  unfold lookup_N in H.
+  
+  eapply all2_projection in H2; eauto;
+    last eapply nth_error_firstn'; eauto.
+  move/eqP in H0. subst.
+  remove_bools_options => //=.
+
+  (* only eleminst_elem used in elem_extension *)
+  (* only eleminst_type used in elemi_agree *)
+Admitted.
+
+(*****)
+
+Lemma elem_extension_C: forall se se' ie tce,
+  size sg <= size sg' ->
+  all2 (globali_agree sg) ig tcg ->
+  all2 global_extension sg (List.firstn (length (sg)) sg') ->
+  all2 (globali_agree sg') ig tcg.
+Proof.
+  move => sg sg' ig.
+  generalize dependent sg; generalize dependent sg'.
+  induction ig; move => sg' sg tcg HLen HA Hext => //=; destruct tcg => //=.
+  - simpl in HA. remove_bools_options.
+    edestruct IHig; eauto.
+    unfold globali_agree in H. remove_bools_options.
+    assert (size sg = size (List.firstn (length (sg)) sg'));
+      first by eapply all2_size; eauto.
+    assert (N.to_nat a < length (List.firstn (length (sg)) sg'))%coq_nat.
+    {
+      assert (lookup_N sg a <> None) as Hn. rewrite Hoption => //.
+      apply lookup_N_Some in Hn.
+      rewrite length_is_size in Hn. rewrite length_is_size.
+      rewrite -H. rewrite <- length_is_size. by lias.
+    }
+    remember H1 as H5. clear HeqH5.
+    rewrite <- List.nth_error_Some in H1.
+    destruct (List.nth_error
+        (List.firstn (length (sg)) sg') (N.to_nat a)) eqn:HGlob => //=; eauto.
+    clear H1. remember Hext as Hext1. clear HeqHext1.
+    eapply all2_projection in Hext1; eauto.
+    apply/andP. split => //=.
+    + unfold globali_agree, option_map, lookup_N, global_typing.
+      assert (List.nth_error sg' (N.to_nat a) = Some g1);
+        first by eapply nth_error_firstn; eauto.
+      unfold globali_agree, option_map, lookup_N, global_typing in H2.
+      move/eqP in H2. rewrite -H2.
+      rewrite H1. apply/eqP. f_equal.
+      by eapply global_agree_extension; eauto.
+    + by eapply IHig; eauto.
+Qed.
+
 Lemma inst_typing_extension: forall s s' i C,
     store_extension s s' ->
     inst_typing s i C ->
@@ -3611,12 +3670,14 @@ Proof.
   unfold store_extension in HST. unfold operations.store_extension in HST.
   unfold inst_typing in HIT. unfold typing.inst_typing in HIT.
   unfold inst_typing. unfold typing.inst_typing.
-  destruct i, C, tc_elem, tc_data, tc_local, tc_label, tc_return, tc_ref => //.
+  destruct i, C, tc_data, tc_local, tc_label, tc_return, tc_ref => //.
   remove_bools_options.
-  unfold component_extension in H4. move/andP in H4. destruct H4 as [Hfl Hf].
-  unfold component_extension in H7. move/andP in H7. destruct H7 as [Hgl Hg].
-  unfold component_extension in H8. move/andP in H8. destruct H8 as [Hml Hm].
-  unfold component_extension in H9. move/andP in H9. destruct H9 as [Htl Ht].
+  unfold component_extension in H5. move/andP in H5. destruct H5 as [Hfl Hf].
+  unfold component_extension in H6. move/andP in H6. destruct H6 as [Hdl Hd].
+  unfold component_extension in H7. move/andP in H7. destruct H7 as [Hel He].
+  unfold component_extension in H8. move/andP in H8. destruct H8 as [Hgl Hg].
+  unfold component_extension in H9. move/andP in H9. destruct H9 as [Hml Hm].
+  unfold component_extension in H10. move/andP in H10. destruct H10 as [Htl Ht].
   repeat (apply/andP; split => //=; subst => //=).
   
   - eapply func_extension_C with (sf := (s_funcs s)); eauto.
@@ -3982,7 +4043,7 @@ Lemma tc_reference_glob_type: forall s i C n m gt g,
 Proof.
   move => s i C n m gt g HIT HN1 HN2 HN3.
   unfold inst_typing in HIT. unfold typing.inst_typing in HIT.
-  destruct i, C, tc_elem, tc_data, tc_local,
+  destruct i, C, tc_data, tc_local,
           tc_label, tc_return, tc_ref => //=.
   move/andP in HIT. destruct HIT.
   repeat (move/andP in H; destruct H).
@@ -4633,7 +4694,7 @@ Proof.
       unfold inst_typing, typing.inst_typing in HIT. 
       destruct (f_inst f), C => //=.
       (* inst_globals, s_globals, tc_global *)
-      destruct tc_elem, tc_data, tc_local,
+      destruct tc_data, tc_local,
               tc_label, tc_return, tc_ref => //=.
       remove_bools_options. simpl in *.
       unfold lookup_N in Hoption0, Htc. simpl in Htc.

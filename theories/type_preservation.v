@@ -3275,36 +3275,6 @@ Proof.
   by remove_bools_options; eauto.
 Qed.
 
-
-
-(* Need something similar for elem but lack definition in inst_typing
-Lemma store_typing_elemv_type: forall s i C x y j a ttype elem elemv,
-  store_typing s ->
-  inst_typing s i C ->
-  List.nth_error i.(inst_elems) x = Some a ->
-  List.nth_error C.(tc_elem) y = Some (tt_elem_type ttype) ->
-  List.nth_error s.(s_elems) (N.to_nat a) = Some elem ->
-  List.nth_error (eleminst_elem elem) (Z.to_N (Wasm_int.Int32.unsigned j)) = Some elemv ->
-  tt_elem_type ttype = typeof_ref elemv.
-Proof.
-(*
-lookup_N (inst_tables (f_inst f)) x = Some t
-lookup_N (s_tables s) t = Some tab
-lookup_N (tc_table C) x = Some ttype
-
-lookup_N (inst_elems (f_inst f)) y = Some e
-lookup_N (s_elems s) e = Some elem
-lookup_N (tc_elem C) y = Some (tt_elem_type ttype)
-lookup_N (eleminst_elem elem) (Z.to_N (Wasm_int.Int32.unsigned src)) =
-  Some v
-
-tt_elem_type ttype = typeof_ref v
-tt_elem_type (tableinst_type tab) = typeof_ref v
-List.nth_error (tableinst_elem tab) (Z.to_N (Wasm_int.Int32.unsigned ?j)) =
-  Some v
-*)
-*)
-
 Lemma inst_typing_tab_ttype: forall s i x C a ttype tab,
   inst_typing s i C ->
   List.nth_error i.(inst_tables) x = Some a ->
@@ -3323,6 +3293,27 @@ Proof.
   unfold lookup_N in Hoption.
   rewrite Hoption in HSLU. inversion HSLU. subst.
   unfold tab_typing in H7. by remove_bools_options.
+Qed.
+
+Lemma inst_typing_elemv_type: forall s i C x j a etype elem elemv,
+  inst_typing s i C ->
+  List.nth_error i.(inst_elems) x = Some a ->
+  List.nth_error C.(tc_elem) x = Some etype ->
+  List.nth_error s.(s_elems) (N.to_nat a) = Some elem ->
+  List.nth_error (eleminst_elem elem) j = Some elemv ->
+  etype = typeof_ref elemv.
+Proof.
+  move => s i C x j a etype elem elemv HST HILU HCLU HSLU HTLU.
+  destruct s, i, C, tc_local, tc_label, tc_return, tc_ref => //=;
+  unfold inst_typing, typing.inst_typing in * => //=;
+  remove_bools_options; simpl in * => //=.
+  eapply all2_projection in H1; eauto.
+  unfold elemi_agree, option_map, lookup_N in H1.
+  rewrite HSLU in H1. move/eqP in H1. inversion H1.
+  unfold elem_typing in H7.
+  remove_bools_options. move/List.forallb_forall in H7.
+  symmetry. apply/eqP. apply (H7 elemv).
+  eapply List.nth_error_In; eauto.
 Qed.
 
 Lemma store_typing_tabv_type: forall s i C x j a tab tabv,
@@ -6010,30 +6001,18 @@ Proof.
       admit. (* ref_func funci_agree *)
 
     rewrite -cat1s.
-    eapply et_composition'
-      with (t2s := t2s) => //=.
-    apply ety_a'; auto_basic; repeat apply bet_weakening;
-    apply bet_weakening_empty_2. simpl.
-    eapply bet_table_set with (tabtype := ttype) => //=.
-    
-    unfold stab in H. unfold stab_elem, stab in H0.
-    remove_bools_options.
-
-    unfold selem in H0.
-    remove_bools_options.
-
-    (* refer to: store_typing_elemv_type *)
-    (*
-    replace (ttype) with (tableinst_type tab);
-      last by eapply inst_typing_tab_ttype; eauto.
-    eapply store_typing_tabv_type; eauto.
-    tableinst_elem v eleminst_elem
-    unfold lookup_N in H4. apply H4.
-    rewrite H0.
-    *)
-    (* v obtained from elem, ttype from table *)
-    (* refer to the same place *) admit.
-    (* tt_elem_type ttype = typeof_ref v *)
+    eapply et_composition' with (t2s := t2s) => //=.
+    {
+      apply ety_a'; auto_basic; repeat apply bet_weakening;
+      apply bet_weakening_empty_2. simpl.
+      eapply bet_table_set with (tabtype := ttype) => //=.
+      
+      unfold stab in H.
+      unfold selem in H0.
+      remove_bools_options.
+      unfold lookup_N in *.
+      eapply inst_typing_elemv_type; eauto.
+    }
     
     rewrite -cat1s.
     eapply et_composition'

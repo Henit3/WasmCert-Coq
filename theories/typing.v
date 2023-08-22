@@ -270,9 +270,22 @@ Section Store_validity.
 Definition funci_agree (fs : seq function_closure) (n : funcaddr) (f : function_type) : bool :=
   option_map cl_type (lookup_N fs n) == Some f.
 
+Definition global_typing (g : globalinst) (tg : global_type) : bool :=
+  (g.(g_type) == tg) &&
+  (typeof (g.(g_val)) == tg_t tg).
+
+Definition globali_agree (gs : list globalinst) (n : globaladdr) (tg : global_type) : bool :=
+  option_map (fun g => global_typing g tg) (lookup_N gs n) == Some true.
+
+(* Definition globali_agree (gs : list globalinst) (n : globaladdr) (tg : global_type) : bool :=
+  option_map g_type (lookup_N gs n) == Some tg. *)
+
 Definition tab_typing (t : tableinst) (tt : table_type) : bool :=
   (tt.(tt_limits).(lim_min) <= tab_size t) &&
-  (t.(tableinst_type) == tt).
+  (t.(tableinst_type) == tt) &&
+  (List.forallb
+    (fun te => (typeof_ref te) == tt.(tt_elem_type))
+    t.(tableinst_elem)).
 
 Definition tabi_agree (ts: list tableinst) (n : tableaddr) (tab_t : table_type) : bool :=
   option_map (fun tab => tab_typing tab tab_t) (lookup_N ts n) == Some true.
@@ -284,19 +297,12 @@ Definition mem_typing (m : meminst) (m_t : memory_type) : bool :=
 Definition memi_agree (ms : list meminst) (n : memaddr) (mem_t : memory_type) : bool :=
   option_map (fun mem => mem_typing mem mem_t) (lookup_N ms n) == Some true.
 
-Definition global_typing (g : globalinst) (tg : global_type) : bool :=
-  (* (typeof (g.(g_val)) == tg_t tg) && *)
-  (g.(g_type) == tg).
-
-Definition globali_agree (gs : list globalinst) (n : globaladdr) (tg : global_type) : bool :=
-  option_map (fun g => global_typing g tg) (lookup_N gs n) == Some true.
-
-(* Definition globali_agree (gs : list globalinst) (n : globaladdr) (tg : global_type) : bool :=
-  option_map g_type (lookup_N gs n) == Some tg. *)
-
 Definition elem_typing (e : eleminst) (et : reference_type) : bool :=
   (* (typeof (e.(eleminst_val)) == et) && *)
-  (e.(eleminst_type) == et).
+  (e.(eleminst_type) == et) &&
+  (List.forallb
+    (fun ee => (typeof_ref ee) == et)
+    e.(eleminst_elem)).
 
 Definition elemi_agree (es : list eleminst) (n : elemaddr) (et : reference_type) : bool :=
   option_map (fun e => elem_typing e et) (lookup_N es n) == Some true.
@@ -304,8 +310,10 @@ Definition elemi_agree (es : list eleminst) (n : elemaddr) (et : reference_type)
 (* Definition elemi_agree (es : list eleminst) (n : elemaddr) (et : reference_type) : bool :=
   option_map eleminst_type (lookup_N es n) == Some et. *)
 
-(* Definition datai_agree (ds : list datainst) (n : dataaddr) (dt : ???) : bool :=
-  option_map (fun d => data_typing d dt) (lookup_N ds n) == Some true. *)
+(* Definition datai_agree (ds : list datainst) (n : dataaddr) (dt : unit) : bool :=
+  true. *)
+Definition datai_agree (ds : list datainst) (n : dataaddr) (dt : unit) : bool :=
+  option_map (fun d => true) (lookup_N ds n) == Some true.
 
 (* TODO: figure out what's missing for elem/data/ref *)
 (** std-doc:
@@ -316,15 +324,15 @@ Definition inst_typing (s : store_record) (inst : instance) (C : t_context) : bo
        inst_elems := es; inst_datas := ds; inst_exports := exps |} := inst in
   match C with
   | {| tc_type := ts'; tc_func := tfs; tc_table := tabs_t; tc_memory := mems_t;
-       tc_global := tgs; tc_elem := tes; tc_data := (*tds*) nil;
+       tc_global := tgs; tc_elem := tes; tc_data := tds;
        tc_local := nil; tc_label := nil; tc_return := None; tc_ref := nil; |} =>
     (ts == ts') &&
-    (all2 (elemi_agree s.(s_elems)) es tes) &&
     (all2 (funci_agree s.(s_funcs)) fs tfs) &&
     (all2 (globali_agree s.(s_globals)) gs tgs) &&
     (all2 (tabi_agree s.(s_tables)) tbs tabs_t) &&
-    (all2 (memi_agree s.(s_mems)) ms mems_t) (*&&
-    (all2 (datai_agree s.(s_datas)) ds tds)*)
+    (all2 (memi_agree s.(s_mems)) ms mems_t) &&
+    (all2 (elemi_agree s.(s_elems)) es tes) &&
+    (all2 (datai_agree s.(s_datas)) ds tds)
   | _ => false
   end.
 
@@ -334,7 +342,7 @@ Lemma inst_typing_expand (s: store_record) (inst: instance) (C: t_context) (tb: 
   expand inst tb = expand_t C tb.
 Proof.
   destruct tb, inst, C => //=.
-  destruct tc_data, tc_local, tc_label, tc_return, tc_ref => //.
+  destruct tc_local, tc_label, tc_return, tc_ref => //.
   move => Htype.
   repeat (move/andP in Htype; destruct Htype as [Htype _]).
   by move/eqP in Htype; subst.

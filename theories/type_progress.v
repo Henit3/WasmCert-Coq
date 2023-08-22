@@ -37,6 +37,85 @@ Let reduce : host_state -> store_record -> frame -> seq administrative_instructi
 Definition terminal_form (es: seq administrative_instruction) :=
   const_list es \/ es = [::AI_trap].
 
+Axiom host_application_exists: forall hs s tf hf vcs,
+  exists hs' res, host_application hs s tf hf vcs hs' res.
+
+(* For proving the numerics in init, copy, and fill instructions *)
+Lemma Int32_decrement: forall s s',
+  s' = Wasm_int.int_sub i32m s Wasm_int.Int32.one ->
+  Z.to_N (Wasm_int.Int32.unsigned s')
+    = (Z.to_N (Wasm_int.Int32.unsigned s) - 1)%N.
+Proof.
+  intros. rewrite H. simpl.
+  replace (Wasm_int.Int32.Z_mod_modulus
+          (Z.sub (Wasm_int.Int32.unsigned s) 1))
+     with (Z.sub (Wasm_int.Int32.unsigned s) 1) => //.
+  2: {
+    symmetry. eapply Wasm_int.Int32.Z_mod_modulus_id; eauto.
+    (* -1 < s1 - 1, since s1 <> 0 and s1 unsigned, so s1 > 0 *)
+    (* s1 - 1 < Int32.modulus, since s1 was valid (s1 < Int32.modulus) *)
+    admit.
+  }
+  rewrite Z2N.inj_sub => //.
+Admitted.
+Lemma Int32_increment: forall s s',
+  s' = Wasm_int.int_add i32m s Wasm_int.Int32.one ->
+  Z.to_N (Wasm_int.Int32.unsigned s')
+    = (Z.to_N (Wasm_int.Int32.unsigned s) + 1)%N.
+Proof.
+  intros. rewrite H. simpl.
+  replace (Wasm_int.Int32.Z_mod_modulus
+          (Z.add (Wasm_int.Int32.unsigned s) 1))
+     with (Z.add (Wasm_int.Int32.unsigned s) 1) => //.
+  2: {
+    symmetry. eapply Wasm_int.Int32.Z_mod_modulus_id; eauto.
+    (* -1 < s0 + 1, s0 unsigned, so s0 >= 0 *)
+    (* s0 + 1 < Int32.modulus, since s0 + s1 <= tab_size t,
+        (tab_size t < Int32.modulus)? *)
+    admit.
+  }
+  rewrite Z2N.inj_add => //. admit. (* 0 <= s0, s0 unsigned *)
+Admitted.
+Lemma Int32_add_decrement: forall s1 s2 s1',
+  s1' = Wasm_int.int_sub i32m
+        (Wasm_int.int_add i32m s1 s2) Wasm_int.Int32.one ->
+  Z.to_N (Wasm_int.Int32.unsigned s1') =
+    (Z.to_N (Wasm_int.Int32.unsigned s1) +
+    Z.to_N (Wasm_int.Int32.unsigned s2) - 1)%N.
+Proof.
+  intros. rewrite H. simpl.
+  remember (Z.add (Wasm_int.Int32.unsigned s1)
+            (Wasm_int.Int32.unsigned s2)) as s.
+  replace (Wasm_int.Int32.Z_mod_modulus s) with (s) => //.
+  2: {
+    rewrite Heqs. symmetry.
+    eapply Wasm_int.Int32.Z_mod_modulus_id; eauto.
+    (* -1 < s1 + s2, s1 and s2 unsigned, so s1 + s2 >= 0 *)
+    (* s1 + s2 < Int32.modulus, since s1 + s2 <= tab_size t,
+        (tab_size t < Int32.modulus)? *)
+    admit.
+  }
+Admitted.
+Lemma N_to_nat_N_of_uint: forall s,
+  N.to_nat (Wasm_int.N_of_uint i32m s) = Wasm_int.nat_of_uint i32m s.
+Proof.
+  intros.
+  induction s => //=.
+  induction intval => //=.
+Qed.
+Lemma Nat_le_aSbc_lt_ac: forall s,
+  s <> Wasm_int.int_zero i32m ->
+  Wasm_int.nat_of_uint i32m s <> 0.
+Proof.
+  intros [val range] H. admit.
+  (*
+  induction val => //=.
+  - discriminate on H (0 <> 0)
+  - trivial (Pos.to_nat p <> 0)
+  - discriminate on range (-1 < Z.neg p < Int32.modulus)
+  *)
+Admitted.
+
 Lemma reduce_trap_left: forall vs,
     const_list vs ->
     vs <> [::] ->
@@ -211,15 +290,13 @@ Proof.
   unfold sfunc. unfold operations.sfunc. unfold option_bind.
   unfold sfunc_ind.
   unfold inst_typing, typing.inst_typing in HIT.
-  destruct i => //=. destruct C => //=.
-  destruct tc_elem => //=. destruct tc_data => //=. destruct tc_local => //=.
-  destruct tc_label => //=. destruct tc_return => //=. destruct tc_ref => //=.
+  destruct i, C, tc_local, tc_label, tc_return, tc_ref => //=.
   remove_bools_options.
-  remember H3 as H4. clear HeqH4.
-  apply all2_size in H3.
-  repeat rewrite -length_is_size in H3.
+  remember H5 as H'. clear HeqH'.
+  apply all2_size in H5.
+  repeat rewrite -length_is_size in H5.
   simpl in HLength.
-  rewrite -H3 in HLength.
+  rewrite -H5 in HLength.
   move/ltP in HLength.
   apply List.nth_error_Some in HLength.
   destruct (List.nth_error inst_funcs j) eqn:HN1 => //=.
@@ -241,21 +318,19 @@ Proof.
   unfold sglob. unfold operations.sglob. unfold option_bind.
   unfold sglob_ind.
   unfold inst_typing, typing.inst_typing in HIT.
-  destruct i => //=. destruct C => //=.
-  destruct tc_elem => //=. destruct tc_data => //=. destruct tc_local => //=.
-  destruct tc_label => //=. destruct tc_return => //=. destruct tc_ref => //=.
+  destruct i, C, tc_local, tc_label, tc_return, tc_ref => //=.
   remove_bools_options.
-  remember H2 as H4. clear HeqH4.
-  apply all2_size in H2.
-  repeat rewrite -length_is_size in H2.
+  remember H4 as H'. clear HeqH'.
+  apply all2_size in H4.
+  repeat rewrite -length_is_size in H4.
   simpl in HLength.
-  rewrite -H2 in HLength.
+  rewrite -H4 in HLength.
   move/ltP in HLength.
   apply List.nth_error_Some in HLength.
   destruct (List.nth_error inst_globals j) eqn:HN1 => //=.
   apply List.nth_error_Some.
-  unfold globali_agree in H4.
-  eapply all2_projection in H4; eauto.
+  unfold globali_agree in H'.
+  eapply all2_projection in H'; eauto.
   remove_bools_options.
   apply List.nth_error_Some.
   unfold lookup_N in Hoption.
@@ -280,20 +355,18 @@ Proof.
   (* TODO: inst_memory is a fragile name *)
   move => s i C HIT HMemory.
   unfold inst_typing, typing.inst_typing in HIT.
-  destruct i => //=. destruct C => //=.
-  destruct tc_elem => //=. destruct tc_data => //=. destruct tc_local => //=.
-  destruct tc_label => //=. destruct tc_return => //=. destruct tc_ref => //=.
+  destruct i, C, tc_local, tc_label, tc_return, tc_ref => //=.
   remove_bools_options.
   simpl in HMemory. unfold smem_ind. simpl.
-  remember H0 as H4. clear HeqH4.
-  apply all2_size in H0.
+  remember H2 as H'. clear HeqH'.
+  apply all2_size in H2.
   destruct inst_mems => //=; first by destruct tc_memory.
   exists m. split => //.
   destruct tc_memory => //.
-  simpl in H4.
-  unfold memi_agree in H4.
-  unfold option_map in H4.
-  unfold lookup_N in H4.
+  simpl in H'.
+  unfold memi_agree in H'.
+  unfold option_map in H'.
+  unfold lookup_N in H'.
   by remove_bools_options.
 Qed.
 
@@ -308,20 +381,20 @@ Proof.
   unfold inst_typing, typing.inst_typing in HIT.
   unfold store_typing, tab_agree, tabcl_agree in HST.
   unfold stab_elem in HStab.
-  destruct s => //=. destruct f => //=. destruct f_inst. destruct f_inst. destruct C => //=.
-  destruct tc_elem => //=. destruct tc_data => //=. destruct tc_local => //=.
-  destruct tc_label => //=. destruct tc_return => //=. destruct tc_ref => //=.
+  destruct s, f => //=.
+  destruct f_inst. destruct f_inst.
+  destruct C, tc_local, tc_label, tc_return, tc_ref => //=.
   remove_bools_options. simpl in *.
   unfold stab in Hoption. unfold option_bind in HStab.
   remove_bools_options.
   subst. simpl in *.
   remove_bools_options.
   destruct HST.
-  destruct H4.
-  rewrite -> List.Forall_forall in H4.
+  destruct H6.
+  rewrite -> List.Forall_forall in H6.
   assert (HIN1: List.In t s_tables).
   { by apply List.nth_error_In in Hoption. }
-  apply H4 in HIN1. destruct HIN1 as [HIN1 ?].
+  apply H6 in HIN1. destruct HIN1 as [HIN1 ?].
   rewrite -> List.Forall_forall in HIN1.
   assert (HIN2: List.In (VAL_ref_func a) (tableinst_elem t)).
   { by apply List.nth_error_In in HStab. }
@@ -535,65 +608,6 @@ Ltac solve_progress_cont cont :=
 Ltac solve_progress :=
   solve_progress_cont ltac:(fail).
 
-
-(* For proving the numerics in init, copy, and fill instructions *)
-Lemma Int32_decrement: forall s s',
-  s' = Wasm_int.int_sub i32m s Wasm_int.Int32.one ->
-  Z.to_N (Wasm_int.Int32.unsigned s')
-    = (Z.to_N (Wasm_int.Int32.unsigned s) - 1)%N.
-Proof.
-  intros. rewrite H. simpl.
-  replace (Wasm_int.Int32.Z_mod_modulus
-          (Z.sub (Wasm_int.Int32.unsigned s) 1))
-     with (Z.sub (Wasm_int.Int32.unsigned s) 1) => //.
-  2: {
-    symmetry. eapply Wasm_int.Int32.Z_mod_modulus_id; eauto.
-    (* -1 < s1 - 1, since s1 <> 0 and s1 unsigned, so s1 > 0 *)
-    (* s1 - 1 < Int32.modulus, since s1 was valid (s1 < Int32.modulus) *)
-    admit.
-  }
-  rewrite Z2N.inj_sub => //.
-Admitted.
-Lemma Int32_increment: forall s s',
-  s' = Wasm_int.int_add i32m s Wasm_int.Int32.one ->
-  Z.to_N (Wasm_int.Int32.unsigned s')
-    = (Z.to_N (Wasm_int.Int32.unsigned s) + 1)%N.
-Proof.
-  intros. rewrite H. simpl.
-  replace (Wasm_int.Int32.Z_mod_modulus
-          (Z.add (Wasm_int.Int32.unsigned s) 1))
-     with (Z.add (Wasm_int.Int32.unsigned s) 1) => //.
-  2: {
-    symmetry. eapply Wasm_int.Int32.Z_mod_modulus_id; eauto.
-    (* -1 < s0 + 1, s0 unsigned, so s0 >= 0 *)
-    (* s0 + 1 < Int32.modulus, since s0 + s1 <= tab_size t,
-        (tab_size t < Int32.modulus)? *)
-    admit.
-  }
-  rewrite Z2N.inj_add => //. admit. (* 0 <= s0, s0 unsigned *)
-Admitted.
-Lemma Int32_add_decrement: forall s1 s2 s1',
-  s1' = Wasm_int.int_sub i32m
-        (Wasm_int.int_add i32m s1 s2) Wasm_int.Int32.one ->
-  Z.to_N (Wasm_int.Int32.unsigned s1') =
-    (Z.to_N (Wasm_int.Int32.unsigned s1) +
-    Z.to_N (Wasm_int.Int32.unsigned s2) - 1)%N.
-Proof.
-  intros. rewrite H. simpl.
-  remember (Z.add (Wasm_int.Int32.unsigned s1)
-            (Wasm_int.Int32.unsigned s2)) as s.
-  replace (Wasm_int.Int32.Z_mod_modulus s) with (s) => //.
-  2: {
-    rewrite Heqs. symmetry.
-    eapply Wasm_int.Int32.Z_mod_modulus_id; eauto.
-    (* -1 < s1 + s2, s1 and s2 unsigned, so s1 + s2 >= 0 *)
-    (* s1 + s2 < Int32.modulus, since s1 + s2 <= tab_size t,
-        (tab_size t < Int32.modulus)? *)
-    admit.
-  }
-Admitted.
-
-
 Lemma t_progress_be: forall C bes ts1 ts2 vcs lab ret s f hs,
     store_typing s ->
     inst_typing s f.(f_inst) C ->
@@ -616,17 +630,10 @@ Proof.
 
   - (* Ref_func *)
     right. invert_typeof_vcs. simpl in *.
-    destruct C0 => //=. simpl in H.
-    repeat eexists. eapply r_ref_func => //=.
-
-    (* matching of context types *)
-    destruct (f_inst f) => //=.
-    destruct tc_elem => //=.
-    destruct tc_data => //=.
-    destruct tc_local => //=.
-    destruct tc_label => //=.
-    destruct tc_return => //=.
-    destruct tc_ref => //=.
+    eapply inst_index_get_instval_func in HIT; eauto.
+    destruct HIT as [a Ha].
+    exists s, f, [::AI_ref a], hs.
+    apply r_ref_func => //=.
 
   - (* Unop *)
     right. invert_typeof_vcs.
@@ -716,17 +723,12 @@ Proof.
       destruct (f_inst f) => //=.
       unfold expand_t in H. destruct C, C0 => //=. simpl in *.
       (* HIT says inst_types = tc_type0 *)
-      destruct tc_elem0 => //=.
-      destruct tc_data0 => //=.
-      destruct tc_local0 => //=.
-      destruct tc_label0 => //=.
-      destruct tc_return0 => //=.
-      destruct tc_ref0 => //=.
+      destruct tc_local0, tc_label0, tc_return0, tc_ref0 => //=.
       repeat (move/andP in HIT; destruct HIT as [HIT ?]).
       move/eqP in HIT. rewrite HIT.
       (* H0 says tc_type = tc_type0 *)
       unfold upd_label, upd_local_label_return in H0. simpl in H0.
-      inversion H0. rewrite H3 H10 in H => //=.
+      inversion H0. rewrite H3 H12 in H => //=.
     + by apply v_to_e_is_const_list.
     + repeat rewrite length_is_size. rewrite v_to_e_size.
       subst. by rewrite size_map.
@@ -740,17 +742,12 @@ Proof.
       destruct (f_inst f) => //=.
       unfold expand_t in H. destruct C, C0 => //=. simpl in *.
       (* HIT says inst_types = tc_type0 *)
-      destruct tc_elem0 => //=.
-      destruct tc_data0 => //=.
-      destruct tc_local0 => //=.
-      destruct tc_label0 => //=.
-      destruct tc_return0 => //=.
-      destruct tc_ref0 => //=.
+      destruct tc_local0, tc_label0, tc_return0, tc_ref0 => //=.
       repeat (move/andP in HIT; destruct HIT as [HIT ?]).
       move/eqP in HIT. rewrite HIT.
       (* H0 says tc_type = tc_type0 *)
       unfold upd_label, upd_local_label_return in H0. simpl in H0.
-      inversion H0. rewrite H3 H4 H10 in H => //=.
+      inversion H0. rewrite H3 H4 H12 in H => //=.
     + by apply v_to_e_is_const_list.
     + by rewrite v_to_e_size.
     + rewrite -HConstType. by rewrite size_map.
@@ -777,17 +774,12 @@ Proof.
         destruct tb => //=. destruct (f_inst f) => //=.
         unfold expand_t in H. destruct C, C0 => //=. simpl in *.
         (* HIT says inst_types = tc_type0 *)
-        destruct tc_elem0 => //=.
-        destruct tc_data0 => //=.
-        destruct tc_local0 => //=.
-        destruct tc_label0 => //=.
-        destruct tc_return0 => //=.
-        destruct tc_ref0 => //=.
+        destruct tc_local0, tc_label0, tc_return0, tc_ref0 => //=.
         repeat (move/andP in HIT; destruct HIT as [HIT ?]).
         move/eqP in HIT. rewrite HIT.
         (* H0 says tc_type = tc_type0 *)
         unfold upd_label, upd_local_label_return in H0. simpl in H0.
-        inversion H0. rewrite H10 in H => //=.
+        inversion H0. rewrite H12 in H => //=.
       * rewrite Heqvs. by apply v_to_e_is_const_list.
       * repeat rewrite length_is_size. rewrite Heqvs.
         rewrite v_to_e_size. rewrite size_take => //=.
@@ -798,17 +790,12 @@ Proof.
         destruct tb => //=. destruct (f_inst f) => //=.
         unfold expand_t in H. destruct C, C0 => //=. simpl in *.
         (* HIT says inst_types = tc_type0 *)
-        destruct tc_elem0 => //=.
-        destruct tc_data0 => //=.
-        destruct tc_local0 => //=.
-        destruct tc_label0 => //=.
-        destruct tc_return0 => //=.
-        destruct tc_ref0 => //=.
+        destruct tc_local0, tc_label0, tc_return0, tc_ref0 => //=.
         repeat (move/andP in HIT; destruct HIT as [HIT ?]).
         move/eqP in HIT. rewrite HIT.
         (* H0 says tc_type = tc_type0 *)
         unfold upd_label, upd_local_label_return in H0. simpl in H0.
-        inversion H0. rewrite H10 in H => //=.
+        inversion H0. rewrite H12 in H => //=.
       * rewrite Heqvs. by apply v_to_e_is_const_list.
       * repeat rewrite length_is_size. rewrite Heqvs.
         rewrite v_to_e_size. rewrite size_take => //=.
@@ -888,57 +875,12 @@ Proof.
     simpl in *.
     apply typeof_append in HConstType. destruct HConstType as [v [Ha [Hb Hc]]].
     destruct v => //=. destruct v => //=.
-
-    (* need some way of using typing to assert no extern_ref *)
-    (* this requires linking the asserted context table with the store table
-        and the tableinst_elem type with its tableinst_type *)
-
-    (* stab_elem destruct breakdown to be able to use internal tab *)
-    (* destruct (lookup_N (inst_tables (f_inst f)) x) as [tabaddr|] eqn:Etest0 => //=.
-    destruct (lookup_N (s_tables s) tabaddr) as [tab|] eqn:Etest1 => //=.
-    destruct (List.nth_error (tableinst_elem tab)
-        (Z.to_nat (Wasm_int.Int32.unsigned s0))) as [a|] eqn:Etest2 => //=.
-        assert (forall ta ti tty,
-          lookup_N (inst_tables (f_inst f)) x = Some ta ->
-          lookup_N (s_tables s) ta = Some ti ->
-          lookup_N (tc_table C) x = Some tty ->
-          tableinst_type ti = tty). admit.
-        destruct (H4 tabaddr tab tabtype) => //=.
-    
-    destruct (tableinst_elem tab) eqn:Etin => //=.
-    admit. (* nth_error [::] _ = Some *)
-    assert (tt_elem_type (tableinst_type tab) = typeof_ref v).
-    apply table_val_type_rect with (tail := l) => //=.
-    rewrite -Etin in Etest2. rewrite H0 in H8.
-    destruct v eqn:Ev => //=. destruct r.
-    simpl in *. destruct a eqn:Ea => //=. *)
-
-
     rewrite Ha. rewrite -v_to_e_cat. rewrite -catA. subst.
     exists s, f.
-    (* destruct (tt_elem_type (tableinst_type tab)) eqn:Etabt => //=.
-    simpl in H. destruct a => //=. simpl in *. discriminate. 2:{} *)
 
     destruct (stab_elem s f.(f_inst) x (Wasm_int.nat_of_uint i32m s0)) as [a|] eqn:Hstabaddr.
     + (* Some a *)
-      clear H2 Hc. simpl in *.
-      (* unfold stab_elem, stab in Hstabaddr. simpl in *.
-      destruct C0 => //=. simpl in *. *)
-      (* inst_tables -> tableaddr -> s_tables -> tableinst -> tableinst_elem -> value_ref *)
-      (* try to assert instance has it if the store has it -> store_typing_stabaddr *)
-      (* unfold stab_elem, stab in Hstabaddr. simpl in *.
-      destruct C0 => //=. simpl in *.
-      destruct (f_inst f) => //=. simpl in *.
-      destruct tc_elem, tc_data, tc_local, tc_label, tc_return, tc_ref => //=.
-      do 4! (move/andP in HIT; destruct HIT as [HIT ?]).
-      unfold lookup_N in *.
-      tabtype
-      inst_tables
-      eapply all2_projection with (f0 := (tabi_agree (s_tables s)))
-        (l1 := inst_tables) (l2 := tc_table) (n := N.to_nat x)
-        (x1 := a) (x2 := tabtype) in H4 => //=.
-      unfold tabi_agree, option_map, tab_typing in H4. *)
-      
+      clear H2 Hc. simpl in *.      
       unfold inst_tables in Hstabaddr.
       remember Hstabaddr as Hstabaddr2. clear HeqHstabaddr2.
       destruct a eqn:Ea => //=.
@@ -1065,11 +1007,10 @@ Proof.
 
       unfold stab.
       unfold inst_typing, typing.inst_typing in HIT.
-      destruct C0, (f_inst f), tc_elem, tc_data,
-              tc_local, tc_label, tc_return, tc_ref => //.
+      destruct C0, (f_inst f), tc_local, tc_label, tc_return, tc_ref => //.
       remove_bools_options.
-      simpl in H. unfold tabi_agree in H2.
-      eapply all2_projection in H2; eauto.
+      simpl in H. unfold tabi_agree in H4.
+      eapply all2_projection in H4; eauto.
       simpl in *. unfold lookup_N.
       remove_bools_options. rewrite Ha; eauto.
     }
@@ -1092,11 +1033,10 @@ Proof.
 
       unfold stab.
       unfold inst_typing, typing.inst_typing in HIT.
-      destruct C0, (f_inst f), tc_elem, tc_data,
-              tc_local, tc_label, tc_return, tc_ref => //.
+      destruct C0, (f_inst f), tc_local, tc_label, tc_return, tc_ref => //.
       remove_bools_options.
-      simpl in H. unfold tabi_agree in H3.
-      eapply all2_projection in H3; eauto.
+      simpl in H. unfold tabi_agree in H5.
+      eapply all2_projection in H5; eauto.
       simpl in *. unfold lookup_N.
       remove_bools_options. rewrite Ha; eauto.
     }
@@ -1124,11 +1064,10 @@ Proof.
 
       unfold stab.
       unfold inst_typing, typing.inst_typing in HIT.
-      destruct C0, (f_inst f), tc_elem, tc_data,
-              tc_local, tc_label, tc_return, tc_ref => //.
+      destruct C0, (f_inst f), tc_local, tc_label, tc_return, tc_ref => //.
       remove_bools_options.
-      simpl in H. unfold tabi_agree in H2.
-      eapply all2_projection in H2; eauto.
+      simpl in H. unfold tabi_agree in H4.
+      eapply all2_projection in H4; eauto.
       simpl in *. unfold lookup_N.
       remove_bools_options. rewrite Ha; eauto.
     }
@@ -1166,11 +1105,10 @@ Proof.
 
       unfold stab.
       unfold inst_typing, typing.inst_typing in HIT.
-      destruct C0, (f_inst f), tc_elem, tc_data,
-              tc_local, tc_label, tc_return, tc_ref => //.
+      destruct C0, (f_inst f), tc_local, tc_label, tc_return, tc_ref => //.
       remove_bools_options.
-      simpl in H. unfold tabi_agree in H5.
-      eapply all2_projection in H5; eauto.
+      simpl in H. unfold tabi_agree in H7.
+      eapply all2_projection in H7; eauto.
       simpl in *. unfold lookup_N.
       remove_bools_options. rewrite Ha; eauto.
     }
@@ -1185,11 +1123,10 @@ Proof.
 
       unfold stab.
       unfold inst_typing, typing.inst_typing in HIT.
-      destruct C0, (f_inst f), tc_elem, tc_data,
-              tc_local, tc_label, tc_return, tc_ref => //.
+      destruct C0, (f_inst f), tc_local, tc_label, tc_return, tc_ref => //.
       remove_bools_options.
-      simpl in H. unfold tabi_agree in H5.
-      eapply all2_projection in H5; eauto.
+      simpl in H. unfold tabi_agree in H7.
+      eapply all2_projection in H7; eauto.
       simpl in *. unfold lookup_N.
       remove_bools_options. rewrite Ha; eauto.
     }
@@ -1247,7 +1184,7 @@ Proof.
   - (* Table_init *)
     right. invert_typeof_vcs. simpl in *.
     destruct v as [[]| |], v0 as [[]| |], v1 as [[]| |] => //=.
-    clear ETf HConstType H3.
+    clear ETf HConstType H2 H3.
 
     assert (exists t, stab s f.(f_inst) x = Some t) as Ht.
     {
@@ -1257,11 +1194,10 @@ Proof.
 
       unfold stab.
       unfold inst_typing, typing.inst_typing in HIT.
-      destruct C0, (f_inst f), tc_elem, tc_data,
-              tc_local, tc_label, tc_return, tc_ref => //.
+      destruct C0, (f_inst f), tc_local, tc_label, tc_return, tc_ref => //.
       remove_bools_options.
-      simpl in H. unfold tabi_agree in H4.
-      eapply all2_projection in H4; eauto.
+      simpl in H. unfold tabi_agree in H5.
+      eapply all2_projection in H5; eauto.
       simpl in *. unfold lookup_N.
       remove_bools_options. rewrite Ha; eauto.
     }
@@ -1269,23 +1205,20 @@ Proof.
 
     assert (exists e, selem s f.(f_inst) y = Some e) as He.
     {
-      admit. 
-      (* elem here, not table *)
-
-      (* remember HIT as HIT'. clear HeqHIT'.
-      eapply inst_index_get_instval_tab
+      remember HIT as HIT'. clear HeqHIT'.
+      eapply inst_index_get_instval_elem
         with (j := (N.to_nat y)) in HIT'; eauto.
       destruct HIT' as [a Ha].
 
-      unfold stab.
+      unfold selem.
       unfold inst_typing, typing.inst_typing in HIT.
-      destruct C0, (f_inst f), tc_elem, tc_data,
-              tc_local, tc_label, tc_return, tc_ref => //.
+      destruct C0, (f_inst f), tc_local, tc_label, tc_return, tc_ref => //.
       remove_bools_options.
-      simpl in H. unfold tabi_agree in H4.
-      eapply all2_projection in H4; eauto.
+      simpl in H. unfold elemi_agree in H3.
+      eapply all2_projection in H3; eauto.
       simpl in *. unfold lookup_N.
-      remove_bools_options. rewrite Ha; eauto. *)
+      remove_bools_options.
+      unfold selem, lookup_N. rewrite Ha; eauto.
     }
     destruct He as [e He].
 
@@ -1294,19 +1227,30 @@ Proof.
     + destruct (s2 == Wasm_int.int_zero i32m) eqn:En; move/eqP in En.
       * exists s, f, [::], hs.
         apply r_table_init_return with (tab := t) (elem := e) => //=.
-      * destruct (lookup_N (eleminst_elem e) (Wasm_int.N_of_uint i32m s1)) eqn:Eeleml.
-        -- remember (Wasm_int.int_add i32m s0 Wasm_int.Int32.one) as s0'.
-          remember (Wasm_int.int_add i32m s1 Wasm_int.Int32.one) as s1'.
-          remember (Wasm_int.int_sub i32m s2 Wasm_int.Int32.one) as s2'.
-          exists s, f, [:: $VAN VAL_int32 s0; v_to_e (VAL_ref v);
-              AI_basic (BI_table_set x); $VAN VAL_int32 s0';
-              $VAN VAL_int32 s1'; $VAN VAL_int32 s2';
-              AI_basic (BI_table_init x y)], hs.
-          apply r_table_init_step with (tab := t) (elem := e) => //=.
-          ++ apply Int32_decrement => //=.
-          ++ apply Int32_increment => //=.
-          ++ apply Int32_increment => //=.
-        -- admit. (* fix using above, this is impossible *)
+      * assert (lookup_N (eleminst_elem e) (Wasm_int.N_of_uint i32m s1) <> None).
+        {
+          apply lookup_N_Some. unfold elem_size in Eelems.
+          replace (N.to_nat (Wasm_int.N_of_uint i32m s1))
+             with (Wasm_int.nat_of_uint i32m s1);
+             last by symmetry; apply N_to_nat_N_of_uint.
+          remember (Wasm_int.nat_of_uint i32m s1) as n1.
+          remember (Wasm_int.nat_of_uint i32m s2) as n2.
+          move/leP in Eelems. apply/ltP.
+          apply Nat_le_aSbc_lt_ac in En. rewrite -Heqn2 in En.
+          lias.
+        }
+        destruct (lookup_N (eleminst_elem e) (Wasm_int.N_of_uint i32m s1)) eqn:Eeleml => //=.
+        remember (Wasm_int.int_add i32m s0 Wasm_int.Int32.one) as s0'.
+        remember (Wasm_int.int_add i32m s1 Wasm_int.Int32.one) as s1'.
+        remember (Wasm_int.int_sub i32m s2 Wasm_int.Int32.one) as s2'.
+        exists s, f, [:: $VAN VAL_int32 s0; v_to_e (VAL_ref v);
+            AI_basic (BI_table_set x); $VAN VAL_int32 s0';
+            $VAN VAL_int32 s1'; $VAN VAL_int32 s2';
+            AI_basic (BI_table_init x y)], hs.
+        apply r_table_init_step with (tab := t) (elem := e) => //=.
+        -- apply Int32_decrement => //=.
+        -- apply Int32_increment => //=.
+        -- apply Int32_increment => //=.
     + exists s, f, [:: AI_trap], hs.
       apply r_table_init_bound with (tab := t) (elem := e) => //=.
       left. move/negP in Eelems. move/negP in Eelems.
@@ -1320,19 +1264,19 @@ Proof.
       right. move/negP in Etabs. move/negP in Etabs.
       rewrite -ltnNge in Etabs. by rewrite Etabs.
   
-  - (* Elem_drop *)
+  - (* Elem Drop *)
     right. invert_typeof_vcs. simpl in *.
     clear H0 H1 ETf HConstType.
-    (* same as using HIT:inst_typing to get [tt_elem_type tabtype] using
-        "lookup_N (s_elems s)"@ "inst_elems (f_inst f)"@ x *)
-    (* then matching with H:lookup (tc_elem C0) x to get [s'] using
-        "s_elems := set_nth elem (s_elems s) (N.to_nat x) elem" *)
-    destruct (selem_drop s f.(f_inst) x) eqn:Eelem.
-    + unfold selem_drop in Eelem.
-      (* remove_bools_options. *)
-      exists s0, f, [::], hs.
-      apply r_elem_drop => //=.
-    + admit. (* fix using above, this is impossible *)
+    remember HIT as H'. clear HeqH'.
+    eapply inst_index_get_instval_elem in H'; eauto.
+    destruct H' as [a Ha].
+    eapply inst_typing_elem in HIT; eauto.
+    destruct HIT as [d Hd].
+    assert (selem_drop s f.(f_inst) x);
+      first by unfold selem_drop, lookup_N; rewrite Ha Hd => //=.
+    destruct (selem_drop s f.(f_inst) x) eqn:Eelem => //=.
+    exists s0, f, [::], hs.
+    apply r_elem_drop => //=.
   
   - (* Load *)
     right. subst.
@@ -1419,10 +1363,9 @@ Proof.
       
       assert (size (inst_mems (f_inst f)) > 0);
         first by unfold inst_typing, typing.inst_typing in HIT;
-        destruct C0, (f_inst f), tc_elem, tc_data,
-                tc_local, tc_label, tc_return, tc_ref => //;
-        remove_bools_options; rewrite all2E in H2;
-        remove_bools_options; rewrite H2 => //=.
+        destruct C0, (f_inst f), tc_local, tc_label, tc_return, tc_ref => //;
+        remove_bools_options; rewrite all2E in H4;
+        remove_bools_options; rewrite H4 => //=.
 
       destruct (inst_mems (f_inst f)) eqn:Einst => //=.
       assert (List.nth_error (inst_mems (f_inst f)) 0 = Some m);
@@ -1467,10 +1410,9 @@ Proof.
       
       assert (size (inst_mems (f_inst f)) > 0);
         first by unfold inst_typing, typing.inst_typing in HIT;
-        destruct C0, (f_inst f), tc_elem, tc_data,
-                tc_local, tc_label, tc_return, tc_ref => //;
-        remove_bools_options; rewrite all2E in H2;
-        remove_bools_options; rewrite H2 => //=.
+        destruct C0, (f_inst f), tc_local, tc_label, tc_return, tc_ref => //;
+        remove_bools_options; rewrite all2E in H4;
+        remove_bools_options; rewrite H4 => //=.
 
       destruct (inst_mems (f_inst f)) eqn:Einst => //=.
       assert (List.nth_error (inst_mems (f_inst f)) 0 = Some m);
@@ -1546,10 +1488,9 @@ Proof.
       
       assert (size (inst_mems (f_inst f)) > 0);
         first by unfold inst_typing, typing.inst_typing in HIT;
-        destruct C0, (f_inst f), tc_elem, tc_data,
-                tc_local, tc_label, tc_return, tc_ref => //;
-        remove_bools_options; rewrite all2E in H3;
-        remove_bools_options; rewrite H3 => //=.
+        destruct C0, (f_inst f), tc_local, tc_label, tc_return, tc_ref => //;
+        remove_bools_options; rewrite all2E in H5;
+        remove_bools_options; rewrite H5 => //=.
 
       destruct (inst_mems (f_inst f)) eqn:Einst => //=.
       assert (List.nth_error (inst_mems (f_inst f)) 0 = Some m);
@@ -1565,48 +1506,57 @@ Proof.
 
     assert (exists data, sdata s f.(f_inst) x = Some data) as Hdata.
     {
-      admit. 
-      (* data here, not table *)
-
-      (* remember HIT as HIT'. clear HeqHIT'.
-      eapply inst_index_get_instval_tab in HIT'; eauto.
+      remember HIT as HIT'. clear HeqHIT'.
+      move/ltP in H0. apply List.nth_error_Some in H0.
+      destruct (List.nth_error (tc_data C0) (N.to_nat x)) eqn:Etcd => //=.
+      eapply inst_index_get_instval_data in HIT'; eauto.
       destruct HIT' as [a Ha].
 
-      unfold stab.
+      unfold sdata.
       unfold inst_typing, typing.inst_typing in HIT.
-      destruct C0, (f_inst f), tc_elem, tc_data,
-              tc_local, tc_label, tc_return, tc_ref => //.
+      destruct C0, (f_inst f), tc_local, tc_label, tc_return, tc_ref => //.
       remove_bools_options.
-      simpl in H. unfold tabi_agree in H4.
-      eapply all2_projection in H4; eauto.
-      simpl in *. unfold lookup_N.
-      remove_bools_options. rewrite Ha; eauto. *)
+      simpl in H. unfold datai_agree in H2.
+      eapply all2_projection in H2; eauto.
+      simpl in *. unfold sdata, lookup_N.
+      remove_bools_options. rewrite Ha; eauto.
     }
     destruct Hdata as [data Hdata].
 
     destruct (mem_length mem >= Wasm_int.N_of_uint i32m s0 + Wasm_int.N_of_uint i32m s2) eqn:Etabs;
-    destruct (data_size data >= Wasm_int.nat_of_uint i32m s1 + Wasm_int.nat_of_uint i32m s2) eqn:Eelems.
+    destruct (data_size data >= Wasm_int.nat_of_uint i32m s1 + Wasm_int.nat_of_uint i32m s2) eqn:Edatas.
     + destruct (s2 == Wasm_int.int_zero i32m) eqn:En; move/eqP in En.
       * exists s, f, [::], hs.
         apply r_memory_init_return with (mem := mem) (data := data) => //=.
-      * destruct (lookup_N (datainst_data data) (Wasm_int.N_of_uint i32m s1)) eqn:Eeleml.
-        -- remember (Wasm_int.int_add i32m s0 Wasm_int.Int32.one) as s0'.
-          remember (Wasm_int.int_add i32m s1 Wasm_int.Int32.one) as s1'.
-          remember (Wasm_int.int_sub i32m s2 Wasm_int.Int32.one) as s2'.
-          exists s, f, [:: $VAN VAL_int32 s0;
-              v_to_e (VAL_num (wasm_deserialise [:: b] T_i32));
-              AI_basic (BI_store T_i32 (Some Tp_i8) 0%N 0%N);
-              $VAN VAL_int32 s0'; $VAN VAL_int32 s1'; $VAN VAL_int32 s2';
-              AI_basic (BI_memory_init x)], hs.
-          apply r_memory_init_step with (mem := mem) (data := data) => //=.
-          ++ apply Int32_decrement => //=.
-          ++ apply Int32_increment => //=.
-          ++ apply Int32_increment => //=.
-        -- admit. (* fix using above, this is impossible *)
+      * assert (lookup_N (datainst_data data) (Wasm_int.N_of_uint i32m s1) <> None).
+        {
+          apply lookup_N_Some. unfold data_size in Edatas.
+          replace (N.to_nat (Wasm_int.N_of_uint i32m s1))
+             with (Wasm_int.nat_of_uint i32m s1);
+             last by symmetry; apply N_to_nat_N_of_uint.
+          remember (Wasm_int.nat_of_uint i32m s1) as n1.
+          remember (Wasm_int.nat_of_uint i32m s2) as n2.
+          move/leP in Edatas. apply/ltP.
+          apply Nat_le_aSbc_lt_ac in En. rewrite -Heqn2 in En.
+          lias.
+        }
+        destruct (lookup_N (datainst_data data) (Wasm_int.N_of_uint i32m s1)) eqn:Eeleml => //=.
+        remember (Wasm_int.int_add i32m s0 Wasm_int.Int32.one) as s0'.
+        remember (Wasm_int.int_add i32m s1 Wasm_int.Int32.one) as s1'.
+        remember (Wasm_int.int_sub i32m s2 Wasm_int.Int32.one) as s2'.
+        exists s, f, [:: $VAN VAL_int32 s0;
+            v_to_e (VAL_num (wasm_deserialise [:: b] T_i32));
+            AI_basic (BI_store T_i32 (Some Tp_i8) 0%N 0%N);
+            $VAN VAL_int32 s0'; $VAN VAL_int32 s1'; $VAN VAL_int32 s2';
+            AI_basic (BI_memory_init x)], hs.
+        apply r_memory_init_step with (mem := mem) (data := data) => //=.
+        -- apply Int32_decrement => //=.
+        -- apply Int32_increment => //=.
+        -- apply Int32_increment => //=.
     + exists s, f, [:: AI_trap], hs.
       apply r_memory_init_bound with (mem := mem) (data := data) => //=.
-      left. move/negP in Eelems. move/negP in Eelems.
-      rewrite -ltnNge in Eelems. by rewrite Eelems.
+      left. move/negP in Edatas. move/negP in Edatas.
+      rewrite -ltnNge in Edatas. by rewrite Edatas.
     + exists s, f, [:: AI_trap], hs.
       apply r_memory_init_bound with (mem := mem) (data := data) => //=.
       right. move/negP in Etabs. move/negP in Etabs.
@@ -1616,18 +1566,19 @@ Proof.
       right. move/negP in Etabs. move/negP in Etabs.
       rewrite -ltnNge in Etabs. by rewrite Etabs.
   
-  - (* Data_drop *)
+  - (* Data Drop *)
     right. invert_typeof_vcs. simpl in *.
     clear H0 H1 ETf HConstType.
-    (* same as using HIT:inst_typing to get [datainst] using
-        "lookup_N (s_datas s)"@ "inst_datas (f_inst f)"@ x *)
-    (* then matching with H:lookup (tc_data C0) x to get [s'] using
-        "s_datas := set_nth [::] (s_datas s) (N.to_nat x) [::]" *)
-    destruct (sdata_drop s f.(f_inst) x) eqn:Edata.
-    + unfold sdata_drop in Edata.
-      exists s0, f, [::], hs.
-      apply r_data_drop => //=.
-    + admit. (* fix using above, this is impossible *)
+    remember HIT as H'. clear HeqH'.
+    eapply inst_index_get_instval_data in H'; eauto.
+    destruct H' as [a Ha].
+    eapply inst_typing_data in HIT; eauto.
+    destruct HIT as [d Hd].
+    assert (sdata_drop s f.(f_inst) x);
+      first by unfold sdata_drop, lookup_N; rewrite Ha Hd => //=.
+    destruct (sdata_drop s f.(f_inst) x) eqn:Edata => //=.
+    exists s0, f, [::], hs.
+    apply r_data_drop => //=.
 
   - (* Composition *)
     subst.
@@ -1683,7 +1634,7 @@ Proof.
     exists s', f', (v_to_e_list (take (size ts) vcs) ++ es'), hs'.
     apply reduce_composition_left => //.
     by apply v_to_e_is_const_list.
-(* Qed. *) Admitted.
+Qed.
 
 (*
 Traceback:
@@ -1978,9 +1929,6 @@ Proof.
   inversion HType; subst.
   by eapply return_reduce_return_some in H1; eauto.
 Qed.
-
-Axiom host_application_exists: forall hs s tf hf vcs,
-    exists hs' res, host_application hs s tf hf vcs hs' res.
 
 Lemma value_list_not_trap: forall vcs,
   v_to_e_list vcs = [:: AI_trap] -> False.

@@ -5467,6 +5467,17 @@ Proof.
     by eapply IHHReduce; eauto.
 Qed.
 
+(* not tc_local since inst_typing fails so separate using upd_local *)
+Lemma func_in_local_valid: forall s f j t v,
+  lookup_N [seq typeof i | i <- f_locs f] j = Some t ->
+  t = typeof v ->
+  (forall f', (func_type_exists v s f')).
+Admitted.
+Lemma func_in_global_valid: forall s C i g v,
+  lookup_N (tc_global C) i = Some g ->
+  tg_t g = typeof v ->
+  (forall f', (func_type_exists v s f')).
+Admitted.
 
 Lemma t_preservation_e: forall s f es s' f' es' C t1s t2s lab ret hs hs',
     reduce hs s f es hs' s' f' es' ->
@@ -5723,14 +5734,7 @@ Proof.
     }
     rewrite H2. apply const_typing' => //=;
     first apply v_to_e_is_const.
-
-    (* Not enough information to verify this *)
-    (* unfold func_type_exists, funci_agree, option_map, lookup_N.
-    intro f0. eexists. intros Hv.
-    assert (exists cl, List.nth_error (s_funcs s) (N.to_nat f0) = Some cl).
-      eapply inst_typing_func; eauto. *)
-    
-    admit. (* ref_func funci_agree *)
+    eapply func_in_local_valid; eauto.
     
   - (* Set_local *)
     invert_e_typing. convert_et_to_bet. invert_be_typing.
@@ -5743,10 +5747,15 @@ Proof.
       eapply global_type_reference; eauto.
     rewrite H0. apply const_typing';
     first apply v_to_e_is_const.
+    unfold option_map in H1. remove_bools_options.
+    eapply func_in_global_valid; eauto.
 
-
-    (* Not enough information to verify this *)
-    admit. (* ref_func funci_agree *)
+    (* unfold option_map in H1.
+    unfold sglob_val, option_map, sglob, sglob_ind in H.
+    remove_bools_options. unfold func_type_exists.
+    destruct (g_val g0) as [| |[]] => //=;
+      try by (intro; exists (Tf [::] [::])). *)
+    (* intro f1. unfold inst_typing, typing.inst_typing in HIT1. *)
 
   - (* Set_Global *)
     invert_e_typing. convert_et_to_bet. invert_be_typing.

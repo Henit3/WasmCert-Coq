@@ -5478,6 +5478,21 @@ Lemma func_in_global_valid: forall s C i g v,
   tg_t g = typeof v ->
   (forall f', (func_type_exists v s f')).
 Admitted.
+Lemma func_in_table_valid: forall s f C i a j ttype t tabv,
+  lookup_N (tc_table C) i = Some ttype ->
+  lookup_N (inst_tables (f_inst f)) i = Some a ->
+  lookup_N (s_tables s) a = Some t ->
+  lookup_N (tableinst_elem t) j = Some tabv ->
+  tt_elem_type ttype = typeof_ref tabv ->
+  (forall f', (func_type_exists (VAL_ref tabv) s f')).
+Admitted.
+Lemma func_in_elem_valid: forall s f C i j et elem v,
+  lookup_N (tc_elem C) i = Some et ->
+  selem s (f_inst f) i = Some elem ->
+  lookup_N (eleminst_elem elem) j = Some v ->
+  et = typeof_ref v ->
+  (forall f', (func_type_exists (VAL_ref v) s f')).
+Admitted.
 
 Lemma t_preservation_e: forall s f es s' f' es' C t1s t2s lab ret hs hs',
     reduce hs s f es hs' s' f' es' ->
@@ -5774,8 +5789,12 @@ Proof.
     fold (typeof (VAL_ref tabv)). fold (v_to_e (VAL_ref tabv)).
     eapply const_ref_typing' => //=. destruct tabv => //.
 
-    (* Not enough information to verify this *)
-    admit. (* ref_func funci_agree *)
+    replace (List.nth_error (tableinst_elem t)
+            (Z.to_nat (Wasm_int.Int32.unsigned i)))
+       with (lookup_N (tableinst_elem t)
+            (N.of_nat (Z.to_nat (Wasm_int.Int32.unsigned i)))) in H => //;
+        last by unfold lookup_N; rewrite -> Nat2N.id.
+    eapply func_in_table_valid; eauto.
     
   - (* Table Set *)
     invert_e_typing. convert_et_to_bet. invert_be_typing.
@@ -6006,8 +6025,9 @@ Proof.
       fold (typeof (VAL_ref v)). fold (v_to_e (VAL_ref v)).
       eapply const_ref_typing' => //=. destruct v => //.
 
-    (* Not enough information to verify this *)
-      admit. (* ref_func funci_agree *)
+    eapply func_in_elem_valid; eauto.
+    unfold selem in H0. remove_bools_options.
+    eapply inst_typing_elemv_type; eauto.
 
     rewrite -cat1s.
     eapply et_composition' with (t2s := t2s) => //=.
@@ -6412,7 +6432,7 @@ Proof.
       eapply IHHReduce; eauto.
       eapply inst_typing_extension; eauto.
       eapply store_extension_reduce; eauto.
-(* Qed. *) Admitted.
+Qed.
   
 Theorem t_preservation: forall s f es s' f' es' ts hs hs',
     reduce hs s f es hs' s' f' es' ->

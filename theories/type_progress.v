@@ -1050,7 +1050,7 @@ Proof.
     + unfold stab_update, stab in Es.
       exists s1, f, [::], hs.
       apply r_table_set_success. apply Es.
-    + exists s, f, [::], hs.
+    + exists s, f, [::AI_trap], hs.
       by apply r_table_set_failure.
   
   - (* Table_size *)

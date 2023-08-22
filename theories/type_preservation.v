@@ -5639,15 +5639,7 @@ Proof.
     (* Not enough information to verify this *)
     admit. (* ref_func funci_agree *)
     
-  - (* Table Set Some *)
-    invert_e_typing. convert_et_to_bet. invert_be_typing.
-    simpl in *. rewrite -(cat1s (T_num T_i32)) catA in H4.
-    apply concat_cancel_last in H4.
-    destruct H4. subst. rewrite catA in H1.
-    apply concat_cancel_last in H1. destruct H1. subst.
-    apply ety_a' => //. apply bet_weakening_empty_both. apply bet_empty.
-
-  - (* Table Set None *)
+  - (* Table Set *)
     invert_e_typing. convert_et_to_bet. invert_be_typing.
     simpl in *. rewrite -(cat1s (T_num T_i32)) catA in H4.
     apply concat_cancel_last in H4.

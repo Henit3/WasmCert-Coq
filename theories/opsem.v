@@ -290,7 +290,7 @@ Inductive reduce : host_state -> store_record -> frame -> list administrative_in
 | r_table_set_failure :
   forall x i tabv s f hs,
     stab_update s f.(f_inst) x (Wasm_int.nat_of_uint i32m i) tabv = None ->
-    reduce hs s f [::$VAN (VAL_int32 i); v_to_e (VAL_ref tabv); AI_basic (BI_table_set x)] hs s f [::]
+    reduce hs s f [::$VAN (VAL_int32 i); v_to_e (VAL_ref tabv); AI_basic (BI_table_set x)] hs s f [::AI_trap]
 | r_table_size :
   forall x tab sz s f hs,
     stab s f.(f_inst) x = Some tab ->

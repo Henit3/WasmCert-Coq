@@ -4455,6 +4455,10 @@ Proof.
   rewrite H1. apply N.le_refl.
 Qed.
 
+(* Note this is flawed due to mem_grow not changing the min limits
+    This won't be possible until the extension is relaxed on min limit
+    The same applies to tab_extension_grow_memory.
+*)
 Lemma mem_extension_grow_memory: forall m c mem,
     mem_grow m c = (Some mem) ->
     mem_extension m mem.
@@ -4489,6 +4493,32 @@ Proof.
     rewrite size_cat.
     by lias.
 Qed.
+
+Lemma table_extension_grow_memory: forall tab c tabinit tab',
+    growtable tab c tabinit = Some tab' ->
+    table_extension tab tab'.
+Proof.
+  move => tab c tabinit tab' HGrow.
+  unfold table_extension.
+  unfold growtable in HGrow.
+  destruct (u32_bound <=? N.of_nat (tab_size tab) + c)%N eqn:HLP => //.
+  destruct (tableinst_type tab) eqn:Ett => //=.
+  destruct (limit_valid
+            {|
+              lim_min := (N.of_nat (tab_size tab) + c)%N;
+              lim_max := lim_max tt_limits
+            |}) eqn:HLimMax => //=.
+  inversion HGrow. simpl in *.
+  apply/andP. split.
+  - apply/eqP. f_equal.
+    (* bad tab_extension definition comparing lim min here *)
+    admit.
+  - unfold tab_size. simpl in *.
+    repeat rewrite length_is_size. rewrite size_cat.
+    repeat rewrite - length_is_size. rewrite List.repeat_length.
+    (* x <= y -> x + c <= z *)
+    admit.
+Admitted.
   
 Lemma store_invariant_extension_store_typed: forall s s',
     store_typing s ->
@@ -4560,6 +4590,34 @@ Proof.
     rewrite -> List.Forall_forall in H1.
     unfold tab_agree.
     by rewrite -> List.Forall_forall.
+Qed.
+
+Lemma store_table_extension_store_typed: forall s s',
+    store_typing s ->
+    store_extension s s' ->
+    (s_funcs s = s_funcs s') ->
+    (s_mems s = s_mems s') ->
+    List.Forall (tab_agree s) (s_tables s') ->
+    store_typing s'.
+Proof.
+  move => s s' HST Hext HF HM HTab.
+  remember HST as HST'. clear HeqHST'.
+  unfold store_typing in HST.
+  unfold store_typing.
+  destruct s => //=.
+  destruct s' => //=.
+  destruct HST.
+  rewrite -> List.Forall_forall in H.
+  rewrite -> List.Forall_forall in H0.
+  split => //; remove_bools_options; simpl in HF; simpl in HM; subst.
+  - rewrite -> List.Forall_forall. move => x HIN.
+    apply H in HIN. unfold cl_type_check_single in HIN.
+    destruct HIN.
+    unfold cl_type_check_single.
+    exists x0. by eapply store_extension_cl_typing; eauto.
+  - split => //.
+    unfold store_typing in HST'.
+    destruct HST' as [HF' [HT' HM']] => //=.
 Qed.
 
 Lemma nth_error_map: forall {X Y:Type} l n (f: X -> Y) fv,
@@ -4654,6 +4712,20 @@ Proof.
   apply H. by eapply List.nth_error_In; eauto.
 Qed.
 
+Lemma store_typed_tab_agree: forall (s : store_record) n tab,
+    store_typing s ->
+    List.nth_error (s_tables s) n = Some tab ->
+    tab_agree s tab.
+Proof.
+  move => s n tab HST HN.
+  unfold store_typing in HST.
+  destruct s => //=.
+  destruct HST as [_ [H _]].
+  rewrite -> List.Forall_forall in H.
+  simpl in HN.
+  apply H. by eapply List.nth_error_In; eauto.
+Qed.
+
 Lemma store_mem_agree: forall s n m k off vs tl mem,
     store_typing s ->
     List.nth_error (s_mems s) n = Some m ->
@@ -4672,6 +4744,34 @@ Proof.
   destruct (lim_max (meminst_type mem)) eqn:HLimMax => //=.
   by rewrite HMemSize in H0.
 Qed.
+
+Lemma set_tab_agree: forall (s : store_record) i n tab tabv tab',
+    store_typing s ->
+    List.nth_error (s_tables s) n = Some tab ->
+    tab_update tab i tabv = tab' ->
+    tab_agree s tab'.
+Proof.
+  (* move => s i n tab tabv tab' HST HN HUpdate.
+  unfold tab_update in HUpdate.
+  destruct tab' => //=. inversion HUpdate. subst.
+
+  (* Need something similar to write_bytes_preserve_type to link tabs *)
+  (* destruct ((k+off+N.of_nat tl <=? mem_length m)%N) eqn:H => //=. *)
+  (* apply write_bytes_preserve_type in HStore. *)
+  (* destruct HStore as [HMemSize HMemLim]. *)
+
+  assert (tab_agree s tab); first by eapply store_typed_tab_agree; eauto.
+  unfold tab_agree in H. destruct H.
+  unfold tab_agree => //=. split => //=.
+  admit.
+  remember {|
+    tableinst_type := tableinst_type tab;
+    tableinst_elem := set_nth tabv (tableinst_elem tab) i tabv
+  |} as tab'.
+  unfold tabsize_agree in *.
+  destruct (lim_max (tt_limits (tableinst_type tab'))) eqn:HLimMax => //=.
+  rewrite HLimMax in H0. *)
+Admitted.
 
 Lemma inj_compare a a' :
  (a ?= a')%N = (N.to_nat a ?= N.to_nat a').
@@ -4714,29 +4814,45 @@ Proof.
   apply N.leb_le in H1.
   rewrite HLimMax Nat2N.inj_add N2Nat.id.
   apply shift_scope_le_N => //=.
-  (* really close to hypothesis, just need to move <= into scope *) 
-
-  (* Attempted to sidestep this scope change but not enough info in others *)
-  (* Set Printing Coercions.
-  rewrite -nat_of_bin_is_N_to_nat inj_div Nat2N.id in H.
-  rewrite N.div_add in H1 => //.
-  rewrite -nat_of_bin_is_N_to_nat inj_div
-            N2Nat.inj_add N2Nat.inj_mul Nat2N.id Nat.div_add => //.
-  replace ((length (memory_list.ml_data (meminst_data m))
-            / N.to_nat page_size + N.to_nat c)%coq_nat)
-     with (length (memory_list.ml_data (meminst_data m))
-            / N.to_nat page_size + N.to_nat c) => //.
-  Set Printing Coercions. *)
-     
-  (* unfold is_true. apply/leP.
-  apply/(eqP (((N.of_nat (length (memory_list.ml_data (meminst_data m))) + 
-                c * page_size) / page_size)%N <= u) (true)). apply H1.
-  replace (((N.of_nat (length (memory_list.ml_data (meminst_data m))) + c * page_size) / page_size)%N <= u)
-      with ((N.of_nat (length (memory_list.ml_data (meminst_data m))) + c * page_size) / page_size).
-  replace (N.of_nat (length (memory_list.ml_data (meminst_data m)) + N.to_nat (c * page_size)))
-      with ((N.of_nat (length (memory_list.ml_data (meminst_data m))) + c * page_size)).
-  lias. *)
 Qed.
+
+Lemma table_grow_tab_agree: forall (s : store_record) n tab c tabinit tab',
+    store_typing s ->
+    List.nth_error (s_tables s) n = Some tab ->
+    growtable tab c tabinit = Some tab' ->
+    tab_agree s tab'.
+Proof.
+  move => s n tab c tabinit tab' HST HN HGrow.
+  assert (tab_agree s tab); first by eapply store_typed_tab_agree; eauto.
+  unfold growtable in HGrow.
+  unfold tab_agree. simpl.
+  unfold tab_agree in H.
+  
+  destruct (u32_bound <=? N.of_nat (tab_size tab) + c)%N eqn:HLP => //.
+  destruct (tableinst_type tab) eqn:Ett => //=.
+  destruct (limit_valid
+             {|
+              lim_min := (N.of_nat (tab_size tab) + c)%N;
+              lim_max := lim_max tt_limits
+            |}) eqn:HLimMax => //=.
+  inversion HGrow. simpl in *.
+
+  destruct H.
+  split => //=.
+  - apply List.Forall_app. split => //=.
+    unfold tabcl_agree.
+    (* repeated tabinit value is validly typed *)
+    admit.
+  - unfold tabsize_agree, tab_size.
+    unfold tabsize_agree, tab_size in H0.
+    rewrite Ett in H0.
+    simpl in *.
+    destruct (lim_max tt_limits) => //=.
+    rewrite length_is_size. rewrite size_cat.
+    repeat rewrite - length_is_size. rewrite List.repeat_length.
+    (* x <= y -> x + c <= z *)
+    admit.
+Admitted.
 
 Lemma reduce_inst_unchanged: forall hs s f es hs' s' f' es',
     reduce hs s f es hs' s' f' es' ->
@@ -4855,10 +4971,6 @@ Proof.
 
     (* H tells us how s' is obtained from s *)
     unfold stab_update, stab in H.
-    (* maybe? *)
-    (* assert (store_extension s (upd_s_tab s (set_nth tab' (s_tabs s) (N.to_nat i) tab'))) as Hext. *)
-    (* of course this won't work, store_invariant_extension_store_typed
-        assumes the tables weren't changed *)
     assert (store_extension s s') as Hext.
     {
       remove_bools_options.
@@ -4872,12 +4984,8 @@ Proof.
           symmetry; symmetry; rewrite Nat.leb_le; first by apply Nat.le_refl.
         move/negP in Emax. move/negP in Emax.
         rewrite -leqNgt in Emax. by apply/leP.
-      + remember {|
-          tableinst_type := tableinst_type t0;
-          tableinst_elem :=
-            set_nth tabv (tableinst_elem t0)
-              (Z.to_nat (Wasm_int.Int32.unsigned i)) tabv
-        |} as t'.
+      + remember (tab_update t0 (Z.to_nat (Wasm_int.Int32.unsigned i))
+                  tabv) as t'.
   
         assert (lookup_N (s_tables s) t <> None);
           first by rewrite Hoption0.
@@ -4906,109 +5014,25 @@ Proof.
       + apply all2_data_extension_same.
     }
 
-    split => //=. destruct s, s' => //=.
-
-    destruct HST as [HST1 [HST2 HST3]].
-    rewrite -> List.Forall_forall in HST1.
-    rewrite -> List.Forall_forall in HST2.
-
-    repeat split => //=; remove_bools_options;
-    destruct (Z.to_nat (Wasm_int.Int32.unsigned i) <? tab_size t0) eqn:Etsize => //=;
-    remove_bools_options => //=; eauto;
-    try (
-      rewrite -> List.Forall_forall; move => x' HIN;
-      apply HST1 in HIN; unfold cl_type_check_single in HIN;
-      destruct HIN;
-      unfold cl_type_check_single;
-      exists x0; by eapply store_extension_cl_typing; eauto
-    ).
-    remember {|
-      tableinst_type := tableinst_type t0;
-      tableinst_elem :=
-        set_nth tabv (tableinst_elem t0)
-          (Z.to_nat (Wasm_int.Int32.unsigned i)) tabv
-    |} as t'.
-
-    (* unfold store_extension, operations.store_extension in Hext.
-    repeat (move/andP in Hext; destruct Hext as [Hext ?]).
-    unfold component_extension in H6.
-    move/andP in H6. destruct H6.
-    unfold table_extension in H8.
-    unfold tab_agree, tabsize_agree.
-    apply all2_projection. *)
-
-    rewrite -> List.Forall_forall. move => any_new_table HIN.
-    
-
-    (* unfold tab_agree.
-    split. { unfold tabcl_agree. } 2:{ unfold tabsize_agree. } *)
-    (* unfold tab_agree, tabcl_agree. *)
-    apply HST2. simpl in Hoption0.
-
-    (* all tables in the new one are in the old one? *)
-    (* true for all except maybe the newly added one *)
-    (* t0 = t *)
-
-
-    (* apply List.In_nth_error in HIN. destruct HIN as [n Hn].
-    apply List.nth_error_In with (n := n). rewrite -Hn.
-
-    destruct ((N.to_nat t) == n) eqn:E.
-    - move/eqP in E. subst n. unfold lookup_N in Hoption0.
-      rewrite Hoption0. admit. (* t0 = t' *) *)
-      (* t0 tableinst_type used in t' so equal so far *)
-      (* t0 tableinst_elem modified by changing to tabv at i *)
-
-    (* assert (forall X x0 (s: seq X) n,
-      List.nth n s x0 = nth x0 s n). admit. *)
-      admit.
-    
-
-  (*(* Old attempt with store_invariant_extension_store_typed *)
-    remember {|
-      tableinst_type := tableinst_type t0;
-      tableinst_elem :=
-        set_nth tabv (tableinst_elem t0)
-          (Z.to_N (Wasm_int.Int32.unsigned i)) tabv
-    |} as t'.
-
+    split => //.
+    remove_bools_options.
+    destruct (Z.to_nat (Wasm_int.Int32.unsigned i) <? tab_size t0) eqn:Etsize => //=.
+    remove_bools_options.
+    eapply store_table_extension_store_typed; eauto => //=.
+    remember HST as HST2. clear HeqHST2.
+    unfold store_typing in HST.
+    destruct s eqn:Es => //=.
+    destruct HST as [_ [H11 _]].
     simpl in Hoption0.
-    assert (lookup_N s_tables t <> None);
-      first by rewrite Hoption0.
-    apply lookup_N_Some in H. rewrite length_is_size in H.
+    assert ((N.to_nat t) < length s_tables)%coq_nat.
+    { apply List.nth_error_Some. unfold lookup_N in Hoption0.
+      by rewrite Hoption0. } move/ltP in H.
+    apply Forall_update => //=.
 
-    (* essentially proving nothing changed at index t (t' = t0) *)
-    eapply eq_from_nth.
-    - rewrite size_set_nth. unfold maxn.
-      destruct ((N.to_nat t).+1 < size s_tables) eqn:Emax => //=.
-      move/negP in Emax. move/negP in Emax.
-      rewrite -leqNgt in Emax. lias.
-    - intros. instantiate (1 := t').
-      rewrite nth_set_nth.
-      destruct (i0 == N.to_nat t) eqn:Ei0 => //=; rewrite Ei0 => //=.
-      move/eqP in Ei0.
-      rewrite Ei0.
-      assert (forall X x0 (s: seq X) n x,
-        List.nth_error s n = Some x ->
-        nth x0 s n = x). admit.
-      edestruct H4 with (x0 := t') (x := t') (s := s_tables) (n := (N.to_nat t)).
-      2: {
-        (* H shows index is in bounds so appears at that index *)
-        (* ignore the default for nth on the same index and seq *)
-        assert (forall X x0 x0' (s: seq X) n,
-          n < size s ->
-          nth x0 s n = nth x0' s n
-        ). admit.
-        apply H5 => //=.
-        (* either because index out of bounds (default)
-            or because it appears at that index *)
-      }
-      unfold lookup_N in Hoption0. rewrite Hoption0.
-      f_equal. rewrite Heqt'.
-      (* t0 tableinst_type used in t' so equal so far *)
-      (* t0 tableinst_elem modified by changing to tabv at i *)
-      admit.
-    *)
+    remember (tab_update t0 (Z.to_nat (Wasm_int.Int32.unsigned i))
+              tabv) as tab'.
+    unfold lookup_N in Hoption0.
+    eapply set_tab_agree; eauto.
   }
   
   { (* table_grow *)
@@ -5020,13 +5044,11 @@ Proof.
 
     (* H tells us how s' is obtained from s *)
     unfold stab in H.
-    unfold stab_grow, stab, growtable in H1.
+    unfold stab_grow, stab in H1.
     
     assert (store_extension s s') as Hext.
     {
       remove_bools_options.
-      destruct ((u32_bound <=? N.of_nat (tab_size tab) +
-                Z.to_N (Wasm_int.Int32.unsigned n))%N) eqn:Etsize => //.
       destruct (tableinst_type tab) eqn:Etit0.
       remember {|
         lim_min :=
@@ -5034,8 +5056,6 @@ Proof.
            Z.to_N (Wasm_int.Int32.unsigned n))%N;
         lim_max := lim_max tt_limits
       |} as limits.
-      destruct (limit_valid limits) => //.
-      remove_bools_options.
 
       repeat (apply/andP; split) => //=;
       try apply Nat.leb_refl; try (rewrite List.firstn_all).
@@ -5045,30 +5065,12 @@ Proof.
           symmetry; symmetry; rewrite Nat.leb_le; first by apply Nat.le_refl.
         move/negP in Emax. move/negP in Emax.
         rewrite -leqNgt in Emax. by apply/leP.
-      + remember {|
-          tableinst_type :=
-            {|
-              tt_limits :=
-                {|
-                  lim_min :=
-                    (N.of_nat (tab_size tab) +
-                    Z.to_N (Wasm_int.Int32.unsigned n))%N;
-                  lim_max := lim_max tt_limits
-                |};
-              tt_elem_type := tt_elem_type
-            |};
-          tableinst_elem :=
-            tableinst_elem tab ++
-            List.repeat tabinit
-              (N.to_nat (Z.to_N (Wasm_int.Int32.unsigned n)))
-        |} as t'.
-  
-        assert (lookup_N (s_tables s) t <> None);
+      + assert (lookup_N (s_tables s) t <> None);
           first by rewrite Hoption0.
         apply lookup_N_Some in H.
   
-        replace (List.firstn (length (s_tables s)) (set_nth t' (s_tables s) (N.to_nat t) t'))
-           with (set_nth t' (s_tables s) (N.to_nat t) t').
+        replace (List.firstn (length (s_tables s)) (set_nth t0 (s_tables s) (N.to_nat t) t0))
+           with (set_nth t0 (s_tables s) (N.to_nat t) t0).
         2: {
           symmetry. apply List.firstn_all2. repeat rewrite length_is_size.
           rewrite size_set_nth. unfold maxn.
@@ -5077,94 +5079,37 @@ Proof.
           - apply/leP. by rewrite length_is_size in H.
         }
         eapply table_extension_update_nth with (m := tab) => //=.
-        unfold table_extension. apply/andP. split; rewrite Heqt' => //=.
-        * apply/eqP. rewrite Etit0. f_equal. destruct tt_limits.
-          f_equal. simpl in Heqt'. simpl in Etit0.
-          (* Etsize: (u32_bound <=?
-                      N.of_nat (tab_size tab) +
-                      Z.to_N (Wasm_int.Int32.unsigned n))%N = false *)
-          (* goal: lim_min =
-                      (N.of_nat (tab_size tab) +
-                      Z.to_N (Wasm_int.Int32.unsigned n))%N *)
-          (* effects of grow will be to obviously change this lim_min *)
-          admit.
-        * unfold tab_size. simpl. repeat rewrite length_is_size. simpl.
-          rewrite size_cat. repeat rewrite -length_is_size.
-          rewrite List.repeat_length.
-          remember (N.to_nat (Z.to_N (Wasm_int.Int32.unsigned n))) as n'.
-          induction n' => //.
-          -- rewrite addn0. by rewrite Nat.leb_refl.
-          -- rewrite addnS -addn1. symmetry. symmetry.
-            rewrite Nat.leb_le. apply/leP. lias.
+        eapply table_extension_grow_memory; eauto.
       + apply all2_mem_extension_same.
       + apply all2_global_extension_same.
       + apply all2_elem_extension_same.
       + apply all2_data_extension_same.
     }
 
-    split => //=. destruct s, s' => //=.
-
-    destruct HST as [HST1 [HST2 HST3]].
-    rewrite -> List.Forall_forall in HST1.
-    rewrite -> List.Forall_forall in HST2.
-
-    repeat split => //=; remove_bools_options;
-    destruct ((u32_bound <=? N.of_nat (tab_size tab) +
-                Z.to_N (Wasm_int.Int32.unsigned n))%N) eqn:Etsize => //;
-    destruct (tableinst_type tab) eqn:Etit0;
-    remember {|
-      lim_min :=
-        (N.of_nat (tab_size tab) +
-          Z.to_N (Wasm_int.Int32.unsigned n))%N;
-      lim_max := lim_max tt_limits
-    |} as limits;
-    destruct (limit_valid limits) => //;
-    remove_bools_options => //=; eauto;
-    try (
-      rewrite -> List.Forall_forall; move => x' HIN;
-      apply HST1 in HIN; unfold cl_type_check_single in HIN;
-      destruct HIN;
-      unfold cl_type_check_single;
-      exists x0; by eapply store_extension_cl_typing; eauto
-    ).
+    split => //.
+    remove_bools_options.
+    eapply store_table_extension_store_typed; eauto => //=.
+    remember HST as HST2. clear HeqHST2.
+    unfold store_typing in HST.
+    destruct s => //=.
+    destruct HST as [_ [H11 _]].
+    simpl in Hoption0.
+    assert ((N.to_nat t) < length s_tables)%coq_nat.
+    { apply List.nth_error_Some. unfold lookup_N in Hoption0.
+      by rewrite Hoption0. } move/leP in H.
+    apply Forall_update => //=.
 
     remember {|
-      tableinst_type :=
-        {|
-          tt_limits :=
-            {|
-              lim_min :=
-                (N.of_nat (tab_size tab) +
-                Z.to_N (Wasm_int.Int32.unsigned n))%N;
-              lim_max := lim_max tt_limits
-            |};
-          tt_elem_type := tt_elem_type
-        |};
-      tableinst_elem :=
-        tableinst_elem tab ++
-        List.repeat tabinit
-          (N.to_nat (Z.to_N (Wasm_int.Int32.unsigned n)))
-    |} as t'.
-
-    (* unfold store_extension, operations.store_extension in Hext.
-    repeat (move/andP in Hext; destruct Hext as [Hext ?]).
-    unfold component_extension in H6.
-    move/andP in H6. destruct H6.
-    unfold table_extension in H8.
-    unfold tab_agree, tabsize_agree.
-    apply all2_projection. *)
-
-    rewrite -> List.Forall_forall. move => any_new_table HIN.
-
-    (* unfold tab_agree.
-    split. { unfold tabcl_agree. } 2:{ unfold tabsize_agree. } *)
-    (* unfold tab_agree, tabcl_agree. *)
-    apply HST2. simpl in Hoption0.
-    (* all tables in the new one are in the old one? *)
-    (* true for all except maybe the newly added one *)
-    (* assert (forall X x0 (s: seq X) n,
-      List.nth n s x0 = nth x0 s n). admit. *)
-      admit.
+      s_funcs := s_funcs;
+      s_tables := s_tables;
+      datatypes.s_mems := s_mems0;
+      datatypes.s_globals := s_globals0;
+      s_elems := s_elems;
+      s_datas := s_datas
+    |} as s'.
+    assert (lookup_N (datatypes.s_tables s') t = Some tab);
+      first by rewrite Heqs' => //=.
+    eapply table_grow_tab_agree; eauto.
   }
 
   - (* elem_drop *) 
@@ -5413,7 +5358,7 @@ Proof.
     inversion H2. inversion H. subst.
     apply upd_label_unchanged_typing in H1.
     eapply IHHReduce => //=; eauto.
-(* Qed. *) Admitted.
+Qed.
 
 Lemma result_e_type: forall r ts s C,
     result_types_agree ts r ->

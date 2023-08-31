@@ -525,16 +525,20 @@ Definition stab_elem (s: store_record) (inst: instance) (x: N) (i: nat) : option
   | _ => None
   end.
 
+Definition tab_update (tab : tableinst) (i : nat) (tabv: value_ref) : tableinst :=
+  {| tableinst_type := tab.(tableinst_type);
+     tableinst_elem := set_nth tabv tab.(tableinst_elem) i tabv |}.
+
 Definition stab_update (s: store_record) (inst: instance) (x: N) (i: nat) (tabv: value_ref) : option store_record :=
   match lookup_N inst.(inst_tables) x with
   | Some tabaddr => 
       match lookup_N s.(s_tables) tabaddr with
       | Some tab =>
           if (Nat.ltb i (tab_size tab)) then
-            let: tab' := {| tableinst_type := tab.(tableinst_type);
-                          tableinst_elem := set_nth tabv tab.(tableinst_elem) i tabv |} in
-                let: tabs' := set_nth tab' s.(s_tables) (N.to_nat tabaddr) tab' in
-            Some (Build_store_record (s_funcs s) tabs' (s_mems s) (s_globals s) (s_elems s) (s_datas s))
+          let: tab' := tab_update tab i tabv in
+          let: tabs' := set_nth tab' s.(s_tables) (N.to_nat tabaddr) tab' in
+            Some (Build_store_record (s_funcs s) tabs' (s_mems s)
+                    (s_globals s) (s_elems s) (s_datas s))
           else None
       | None => None
       end

@@ -275,10 +275,6 @@ Proof.
     simpl in HN. by apply IHn.
 Qed.
 
-(* TODO: fix the rest of progress *)
-
-(* tc_func_t -> tc_func *)
-(* Remember fails: extra destructs. *)
 Lemma func_context_store: forall s i C j x,
     inst_typing s i C ->
     j < length (tc_func C) ->
@@ -303,10 +299,6 @@ Proof.
   by eexists.
 Qed.
 
-(* inst_globs -> inst_globals *)
-(* globals_agree -> globali_agree
-   This no longer has the (n < length gs) condition that was used here
-*)
 Lemma glob_context_store: forall s i C j g,
     inst_typing s i C ->
     j < length (tc_global C) ->
@@ -338,14 +330,6 @@ Proof.
   discriminate.
 Qed.
 
-
-(* expects (N.to_nat m) but given m *)
-(* Old disregarded N.to_nat n
-Lemma mem_context_store: forall s i C,
-    inst_typing s i C ->
-    tc_memory C <> [::] ->
-    exists n, smem_ind s i = Some n /\
-              List.nth_error (s_mems s) n <> None. *)
 Lemma mem_context_store: forall s i C,
     inst_typing s i C ->
     tc_memory C <> [::] ->
@@ -416,9 +400,6 @@ Qed.
     entire lfilled proposition as a condition due to composition.
  *)
 
-(* TODO: lfilled definition changed
-  Not lfilled at depth n with lholed for n-1 containing br, followed by es
-*)
 Definition not_lf_br (es: seq administrative_instruction) (n: nat) :=
   forall k (lh : lholed n), ~ lfilled lh [::AI_basic (BI_br k)] es.
 
@@ -437,13 +418,6 @@ Proof.
     apply/eqP; move/eqP in HLF; rewrite <- HLF;
     by repeat rewrite -catA.
 Qed.
-
-(* lholed 0 now defined as vs -> ais -> lh instead of ais -> ais -> lh
-   May need e_to_v_list? This gives seq of option though
-
-   Definition e_to_v_list (es : list administrative_instruction) : seq (option value) :=
-    map e_to_v es.
-*)
 
 Lemma lf_composition_left: forall cs es e0 n (lh : lholed n),
     const_list cs ->
@@ -608,7 +582,7 @@ Ltac solve_progress_cont cont :=
 Ltac solve_progress :=
   solve_progress_cont ltac:(fail).
 
-Lemma t_progress_be: forall C bes ts1 ts2 vcs lab ret s f hs,
+Theorem t_progress_be: forall C bes ts1 ts2 vcs lab ret s f hs,
     store_typing s ->
     inst_typing s f.(f_inst) C ->
     be_typing (upd_label (upd_local_label_return C (map typeof f.(f_locs)) (tc_label C) ret) lab) bes (Tf ts1 ts2) ->
@@ -983,10 +957,6 @@ Proof.
   - (* Table_set *)
     right. invert_typeof_vcs.
     simpl in *. clear H1 H2 ETf.
-    (* same as using HIT:inst_typing to get [tabtype] using
-        "lookup_N (s_tables s)"@ "inst_tables (f_inst f)"@ x *)
-    (* then matching with H:lookup (tc_table C0) x to get [s'] using
-        "s_tables := set_nth tab (s_tables s) (N.to_nat x) tab" *)
     destruct v as [[]| |], v0 => //=.
     destruct (stab_update s f.(f_inst) x (Wasm_int.nat_of_uint i32m s0) v) eqn:Es.
     + unfold stab_update, stab in Es.
@@ -1609,7 +1579,6 @@ Proof.
       * destruct H as [es' HReduce]. right.
         rewrite to_e_list_cat.
         rewrite -(e_b_elim Heqbcs H2).
-        (* last by apply const_list_is_basic; apply v_to_e_is_const_list. *)
         exists es'.
         rewrite catA.
         by rewrite v_to_e_cat.
@@ -1753,8 +1722,6 @@ Proof.
     by simpl in R.
 Qed.
 
-(* (N.to_nat (bin_of_nat n)) is intentional to
-    emulate the use of labelidx (bin_of_nat n) as required by rs_br *)
 Lemma br_reduce_extract_vs: forall n k lh es s C ts ts2,
     @lfilled n lh [::AI_basic (BI_br (bin_of_nat (n + k)))] es ->
     e_typing s C es (Tf [::] ts2) ->
@@ -1772,7 +1739,6 @@ Proof.
   unfold lfilled in HLF; simpl in HLF; move/eqP in HLF; subst es;
   rewrite -cat1s in HType; invert_e_typing;
   destruct ts0 => //; destruct t1s => //; clear H1.
-  (* dependent induction HLF; subst; move => s C ts2 ts HType HN. *)
   - rewrite add0n in H5.
     apply et_to_bet in H5; auto_basic.
     simpl in H5.
@@ -1803,8 +1769,7 @@ Proof.
             (LH_base (take (size (ts1 ++ ts3')) l) l0).
     repeat split.
     + by apply v_to_e_is_const_list.
-    + (* apply/lfilledP. *)
-      rewrite -v_to_e_cat. rewrite -catA.
+    + rewrite -v_to_e_cat. rewrite -catA.
       rewrite -(cat1s (AI_basic (BI_br (bin_of_nat (0 + k)))) l0).
       rewrite cat_abcd_a_bc_d. unfold lfilled. apply/eqP. simpl.
       f_equal.
@@ -1950,7 +1915,7 @@ Proof.
   destruct a as [| |[]] => //=.
 Qed.
 
-Lemma t_progress_e: forall s C C' f vcs es tf ts1 ts2 lab ret hs,
+Theorem t_progress_e: forall s C C' f vcs es tf ts1 ts2 lab ret hs,
     e_typing s C es tf ->
     tf = Tf ts1 ts2 ->
     C = (upd_label (upd_local_label_return C' (map typeof f.(f_locs)) (tc_label C') ret) lab) ->

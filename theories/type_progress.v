@@ -117,9 +117,9 @@ Proof.
 Admitted.
 
 Lemma reduce_trap_left: forall vs,
-    const_list vs ->
-    vs <> [::] ->
-    reduce_simple (vs ++ [::AI_trap]) [::AI_trap].
+  const_list vs ->
+  vs <> [::] ->
+  reduce_simple (vs ++ [::AI_trap]) [::AI_trap].
 Proof.
   move => vs HConst H.
   apply const_es_exists in HConst as [vs' Hconst].
@@ -129,9 +129,9 @@ Proof.
 Qed.
 
 Lemma v_e_trap: forall vs es,
-    const_list vs ->
-    vs ++ es = [::AI_trap] ->
-    vs = [::] /\ es = [::AI_trap].
+  const_list vs ->
+  vs ++ es = [::AI_trap] ->
+  vs = [::] /\ es = [::AI_trap].
 Proof.
   move => vs es HConst H.
   destruct vs => //=.
@@ -140,9 +140,9 @@ Proof.
 Qed.
 
 Lemma cat_split: forall {X:Type} (l l1 l2: seq X),
-    l = l1 ++ l2 ->
-    l1 = take (size l1) l /\
-    l2 = drop (size l1) l.
+  l = l1 ++ l2 ->
+  l1 = take (size l1) l /\
+  l2 = drop (size l1) l.
 Proof.
   move => X l l1.
   generalize dependent l.
@@ -155,9 +155,9 @@ Proof.
 Qed.
 
 Lemma reduce_composition: forall s cs f es es0 s' f' es' hs hs',
-    const_list cs ->
-    reduce hs s f es hs' s' f' es' ->
-    reduce hs s f (cs ++ es ++ es0) hs' s' f' (cs ++ es' ++ es0).
+  const_list cs ->
+  reduce hs s f es hs' s' f' es' ->
+  reduce hs s f (cs ++ es ++ es0) hs' s' f' (cs ++ es' ++ es0).
 Proof.
   move => s cs f es es0 s' f' es' hs hs' HConst HReduce.
   apply const_es_exists in HConst as [vs' Hconst].
@@ -165,8 +165,8 @@ Proof.
 Qed.
 
 Lemma reduce_composition_right: forall s f es es0 s' f' es' hs hs',
-    reduce hs s f es hs' s' f' es' ->
-    reduce hs s f (es ++ es0) hs' s' f' (es' ++ es0).
+  reduce hs s f es hs' s' f' es' ->
+  reduce hs s f (es ++ es0) hs' s' f' (es' ++ es0).
 Proof.
   move => s f es es0 s' f' es' hs hs' HReduce.
   eapply reduce_composition in HReduce.
@@ -177,9 +177,9 @@ Proof.
 Qed.
 
 Lemma reduce_composition_left: forall s cs f es s' f' es' hs hs',
-    const_list cs ->
-    reduce hs s f es hs' s' f' es' ->
-    reduce hs s f (cs ++ es) hs' s' f' (cs ++ es').
+  const_list cs ->
+  reduce hs s f es hs' s' f' es' ->
+  reduce hs s f (cs ++ es) hs' s' f' (cs ++ es').
 Proof.
   move => s f es es0 s' f' es' hs hs' HConst HReduce.
   eapply reduce_composition in HReduce; eauto.
@@ -188,23 +188,24 @@ Proof.
 Qed.
 
 Lemma lfilled0_empty: forall es,
-    lfilled (LH_base [::] [::]) es es.
+  lfilled (LH_base [::] [::]) es es.
 Proof.
   move => es.
   unfold lfilled. apply/eqP => /=. by simplify_lists.
 Qed.
 
 Lemma label_lfilled1: forall n es es0,
-    lfilled (LH_rec [::] n es0 (LH_base [::] [::]) [::]) es [::AI_label n es0 es].
+  lfilled (LH_rec [::] n es0 (LH_base [::] [::]) [::])
+    es [::AI_label n es0 es].
 Proof.
   move => n es es0.
   unfold lfilled. apply/eqP => /=. by simplify_lists.
 Qed.
 
 Lemma terminal_form_v_e: forall vs es,
-    const_list vs ->
-    terminal_form (vs ++ es) ->
-    terminal_form es.
+  const_list vs ->
+  terminal_form (vs ++ es) ->
+  terminal_form es.
 Proof.
   move => vs es HConst HTerm.
   unfold terminal_form in HTerm.
@@ -223,11 +224,11 @@ Proof.
 Qed.
 
 Lemma typeof_append: forall ts t vs,
-    map typeof vs = ts ++ [::t] ->
-    exists v,
-      vs = take (size ts) vs ++ [::v] /\
-      map typeof (take (size ts) vs) = ts /\
-      typeof v = t.
+  map typeof vs = ts ++ [::t] ->
+  exists v,
+    vs = take (size ts) vs ++ [::v] /\
+    map typeof (take (size ts) vs) = ts /\
+    typeof v = t.
 Proof.
   move => ts t vs HMapType.
   apply cat_split in HMapType.
@@ -261,10 +262,11 @@ Ltac invert_typeof_vcs :=
     simpl in H; inversion H; subst; clear H
   end.
 
-Lemma nth_error_map: forall {X Y:Type} (l: seq X) n f {fx: Y},
-    List.nth_error (map f l) n = Some fx ->
-    exists x, List.nth_error l n = Some x /\
-    f x = fx.
+Lemma nth_error_map:
+forall {X Y:Type} (l: seq X) n f {fx: Y},
+  List.nth_error (map f l) n = Some fx ->
+  exists x, List.nth_error l n = Some x /\
+  f x = fx.
 Proof.
   move => X Y l n.
   generalize dependent l.
@@ -276,10 +278,10 @@ Proof.
 Qed.
 
 Lemma func_context_store: forall s i C j x,
-    inst_typing s i C ->
-    j < length (tc_func C) ->
-    List.nth_error (tc_func C) j = Some x ->
-    exists a, List.nth_error i.(inst_funcs) j = Some a.
+  inst_typing s i C ->
+  j < length (tc_func C) ->
+  List.nth_error (tc_func C) j = Some x ->
+  exists a, List.nth_error i.(inst_funcs) j = Some a.
 Proof.
   (* TODO: inst_funcs is a fragile name *)
   move => s i C j x HIT HLength HN.
@@ -300,10 +302,10 @@ Proof.
 Qed.
 
 Lemma glob_context_store: forall s i C j g,
-    inst_typing s i C ->
-    j < length (tc_global C) ->
-    List.nth_error (tc_global C) j = Some g ->
-    sglob s i j <> None.
+  inst_typing s i C ->
+  j < length (tc_global C) ->
+  List.nth_error (tc_global C) j = Some g ->
+  sglob s i j <> None.
 Proof.
   (* TODO: inst_globs is a fragile name *)
   move => s i C j g HIT HLength HN.
@@ -331,10 +333,11 @@ Proof.
 Qed.
 
 Lemma mem_context_store: forall s i C,
-    inst_typing s i C ->
-    tc_memory C <> [::] ->
-    exists n, smem_ind s i = Some n /\
-              List.nth_error (s_mems s) (N.to_nat n) <> None.
+  inst_typing s i C ->
+  tc_memory C <> [::] ->
+  exists n,
+    smem_ind s i = Some n /\
+    List.nth_error (s_mems s) (N.to_nat n) <> None.
 Proof.
   (* TODO: inst_memory is a fragile name *)
   move => s i C HIT HMemory.
@@ -356,7 +359,8 @@ Qed.
 
 (* Rewrite based off r_call_indirect_success *)
 Lemma store_typing_stabaddr: forall s f C c a i,
-  stab_elem s f.(f_inst) c (Wasm_int.nat_of_uint i32m i) = Some (VAL_ref_func a) ->
+  stab_elem s f.(f_inst) c (Wasm_int.nat_of_uint i32m i)
+    = Some (VAL_ref_func a) ->
   inst_typing s f.(f_inst) C ->
   store_typing s ->
   exists cl, lookup_N s.(s_funcs) a = Some cl.
@@ -407,8 +411,8 @@ Definition not_lf_return (es: seq administrative_instruction) (n: nat) :=
   forall (lh : lholed n), ~ lfilled lh [::AI_basic BI_return] es.
 
 Lemma lf_composition: forall es es2 e0 n (lh : lholed n),
-    lfilled lh e0 es ->
-    exists (lh' : lholed n), lfilled lh' e0 (es ++ es2).
+  lfilled lh e0 es ->
+  exists (lh' : lholed n), lfilled lh' e0 (es ++ es2).
 Proof.
   move => es es2 e0 n lh HLF.
   destruct lh as [vs es' | n0 vs l es' lh' es''];
@@ -420,9 +424,9 @@ Proof.
 Qed.
 
 Lemma lf_composition_left: forall cs es e0 n (lh : lholed n),
-    const_list cs ->
-    lfilled lh e0 es ->
-    exists (lh' : lholed n), lfilled lh' e0 (cs ++ es).
+  const_list cs ->
+  lfilled lh e0 es ->
+  exists (lh' : lholed n), lfilled lh' e0 (cs ++ es).
 Proof.
   move => cs es e0 n lh HConst HLF.
   apply const_list_get in HConst. destruct HConst.
@@ -439,8 +443,8 @@ Qed.
 
 
 Lemma nlfbr_right: forall es n es',
-    not_lf_br (es ++ es') n ->
-    not_lf_br es n.
+  not_lf_br (es ++ es') n ->
+  not_lf_br es n.
 Proof.
   move => es n es' HNLF k lh HContra.
   eapply lf_composition in HContra.
@@ -450,8 +454,8 @@ Proof.
 Qed.
 
 Lemma nlfret_right: forall es n es',
-    not_lf_return (es ++ es') n ->
-    not_lf_return es n.
+  not_lf_return (es ++ es') n ->
+  not_lf_return es n.
 Proof.
   move => es n es' HNLF lh HContra.
   eapply lf_composition in HContra.
@@ -461,9 +465,9 @@ Proof.
 Qed.
 
 Lemma nlfbr_left: forall es n cs,
-    const_list cs ->
-    not_lf_br (cs ++ es) n ->
-    not_lf_br es n.
+  const_list cs ->
+  not_lf_br (cs ++ es) n ->
+  not_lf_br es n.
 Proof.
   move => es n cs HConst HNLF k lh HContra.
   eapply lf_composition_left in HContra => //.
@@ -476,9 +480,9 @@ Proof.
 Qed.
 
 Lemma nlfret_left: forall es n cs,
-    const_list cs ->
-    not_lf_return (cs ++ es) n ->
-    not_lf_return es n.
+  const_list cs ->
+  not_lf_return (cs ++ es) n ->
+  not_lf_return es n.
 Proof.
   move => es n cs HConst HNLF lh HContra.
   eapply lf_composition_left in HContra => //.
@@ -498,9 +502,9 @@ Qed.
     of that lemma directly?... 
 *)
 Lemma to_e_list_cat: forall l1 l2,
-    to_e_list (l1 ++ l2) = to_e_list l1 ++ to_e_list l2.
+  to_e_list (l1 ++ l2) = to_e_list l1 ++ to_e_list l2.
 Proof.
-    by apply properties.to_e_list_cat.
+  by apply properties.to_e_list_cat.
 Qed.
 
 (* TODO: find better fixes than the current duplication. *)
@@ -583,14 +587,16 @@ Ltac solve_progress :=
   solve_progress_cont ltac:(fail).
 
 Theorem t_progress_be: forall C bes ts1 ts2 vcs lab ret s f hs,
-    store_typing s ->
-    inst_typing s f.(f_inst) C ->
-    be_typing (upd_label (upd_local_label_return C (map typeof f.(f_locs)) (tc_label C) ret) lab) bes (Tf ts1 ts2) ->
-    map typeof vcs = ts1 ->
-    not_lf_br (to_e_list bes) 0 ->
-    not_lf_return (to_e_list bes) 0 ->
-    const_list (to_e_list bes) \/
-    exists s' f' es' hs', reduce hs s f (v_to_e_list vcs ++ to_e_list bes) hs' s' f' es'.
+  store_typing s ->
+  inst_typing s f.(f_inst) C ->
+  be_typing (upd_label (upd_local_label_return
+    C (map typeof f.(f_locs)) (tc_label C) ret) lab) bes (Tf ts1 ts2) ->
+  map typeof vcs = ts1 ->
+  not_lf_br (to_e_list bes) 0 ->
+  not_lf_return (to_e_list bes) 0 ->
+  const_list (to_e_list bes) \/
+  exists s' f' es' hs',
+    reduce hs s f (v_to_e_list vcs ++ to_e_list bes) hs' s' f' es'.
 Proof.
   move => C bes ts1 ts2 vcs lab ret s f hs HST HIT HType HConstType HNBI_br HNRet.
   generalize dependent vcs.
@@ -1641,7 +1647,8 @@ Definition return_reduce (es: seq administrative_instruction) :=
  *)
 
 (** [br_reduce] is decidable. **)
-Lemma br_reduce_decidable : forall es, decidable (br_reduce es).
+Lemma br_reduce_decidable :
+  forall es, decidable (br_reduce es).
 Proof. admit.
   (* move=> es. apply: pickable_decidable. apply: pickable2_weaken.
   apply lfilled_pickable_rec_gen => // es' lh lh' n.
@@ -1649,7 +1656,8 @@ Proof. admit.
 (* Defined. *) Admitted.
 
 (** [return_reduce] is decidable. **)
-Lemma return_reduce_decidable : forall es, decidable (return_reduce es).
+Lemma return_reduce_decidable :
+  forall es, decidable (return_reduce es).
 Proof. admit.
   (* move=> es. apply: pickable_decidable. apply: pickable2_weaken.
   apply lfilled_pickable_rec => // es'.
@@ -1657,17 +1665,18 @@ Proof. admit.
 (* Defined. *) Admitted.
 
 
-Local Lemma cat_abcd_a_bc_d: forall {X:Type} (a b c d: seq X),
-    a ++ b ++ c ++ d = a ++ (b ++ c) ++ d.
+Local Lemma cat_abcd_a_bc_d:
+forall {X:Type} (a b c d: seq X),
+  a ++ b ++ c ++ d = a ++ (b ++ c) ++ d.
 Proof.
   move => X a b c d.
   f_equal. by rewrite catA.
 Qed.
 
 Lemma br_reduce_label_length: forall n k lh es s C ts2,
-    @lfilled n lh [::AI_basic (BI_br (bin_of_nat (n + k)))] es ->
-    e_typing s C es (Tf [::] ts2) ->
-    length (tc_label C) > k.
+  @lfilled n lh [::AI_basic (BI_br (bin_of_nat (n + k)))] es ->
+  e_typing s C es (Tf [::] ts2) ->
+  length (tc_label C) > k.
 Proof.
   move => n k.
   generalize dependent k;
@@ -1700,9 +1709,9 @@ Proof.
 Qed.
 
 Lemma return_reduce_return_some: forall n lh es s C ts2,
-    @lfilled n lh [::AI_basic BI_return] es ->
-    e_typing s C es (Tf [::] ts2) ->
-    tc_return C <> None.
+  @lfilled n lh [::AI_basic BI_return] es ->
+  e_typing s C es (Tf [::] ts2) ->
+  tc_return C <> None.
 Proof.
   move => n lh es s C ts2 HLF.
   generalize dependent ts2.
@@ -1723,12 +1732,13 @@ Proof.
 Qed.
 
 Lemma br_reduce_extract_vs: forall n k lh es s C ts ts2,
-    @lfilled n lh [::AI_basic (BI_br (bin_of_nat (n + k)))] es ->
-    e_typing s C es (Tf [::] ts2) ->
-    List.nth_error (tc_label C) k = Some ts ->
-    exists vs lh', const_list vs /\
-      @lfilled (nat_of_bin (bin_of_nat n)) lh' (vs ++ [::AI_basic (BI_br (bin_of_nat (n + k)))]) es /\
-      length vs = length ts.
+  @lfilled n lh [::AI_basic (BI_br (bin_of_nat (n + k)))] es ->
+  e_typing s C es (Tf [::] ts2) ->
+  List.nth_error (tc_label C) k = Some ts ->
+  exists vs lh', const_list vs /\
+    @lfilled (nat_of_bin (bin_of_nat n)) lh'
+      (vs ++ [::AI_basic (BI_br (bin_of_nat (n + k)))]) es /\
+    length vs = length ts.
 Proof.
   move => n k.
   generalize dependent k;
@@ -1792,12 +1802,13 @@ Proof.
 Qed.
 
 Lemma return_reduce_extract_vs: forall n lh es s C ts ts2,
-    @lfilled n lh [::AI_basic BI_return] es ->
-    e_typing s C es (Tf [::] ts2) ->
-    tc_return C = Some ts ->
-    exists vs lh', const_list vs /\
-      @lfilled (nat_of_bin (bin_of_nat n)) lh' (vs ++ [::AI_basic BI_return]) es /\
-      length vs = length ts.
+  @lfilled n lh [::AI_basic BI_return] es ->
+  e_typing s C es (Tf [::] ts2) ->
+  tc_return C = Some ts ->
+  exists vs lh', const_list vs /\
+    @lfilled (nat_of_bin (bin_of_nat n)) lh'
+      (vs ++ [::AI_basic BI_return]) es /\
+    length vs = length ts.
 Proof.
   dependent induction lh => //;
   [| replace (nat_of_bin (bin_of_nat k.+1)) with (k.+1);
@@ -1847,8 +1858,8 @@ Proof.
 Qed.
 
 Lemma le_add: forall n m,
-    n <= m ->
-    exists k, m = n+k.
+  n <= m ->
+  exists k, m = n+k.
 Proof.
   move => n m. move: m n.
   elim => [|m].
@@ -1868,8 +1879,11 @@ Qed.
     Local functions).
 *)
 Lemma s_typing_lf_br: forall s rs f es ts,
-    s_typing s rs f es ts ->
-    (forall n lh k, @lfilled n lh [::AI_basic (BI_br (bin_of_nat k))] es -> k < n).
+  s_typing s rs f es ts ->
+  (forall n lh k,
+    @lfilled n lh
+      [::AI_basic (BI_br (bin_of_nat k))] es ->
+    k < n).
 Proof.
   move => s rs f es ts HType n lh k HLF.
   inversion HType. inversion H. subst.
@@ -1886,8 +1900,8 @@ Proof.
 Qed.
 
 Lemma s_typing_lf_return: forall s f es ts,
-    s_typing s None f es ts ->
-    (forall n, not_lf_return es n).
+  s_typing s None f es ts ->
+  (forall n, not_lf_return es n).
 Proof.
   unfold not_lf_return.
   move => s f es ts HType n lh HContra.
@@ -1916,16 +1930,19 @@ Proof.
 Qed.
 
 Theorem t_progress_e: forall s C C' f vcs es tf ts1 ts2 lab ret hs,
-    e_typing s C es tf ->
-    tf = Tf ts1 ts2 ->
-    C = (upd_label (upd_local_label_return C' (map typeof f.(f_locs)) (tc_label C') ret) lab) ->
-    inst_typing s f.(f_inst) C' ->
-    map typeof vcs = ts1 ->
-    store_typing s ->
-    (forall n lh k, @lfilled n lh [::AI_basic (BI_br (bin_of_nat k))] es -> k < n) ->
-    (forall n, not_lf_return es n) ->
-    terminal_form (v_to_e_list vcs ++ es) \/
-    exists s' f' es' hs', reduce hs s f (v_to_e_list vcs ++ es) hs' s' f' es'.
+  e_typing s C es tf ->
+  tf = Tf ts1 ts2 ->
+  C = (upd_label (upd_local_label_return
+    C' (map typeof f.(f_locs)) (tc_label C') ret) lab) ->
+  inst_typing s f.(f_inst) C' ->
+  map typeof vcs = ts1 ->
+  store_typing s ->
+  (forall n lh k, @lfilled n lh
+    [::AI_basic (BI_br (bin_of_nat k))] es -> k < n) ->
+  (forall n, not_lf_return es n) ->
+  terminal_form (v_to_e_list vcs ++ es) \/
+  exists s' f' es' hs',
+    reduce hs s f (v_to_e_list vcs ++ es) hs' s' f' es'.
 Proof.
   (* e_typing *)
   move => s C C' f vcs es tf ts1 ts2 lab ret hs HType.
@@ -2292,9 +2309,10 @@ Proof.
 Qed.
 
 Theorem t_progress: forall s f es ts hs,
-    config_typing s f es ts ->
-    terminal_form es \/
-    exists s' f' es' hs', reduce hs s f es hs' s' f' es'.
+  config_typing s f es ts ->
+  terminal_form es \/
+  exists s' f' es' hs',
+    reduce hs s f es hs' s' f' es'.
 Proof.
   move => s f es ts hs HType.
   inversion HType. inversion H0. inversion H5. subst.

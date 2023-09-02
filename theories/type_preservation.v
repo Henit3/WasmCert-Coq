@@ -45,14 +45,14 @@ Ltac b_to_a_revert :=
          end.
 
 Lemma b_e_elim: forall bes es,
-    to_e_list bes = es ->
-    bes = to_b_list es /\ es_is_basic es.
+  to_e_list bes = es ->
+  bes = to_b_list es /\ es_is_basic es.
 Proof.
   by apply properties.b_e_elim.
 Qed.
 
 Lemma upd_label_overwrite: forall C l1 l2,
-    upd_label (upd_label C l1) l2 = upd_label C l2.
+  upd_label (upd_label C l1) l2 = upd_label C l2.
 Proof.
   by [].
 Qed.
@@ -80,14 +80,14 @@ Lemma BI_const_num_typing: forall C econst t1s t2s,
   be_typing C [::BI_const_num econst] (Tf t1s t2s) ->
   t2s = t1s ++ [::T_num (typeof_num econst)].
 Proof.
-move => C econst t1s t2s HType.
-gen_ind_subst HType => //.
-- apply extract_list1 in H1; inversion H1; subst.
-apply empty_typing in HType1; subst.
-by eapply IHHType2.
-- rewrite - catA. f_equal.
-+ intros. by subst.
-+ by eapply IHHType.
+  move => C econst t1s t2s HType.
+  gen_ind_subst HType => //.
+  - apply extract_list1 in H1; inversion H1; subst.
+    apply empty_typing in HType1; subst.
+    by eapply IHHType2.
+  - rewrite - catA. f_equal.
+    + intros. by subst.
+    + by eapply IHHType.
 Qed.
 Lemma AI_const_num_typing: forall s C v t1s t2s,
   e_typing s C [::$VAN v] (Tf t1s t2s) ->
@@ -169,7 +169,7 @@ Lemma AI_ref_func_typing: forall s C v t1s t2s,
               t2s = t1s ++ [::T_ref T_funcref].
 Proof.
   move => s C v t1s t2s HType.
-  gen_ind_subst HType => //=.
+  gen_ind_subst HType => //=; eauto.
   - destruct bes => //=.
   - apply extract_list1 in H2; inversion H2; subst.
     apply e_empty_typing in HType1; subst.
@@ -179,7 +179,6 @@ Proof.
     exists x.
     repeat rewrite -catA.
     by repeat split => //=.
-  - exists tf. split => //=.
 Qed.
 
 Lemma AI_ref_extern_typing: forall s C v t1s t2s,
@@ -323,7 +322,8 @@ Qed.
 
 Lemma Binop_typing: forall C t op t1s t2s,
     be_typing C [::BI_binop t op] (Tf t1s t2s) ->
-    t1s = t2s ++ [::T_num t] /\ exists ts, t2s = ts ++ [::T_num t].
+    t1s = t2s ++ [::T_num t] /\
+    exists ts, t2s = ts ++ [::T_num t].
 Proof.
   move => C t op t1s t2s HType.
   gen_ind_subst HType.
@@ -342,8 +342,10 @@ Proof.
 Qed.
 
 Lemma Testop_typing: forall C t op t1s t2s,
-    be_typing C [::BI_testop t op] (Tf t1s t2s) ->
-    exists ts, t1s = ts ++ [::T_num t] /\ t2s = ts ++ [::T_num T_i32].
+  be_typing C [::BI_testop t op] (Tf t1s t2s) ->
+  exists ts,
+    t1s = ts ++ [::T_num t] /\
+    t2s = ts ++ [::T_num T_i32].
 Proof.
   move => C t op t1s t2s HType.
   gen_ind_subst HType.
@@ -358,8 +360,10 @@ Proof.
 Qed.
 
 Lemma Relop_typing: forall C t op t1s t2s,
-    be_typing C [::BI_relop t op] (Tf t1s t2s) ->
-    exists ts, t1s = ts ++ [::T_num t; T_num t] /\ t2s = ts ++ [::T_num T_i32].
+  be_typing C [::BI_relop t op] (Tf t1s t2s) ->
+  exists ts,
+    t1s = ts ++ [::T_num t; T_num t] /\
+    t2s = ts ++ [::T_num T_i32].
 Proof.
   move => C t op t1s t2s HType.
   gen_ind_subst HType.
@@ -375,7 +379,9 @@ Qed.
 
 Lemma Cvtop_typing: forall C t1 t2 op sx t1s t2s,
     be_typing C [::BI_cvtop t2 op t1 sx] (Tf t1s t2s) ->
-    exists ts, t1s = ts ++ [::T_num t1] /\ t2s = ts ++ [::T_num t2].
+    exists ts,
+      t1s = ts ++ [::T_num t1] /\
+      t2s = ts ++ [::T_num t2].
 Proof.
   move => C t1 t2 op sx t1s t2s HType.
   gen_ind_subst HType.
@@ -392,9 +398,10 @@ Qed.
 
 Lemma Ref_func_typing: forall C x t1s t2s,
   be_typing C [::BI_ref_func x] (Tf t1s t2s) ->
-  exists t, lookup_N (tc_func C) x = Some t /\
-            List.In x (tc_ref C) /\
-            t2s = t1s ++ [::T_ref (typeof_ref (VAL_ref_func x))].
+  exists t,
+    lookup_N (tc_func C) x = Some t /\
+    List.In x (tc_ref C) /\
+    t2s = t1s ++ [::T_ref (typeof_ref (VAL_ref_func x))].
 Proof.
   move => C x t1s t2s HType.
   gen_ind_subst HType => //.
@@ -410,8 +417,10 @@ Proof.
 Qed.
 
 Lemma Ref_is_null_typing: forall C t1s t2s,
-    be_typing C [::BI_ref_is_null] (Tf t1s t2s) ->
-    exists ts t, t1s = ts ++ [::T_ref t] /\ t2s = ts ++ [::T_num T_i32].
+  be_typing C [::BI_ref_is_null] (Tf t1s t2s) ->
+  exists ts t,
+    t1s = ts ++ [::T_ref t] /\
+    t2s = ts ++ [::T_num T_i32].
 Proof.
   move => C t1s t2s HType.
   gen_ind_subst HType;
@@ -427,8 +436,8 @@ Proof.
 Qed.
 
 Lemma Nop_typing: forall C t1s t2s,
-    be_typing C [::BI_nop] (Tf t1s t2s) ->
-    t1s = t2s.
+  be_typing C [::BI_nop] (Tf t1s t2s) ->
+  t1s = t2s.
 Proof.
   move => C t1s t2s HType.
   gen_ind_subst HType => //.
@@ -439,8 +448,8 @@ Proof.
 Qed.
 
 Lemma Drop_typing: forall C t1s t2s,
-    be_typing C [::BI_drop] (Tf t1s t2s) ->
-    exists t, t1s = t2s ++ [::t].
+  be_typing C [::BI_drop] (Tf t1s t2s) ->
+  exists t, t1s = t2s ++ [::t].
 Proof.
   move => C t1s t2s HType.
   gen_ind_subst HType => //=.
@@ -453,8 +462,8 @@ Proof.
 Qed.
 
 Lemma Select_typing_Some_nil: forall C t1s t2s,
-    be_typing C [::BI_select (Some [::])] (Tf t1s t2s) ->
-    False.
+  be_typing C [::BI_select (Some [::])] (Tf t1s t2s) ->
+  False.
 Proof.
   move => C t1s t2s HType.
   gen_ind_subst HType => //.
@@ -465,8 +474,10 @@ Proof.
 Qed.
 
 Lemma Select_typing_Some_ext: forall C t1s t2s t t',
-    be_typing C [::BI_select (Some (t :: t'))] (Tf t1s t2s) ->
-    exists ts, t1s = ts ++ [::t; t; T_num T_i32] /\ t2s = ts ++ [::t].
+  be_typing C [::BI_select (Some (t :: t'))] (Tf t1s t2s) ->
+  exists ts,
+    t1s = ts ++ [::t; t; T_num T_i32] /\
+    t2s = ts ++ [::t].
 Proof.
   move => C t1s t2s t t' HType.
   gen_ind_subst HType => //.
@@ -480,8 +491,10 @@ Proof.
 Qed.
 
 Lemma Select_typing_Some: forall C t1s t2s t',
-    be_typing C [::BI_select (Some t')] (Tf t1s t2s) ->
-    exists ts t, t1s = ts ++ [::t; t; T_num T_i32] /\ t2s = ts ++ [::t].
+  be_typing C [::BI_select (Some t')] (Tf t1s t2s) ->
+  exists ts t,
+    t1s = ts ++ [::t; t; T_num T_i32] /\
+    t2s = ts ++ [::t].
 Proof.
   move => C t1s t2s t' HType.
   gen_ind_subst HType => //.
@@ -495,9 +508,11 @@ Proof.
 Qed.
 
 Lemma Select_typing_None: forall C t1s t2s,
-    be_typing C [::BI_select None] (Tf t1s t2s) ->
-    exists ts t, is_numeric_type t
-      /\ t1s = ts ++ [::t; t; T_num T_i32] /\ t2s = ts ++ [::t].
+  be_typing C [::BI_select None] (Tf t1s t2s) ->
+  exists ts t,
+    is_numeric_type t /\
+    t1s = ts ++ [::t; t; T_num T_i32] /\
+    t2s = ts ++ [::t].
 Proof.
   move => C t1s t2s HType.
   gen_ind_subst HType => //.
@@ -511,10 +526,12 @@ Proof.
 Qed.
 
 Lemma Block_typing: forall C bt es tn tm t1s t2s,
-    be_typing C [::BI_block bt es] (Tf tn tm) ->
-    expand_t C bt = Some (Tf t1s t2s) ->
-    exists ts, tn = ts ++ t1s /\ tm = ts ++ t2s /\
-      be_typing (upd_label C ([::t2s] ++ (tc_label C))) es (Tf t1s t2s).
+  be_typing C [::BI_block bt es] (Tf tn tm) ->
+  expand_t C bt = Some (Tf t1s t2s) ->
+  exists ts,
+    tn = ts ++ t1s /\
+    tm = ts ++ t2s /\
+    be_typing (upd_label C ([::t2s] ++ (tc_label C))) es (Tf t1s t2s).
 Proof.
   move => C bt es tn tm t1s t2s HType HExp.
   dependent induction HType => //=.
@@ -530,10 +547,12 @@ Proof.
 Qed.
 
 Lemma Loop_typing: forall C bt es tn tm t1s t2s,
-    be_typing C [::BI_loop bt es] (Tf tn tm) ->
-    expand_t C bt = Some (Tf t1s t2s) ->
-    exists ts, tn = ts ++ t1s /\ tm = ts ++ t2s /\
-      be_typing (upd_label C ([::t1s] ++ (tc_label C))) es (Tf t1s t2s).
+  be_typing C [::BI_loop bt es] (Tf tn tm) ->
+  expand_t C bt = Some (Tf t1s t2s) ->
+  exists ts,
+    tn = ts ++ t1s /\
+    tm = ts ++ t2s /\
+    be_typing (upd_label C ([::t1s] ++ (tc_label C))) es (Tf t1s t2s).
 Proof.
   move => C bt es tn tm t1s t2s HType HExp.
   dependent induction HType => //=.
@@ -549,11 +568,13 @@ Proof.
 Qed.
 
 Lemma If_typing: forall C bt e1s e2s tn tm t1s t2s,
-    be_typing C [::BI_if bt e1s e2s] (Tf tn tm) ->
-    expand_t C bt = Some (Tf t1s t2s) ->
-    exists ts0, tn = ts0 ++ t1s ++ [::T_num T_i32] /\ tm = ts0 ++ t2s /\
-      be_typing (upd_label C ([:: t2s] ++ tc_label C)) e1s (Tf t1s t2s) /\
-      be_typing (upd_label C ([:: t2s] ++ tc_label C)) e2s (Tf t1s t2s).
+  be_typing C [::BI_if bt e1s e2s] (Tf tn tm) ->
+  expand_t C bt = Some (Tf t1s t2s) ->
+  exists ts0,
+    tn = ts0 ++ t1s ++ [::T_num T_i32] /\
+    tm = ts0 ++ t2s /\
+    be_typing (upd_label C ([:: t2s] ++ tc_label C)) e1s (Tf t1s t2s) /\
+    be_typing (upd_label C ([:: t2s] ++ tc_label C)) e2s (Tf t1s t2s).
 Proof.
   move => C bt e1s e2s tn tm t1s t2s HType HExp.
   gen_ind_subst HType.
@@ -569,10 +590,11 @@ Proof.
 Qed.
 
 Lemma Break_typing: forall n C t1s t2s,
-    be_typing C [::BI_br n] (Tf t1s t2s) ->
-    exists ts ts0, (N.to_nat n) < size (tc_label C) /\
-               lookup_N (tc_label C) (n) = Some ts /\
-               t1s = ts0 ++ ts.
+  be_typing C [::BI_br n] (Tf t1s t2s) ->
+  exists ts ts0,
+    (N.to_nat n) < size (tc_label C) /\
+    lookup_N (tc_label C) (n) = Some ts /\
+    t1s = ts0 ++ ts.
 Proof.
   move => n C t1s t2s HType.
   dependent induction HType => //=.
@@ -594,9 +616,11 @@ Proof.
 Qed.
 
 Lemma Br_if_typing: forall C ts1 ts2 i,
-    be_typing C [::BI_br_if i] (Tf ts1 ts2) ->
-    exists ts ts', ts2 = ts ++ ts' /\ ts1 = ts2 ++ [::T_num T_i32]
-      /\ lookup_N (tc_label C) i = Some ts'.
+  be_typing C [::BI_br_if i] (Tf ts1 ts2) ->
+  exists ts ts',
+    ts2 = ts ++ ts' /\
+    ts1 = ts2 ++ [::T_num T_i32] /\
+    lookup_N (tc_label C) i = Some ts'.
 Proof.
   move => C ts1 ts2 i HType.
   gen_ind_subst HType.
@@ -615,9 +639,11 @@ Proof.
 Qed.
 
 Lemma Br_table_typing: forall C ts1 ts2 ids i0,
-    be_typing C [::BI_br_table ids i0] (Tf ts1 ts2) ->
-    exists ts1' ts, ts1 = ts1' ++ ts ++ [::T_num T_i32]
-      /\ List.Forall (fun i : N => lookup_N (tc_label C) i = Some ts) (ids ++ [::i0]).
+  be_typing C [::BI_br_table ids i0] (Tf ts1 ts2) ->
+  exists ts1' ts,
+    ts1 = ts1' ++ ts ++ [::T_num T_i32] /\
+    List.Forall (fun i : N => lookup_N (tc_label C) i = Some ts)
+      (ids ++ [::i0]).
 Proof.
   move => C ts1 ts2 ids i0 HType.
   gen_ind_subst HType.
@@ -633,9 +659,10 @@ Proof.
 Qed.
 
 Lemma Return_typing: forall C t1s t2s,
-    be_typing C [::BI_return] (Tf t1s t2s) ->
-    exists ts ts', t1s = ts' ++ ts /\
-                   tc_return C = Some ts.
+  be_typing C [::BI_return] (Tf t1s t2s) ->
+  exists ts ts',
+    t1s = ts' ++ ts /\
+    tc_return C = Some ts.
 Proof.
   move => C t1s t2s HType.
   dependent induction HType => //=.
@@ -653,9 +680,9 @@ Qed.
 Lemma Call_typing: forall j C t1s t2s,
   be_typing C [::BI_call j] (Tf t1s t2s) ->
   exists ts t1s' t2s',
-  lookup_N (tc_func C) j = Some (Tf t1s' t2s') /\
-                      t1s = ts ++ t1s' /\
-                      t2s = ts ++ t2s'.
+    lookup_N (tc_func C) j = Some (Tf t1s' t2s') /\
+    t1s = ts ++ t1s' /\
+    t2s = ts ++ t2s'.
 Proof.
   move => j C t1s t2s HType.
   dependent induction HType; subst => //=.
@@ -692,9 +719,11 @@ Proof.
 Qed.
 
 Lemma Local_tee_typing: forall C i ts1 ts2,
-    be_typing C [::BI_local_tee i] (Tf ts1 ts2) ->
-    exists ts t, ts1 = ts2 /\ ts1 = ts ++ [::t]
-      /\ lookup_N (tc_local C) i = Some t.
+  be_typing C [::BI_local_tee i] (Tf ts1 ts2) ->
+  exists ts t,
+    ts1 = ts2 /\
+    ts1 = ts ++ [::t] /\
+    lookup_N (tc_local C) i = Some t.
 Proof.
   move => C i ts1 ts2 HType.
   gen_ind_subst HType.
@@ -710,9 +739,11 @@ Proof.
 Qed.
 
 Lemma Local_tee_typing_e: forall s C i ts1 ts2,
-    e_typing s C [::AI_basic (BI_local_tee i)] (Tf ts1 ts2) ->
-    exists ts t, ts1 = ts2 /\ ts1 = ts ++ [::t]
-      /\ lookup_N (tc_local C) i = Some t.
+  e_typing s C [::AI_basic (BI_local_tee i)] (Tf ts1 ts2) ->
+  exists ts t,
+    ts1 = ts2 /\
+    ts1 = ts ++ [::t] /\
+    lookup_N (tc_local C) i = Some t.
 Proof.
   move => s C i ts1 ts2 HType.
   apply et_to_bet in HType;
@@ -724,8 +755,9 @@ Proof.
 Qed.
 
 Lemma Local_get_typing: forall C i t1s t2s,
-    be_typing C [::BI_local_get i] (Tf t1s t2s) ->
-    exists t, lookup_N (tc_local C) i = Some t /\
+  be_typing C [::BI_local_get i] (Tf t1s t2s) ->
+  exists t,
+    lookup_N (tc_local C) i = Some t /\
     t2s = t1s ++ [::t].
 Proof.
   move => C i t1s t2s HType.
@@ -742,8 +774,9 @@ Proof.
 Qed.
 
 Lemma Local_set_typing: forall C i t1s t2s,
-    be_typing C [::BI_local_set i] (Tf t1s t2s) ->
-    exists t, lookup_N (tc_local C) i = Some t /\
+  be_typing C [::BI_local_set i] (Tf t1s t2s) ->
+  exists t,
+    lookup_N (tc_local C) i = Some t /\
     t1s = t2s ++ [::t].
 Proof.
   move => C i t1s t2s HType.
@@ -760,8 +793,9 @@ Proof.
 Qed.
 
 Lemma Global_get_typing: forall C i t1s t2s,
-    be_typing C [::BI_global_get i] (Tf t1s t2s) ->
-    exists t, option_map tg_t (lookup_N (tc_global C) i) = Some t /\
+  be_typing C [::BI_global_get i] (Tf t1s t2s) ->
+  exists t,
+    option_map tg_t (lookup_N (tc_global C) i) = Some t /\
     t2s = t1s ++ [::t].
 Proof.
   move => C i t1s t2s HType.
@@ -778,8 +812,9 @@ Proof.
 Qed.
 
 Lemma Global_set_typing: forall C i t1s t2s,
-    be_typing C [::BI_global_set i] (Tf t1s t2s) ->
-    exists g t, lookup_N (tc_global C) i = Some g /\
+  be_typing C [::BI_global_set i] (Tf t1s t2s) ->
+  exists g t,
+    lookup_N (tc_global C) i = Some g /\
     tg_t g = t /\
     is_mut g /\
     t1s = t2s ++ [::t].
@@ -798,10 +833,12 @@ Proof.
 Qed.
 
 Lemma Table_get_typing: forall C i t1s t2s,
-    be_typing C [::BI_table_get i] (Tf t1s t2s) ->
-    exists tabtype t ts, lookup_N (tc_table C) i = Some tabtype /\
+  be_typing C [::BI_table_get i] (Tf t1s t2s) ->
+  exists tabtype t ts,
+    lookup_N (tc_table C) i = Some tabtype /\
     tt_elem_type tabtype = t /\
-    t1s = ts ++ [::T_num T_i32] /\ t2s = ts ++ [:: T_ref t].
+    t1s = ts ++ [::T_num T_i32] /\
+    t2s = ts ++ [:: T_ref t].
 Proof.
   move => C i t1s t2s HType.
   dependent induction HType; subst => //=.
@@ -817,8 +854,9 @@ Proof.
 Qed.
 
 Lemma Table_set_typing: forall C i t1s t2s,
-    be_typing C [::BI_table_set i] (Tf t1s t2s) ->
-    exists tabtype t, lookup_N (tc_table C) i = Some tabtype /\
+  be_typing C [::BI_table_set i] (Tf t1s t2s) ->
+  exists tabtype t,
+    lookup_N (tc_table C) i = Some tabtype /\
     tt_elem_type tabtype = t /\
     t1s = t2s ++ [::T_num T_i32; T_ref t].
 Proof.
@@ -837,8 +875,9 @@ Qed.
 
 Lemma Table_size_typing: forall C i t1s t2s,
   be_typing C [::BI_table_size i] (Tf t1s t2s) ->
-  exists tabtype, lookup_N (tc_table C) i = Some tabtype /\
-  t2s = t1s ++ [::T_num T_i32].
+  exists tabtype,
+    lookup_N (tc_table C) i = Some tabtype /\
+    t2s = t1s ++ [::T_num T_i32].
 Proof.
   move => C i t1s t2s HType.
   dependent induction HType; subst => //=.
@@ -855,9 +894,11 @@ Qed.
 
 Lemma Table_grow_typing: forall C i t1s t2s,
   be_typing C [::BI_table_grow i] (Tf t1s t2s) ->
-  exists tabtype t ts, lookup_N (tc_table C) i = Some tabtype /\
-  tt_elem_type tabtype = t /\
-  t1s = ts ++ [::T_ref t; T_num T_i32] /\ t2s = ts ++ [::T_num T_i32].
+  exists tabtype t ts,
+    lookup_N (tc_table C) i = Some tabtype /\
+    tt_elem_type tabtype = t /\
+    t1s = ts ++ [::T_ref t; T_num T_i32] /\
+    t2s = ts ++ [::T_num T_i32].
 Proof.
   move => C i t1s t2s HType.
   dependent induction HType; subst => //=.
@@ -874,9 +915,10 @@ Qed.
 
 Lemma Table_fill_typing: forall C i t1s t2s,
   be_typing C [::BI_table_fill i] (Tf t1s t2s) ->
-  exists tabtype t, lookup_N (tc_table C) i = Some tabtype /\
-  tt_elem_type tabtype = t /\
-  t1s = t2s ++ [::T_num T_i32; T_ref t; T_num T_i32].
+  exists tabtype t,
+    lookup_N (tc_table C) i = Some tabtype /\
+    tt_elem_type tabtype = t /\
+    t1s = t2s ++ [::T_num T_i32; T_ref t; T_num T_i32].
 Proof.
   move => C i t1s t2s HType.
   dependent induction HType; subst => //=.
@@ -893,11 +935,12 @@ Qed.
 
 Lemma Table_copy_typing: forall C x y t1s t2s,
   be_typing C [::BI_table_copy x y] (Tf t1s t2s) ->
-  exists tabtype1 tabtype2 t, lookup_N (tc_table C) x = Some tabtype1 /\
-  lookup_N (tc_table C) y = Some tabtype2 /\
-  tt_elem_type tabtype1 = t /\
-  tt_elem_type tabtype2 = t /\
-  t1s = t2s ++ [::T_num T_i32; T_num T_i32; T_num T_i32].
+  exists tabtype1 tabtype2 t,
+    lookup_N (tc_table C) x = Some tabtype1 /\
+    lookup_N (tc_table C) y = Some tabtype2 /\
+    tt_elem_type tabtype1 = t /\
+    tt_elem_type tabtype2 = t /\
+    t1s = t2s ++ [::T_num T_i32; T_num T_i32; T_num T_i32].
 Proof.
   move => C x y t1s t2s HType.
   dependent induction HType; subst => //=.
@@ -914,10 +957,11 @@ Qed.
 
 Lemma Table_init_typing: forall C x y t1s t2s,
   be_typing C [::BI_table_init x y] (Tf t1s t2s) ->
-  exists tabtype t, lookup_N (tc_table C) x = Some tabtype /\
-  tt_elem_type tabtype = t /\
-  lookup_N (tc_elem C) y = Some t /\
-  t1s = t2s ++ [::T_num T_i32; T_num T_i32; T_num T_i32].
+  exists tabtype t,
+    lookup_N (tc_table C) x = Some tabtype /\
+    tt_elem_type tabtype = t /\
+    lookup_N (tc_elem C) y = Some t /\
+    t1s = t2s ++ [::T_num T_i32; T_num T_i32; T_num T_i32].
 Proof.
   move => C x y t1s t2s HType.
   dependent induction HType; subst => //=.
@@ -933,8 +977,9 @@ Proof.
 Qed.
 
 Lemma Elem_drop_typing: forall C i t1s t2s,
-    be_typing C [::BI_elem_drop i] (Tf t1s t2s) ->
-    exists t, lookup_N (tc_elem C) i = Some t /\
+  be_typing C [::BI_elem_drop i] (Tf t1s t2s) ->
+  exists t,
+    lookup_N (tc_elem C) i = Some t /\
     t2s = t1s.
 Proof.
   move => C i t1s t2s HType.
@@ -950,10 +995,12 @@ Proof.
 Qed.
 
 Lemma Load_typing: forall C t a off tp_sx t1s t2s,
-    be_typing C [::BI_load t tp_sx a off] (Tf t1s t2s) ->
-    exists ts, t1s = ts ++ [::T_num T_i32] /\ t2s = ts ++ [::T_num t] /\
-                    tc_memory C <> nil /\
-                    load_store_t_bounds a (option_projl tp_sx) t.
+  be_typing C [::BI_load t tp_sx a off] (Tf t1s t2s) ->
+  exists ts,
+    t1s = ts ++ [::T_num T_i32] /\
+    t2s = ts ++ [::T_num t] /\
+    tc_memory C <> nil /\
+    load_store_t_bounds a (option_projl tp_sx) t.
 Proof.
   move => C t a off tp_sx t1s t2s HType.
   dependent induction HType; subst => //=.
@@ -968,10 +1015,10 @@ Proof.
 Qed.
 
 Lemma Store_typing: forall C t a off tp t1s t2s,
-    be_typing C [::BI_store t tp a off] (Tf t1s t2s) ->
-    t1s = t2s ++ [::T_num T_i32; T_num t] /\
-    tc_memory C <> nil /\
-    load_store_t_bounds a tp t.
+  be_typing C [::BI_store t tp a off] (Tf t1s t2s) ->
+  t1s = t2s ++ [::T_num T_i32; T_num t] /\
+  tc_memory C <> nil /\
+  load_store_t_bounds a tp t.
 Proof.
   move => C t a off tp t1s t2s HType.
   dependent induction HType; subst => //=.
@@ -983,8 +1030,9 @@ Proof.
 Qed.
 
 Lemma Memory_size_typing: forall C t1s t2s,
-    be_typing C [::BI_memory_size] (Tf t1s t2s) ->
-    tc_memory C <> nil /\ t2s = t1s ++ [::T_num T_i32].
+  be_typing C [::BI_memory_size] (Tf t1s t2s) ->
+  tc_memory C <> nil /\
+  t2s = t1s ++ [::T_num T_i32].
 Proof.
   move => C t1s t2s HType.
   dependent induction HType; subst => //=.
@@ -996,8 +1044,11 @@ Proof.
 Qed.
 
 Lemma Memory_grow_typing: forall C t1s t2s,
-    be_typing C [::BI_memory_grow] (Tf t1s t2s) ->
-    exists ts, tc_memory C <> nil /\ t2s = t1s /\ t1s = ts ++ [::T_num T_i32].
+  be_typing C [::BI_memory_grow] (Tf t1s t2s) ->
+  exists ts,
+    tc_memory C <> nil /\
+    t2s = t1s /\
+    t1s = ts ++ [::T_num T_i32].
 Proof.
   move => C t1s t2s HType.
   dependent induction HType; subst => //=.
@@ -1012,9 +1063,9 @@ Proof.
 Qed.
 
 Lemma Memory_fill_typing: forall C t1s t2s,
-    be_typing C [::BI_memory_fill] (Tf t1s t2s) ->
-    tc_memory C <> nil /\
-    t1s = t2s ++ [::T_num T_i32; T_num T_i32; T_num T_i32].
+  be_typing C [::BI_memory_fill] (Tf t1s t2s) ->
+  tc_memory C <> nil /\
+  t1s = t2s ++ [::T_num T_i32; T_num T_i32; T_num T_i32].
 Proof.
   move => C t1s t2s HType.
   dependent induction HType; subst => //=.
@@ -1026,9 +1077,9 @@ Proof.
 Qed.
 
 Lemma Memory_copy_typing: forall C t1s t2s,
-    be_typing C [::BI_memory_copy] (Tf t1s t2s) ->
-    tc_memory C <> nil /\
-    t1s = t2s ++ [::T_num T_i32; T_num T_i32; T_num T_i32].
+  be_typing C [::BI_memory_copy] (Tf t1s t2s) ->
+  tc_memory C <> nil /\
+  t1s = t2s ++ [::T_num T_i32; T_num T_i32; T_num T_i32].
 Proof.
   move => C t1s t2s HType.
   dependent induction HType; subst => //=.
@@ -1040,10 +1091,10 @@ Proof.
 Qed.
 
 Lemma Memory_init_typing: forall C i t1s t2s,
-    be_typing C [::BI_memory_init i] (Tf t1s t2s) ->
-    tc_memory C <> nil /\
-    N.to_nat i < length (tc_data C) /\
-    t1s = t2s ++ [::T_num T_i32; T_num T_i32; T_num T_i32].
+  be_typing C [::BI_memory_init i] (Tf t1s t2s) ->
+  tc_memory C <> nil /\
+  N.to_nat i < length (tc_data C) /\
+  t1s = t2s ++ [::T_num T_i32; T_num T_i32; T_num T_i32].
 Proof.
   move => C i t1s t2s HType.
   dependent induction HType; subst => //=.
@@ -1057,8 +1108,9 @@ Proof.
 Qed.
 
 Lemma Data_drop_typing: forall C i t1s t2s,
-    be_typing C [::BI_data_drop i] (Tf t1s t2s) ->
-    exists t, lookup_N (tc_data C) i = Some t /\
+  be_typing C [::BI_data_drop i] (Tf t1s t2s) ->
+  exists t,
+    lookup_N (tc_data C) i = Some t /\
     t1s = t2s.
 Proof.
   move => C i t1s t2s HType.
@@ -1372,9 +1424,11 @@ Proof.
 Qed.
 
 Lemma t_Unop_num_preserve: forall C v t op be tf,
-    be_typing C [:: BI_const_num v; BI_unop t op] tf ->
-    reduce_simple (to_e_list [::BI_const_num v; BI_unop t op]) (to_e_list [::be]) ->
-    be_typing C [::be] tf.
+  be_typing C [:: BI_const_num v; BI_unop t op] tf ->
+  reduce_simple
+    (to_e_list [::BI_const_num v; BI_unop t op])
+    (to_e_list [::be]) ->
+  be_typing C [::be] tf.
 Proof.
   move => C v t op be tf HType HReduce.
   destruct tf as [ts1 ts2].
@@ -1390,9 +1444,11 @@ Qed.
     so the rest are redundant due to having a false premise *)
 
 Lemma t_Binop_preserve_success: forall C v1 v2 t op be tf,
-    be_typing C [:: BI_const_num v1; BI_const_num v2; BI_binop t op] tf ->
-    reduce_simple (to_e_list [::BI_const_num v1; BI_const_num v2; BI_binop t op]) (to_e_list [::be]) ->
-    be_typing C [::be] tf.
+  be_typing C [:: BI_const_num v1; BI_const_num v2; BI_binop t op] tf ->
+  reduce_simple
+    (to_e_list [::BI_const_num v1; BI_const_num v2; BI_binop t op])
+    (to_e_list [::be]) ->
+  be_typing C [::be] tf.
 Proof.
   move => C v1 v2 t op be tf HType HReduce.
   destruct tf as [ts1 ts2].
@@ -1409,8 +1465,8 @@ Qed.
 (* It seems very hard to refactor the i32 and i64 cases into one because of
      the polymorphism of app_testop_i. *)
 Lemma t_Testop_i32_preserve: forall C c testop tf,
-    be_typing C [::BI_const_num (VAL_int32 c); BI_testop T_i32 testop] tf ->
-    be_typing C [::BI_const_num (VAL_int32 (wasm_bool (app_testop_i testop c)))] tf.
+  be_typing C [::BI_const_num (VAL_int32 c); BI_testop T_i32 testop] tf ->
+  be_typing C [::BI_const_num (VAL_int32 (wasm_bool (app_testop_i testop c)))] tf.
 Proof.
   move => C c testop tf HType.
   gen_ind_subst HType.
@@ -1424,8 +1480,8 @@ Proof.
 Qed.
 
 Lemma t_Testop_i64_preserve: forall C c testop tf,
-    be_typing C [::BI_const_num (VAL_int64 c); BI_testop T_i64 testop] tf ->
-    be_typing C [::BI_const_num (VAL_int32 (wasm_bool (app_testop_i testop c)))] tf.
+  be_typing C [::BI_const_num (VAL_int64 c); BI_testop T_i64 testop] tf ->
+  be_typing C [::BI_const_num (VAL_int32 (wasm_bool (app_testop_i testop c)))] tf.
 Proof.
   move => C c testop tf HType.
   gen_ind_subst HType.
@@ -1439,9 +1495,11 @@ Proof.
 Qed.
 
 Lemma t_Relop_preserve: forall C v1 v2 t be op tf,
-    be_typing C [::BI_const_num v1; BI_const_num v2; BI_relop t op] tf ->
-    reduce_simple [:: AI_basic (BI_const_num v1); AI_basic (BI_const_num v2); AI_basic (BI_relop t op)] [::AI_basic be] ->
-    be_typing C [::be] tf.
+  be_typing C [::BI_const_num v1; BI_const_num v2; BI_relop t op] tf ->
+  reduce_simple
+    (to_e_list [:: BI_const_num v1; BI_const_num v2; BI_relop t op])
+    (to_e_list [::be]) ->
+  be_typing C [::be] tf.
 Proof.
   move => C v1 v2 t be op tf HType HReduce.
   destruct tf as [ts1 ts2].
@@ -1464,7 +1522,7 @@ Proof.
 Qed.
 
 Lemma be_typing_const_deserialise: forall C v t,
-    be_typing C [:: BI_const_num (wasm_deserialise (bits v) t)] (Tf [::] [::T_num t]).
+  be_typing C [:: BI_const_num (wasm_deserialise (bits v) t)] (Tf [::] [::T_num t]).
 Proof.
   move => C v t.
   assert (be_typing C [:: BI_const_num (wasm_deserialise (bits v) t)] (Tf [::] [:: T_num (typeof_num (wasm_deserialise (bits v) t))])); first by apply bet_const_num.
@@ -1472,9 +1530,11 @@ Proof.
 Qed.
 
 Lemma t_Convert_preserve: forall C v t1 t2 sx be tf,
-    be_typing C [::BI_const_num v; BI_cvtop t2 CVO_convert t1 sx] tf ->
-    reduce_simple [::AI_basic (BI_const_num v); AI_basic (BI_cvtop t2 CVO_convert t1 sx)] [::AI_basic be] ->
-    be_typing C [::be] tf.
+  be_typing C [::BI_const_num v; BI_cvtop t2 CVO_convert t1 sx] tf ->
+  reduce_simple
+    (to_e_list [:: BI_const_num v; BI_cvtop t2 CVO_convert t1 sx])
+    (to_e_list [::be]) ->
+  be_typing C [::be] tf.
 Proof.
   move => C v t1 t2 sx be tf HType HReduce.
   inversion HReduce; subst. rename H5 into E.
@@ -1492,9 +1552,11 @@ Proof.
 Qed.
 
 Lemma t_Reinterpret_preserve: forall C v t1 t2 be tf,
-    be_typing C [::BI_const_num v; BI_cvtop t2 CVO_reinterpret t1 None] tf ->
-    reduce_simple [::AI_basic (BI_const_num v); AI_basic (BI_cvtop t2 CVO_reinterpret t1 None)] [::AI_basic be] ->
-    be_typing C [::be] tf.
+  be_typing C [::BI_const_num v; BI_cvtop t2 CVO_reinterpret t1 None] tf ->
+  reduce_simple
+    (to_e_list [:: BI_const_num v; BI_cvtop t2 CVO_reinterpret t1 None])
+    (to_e_list [::be]) ->
+  be_typing C [::be] tf.
 Proof.
   move => C v t1 t2 be tf HType HReduce.
   inversion HReduce; subst.
@@ -1511,7 +1573,9 @@ Qed.
 (* will never work due to the false case having AI refs *)
 Lemma t_Ref_is_null_false_preserve_be: forall C ref tf,
   be_typing C [:: to_b_single (v_to_e (VAL_ref ref)); BI_ref_is_null] tf ->
-  reduce_simple [:: v_to_e (VAL_ref ref); AI_basic BI_ref_is_null] [:: $VAN VAL_int32 Wasm_int.Int32.zero] ->
+  reduce_simple
+    [:: v_to_e (VAL_ref ref); AI_basic BI_ref_is_null]
+    [:: $VAN VAL_int32 Wasm_int.Int32.zero] ->
   False.
 Proof.
   intros C ref tf HType HReduce.
@@ -1525,7 +1589,9 @@ Qed.
 
 Lemma t_Ref_is_null_false_preserve: forall s C ref tf,
   e_typing s C [:: v_to_e (VAL_ref ref); AI_basic BI_ref_is_null] tf ->
-  reduce_simple [:: v_to_e (VAL_ref ref); AI_basic BI_ref_is_null] [:: $VAN VAL_int32 Wasm_int.Int32.zero] ->
+  reduce_simple
+    [:: v_to_e (VAL_ref ref); AI_basic BI_ref_is_null]
+    [:: $VAN VAL_int32 Wasm_int.Int32.zero] ->
   e_typing s C [:: $VAN VAL_int32 Wasm_int.Int32.zero] tf.
 Proof.
   intros s C ref tf HType HReduce.
@@ -1554,7 +1620,9 @@ Qed.
 
 Lemma t_Ref_is_null_true_preserve_be: forall C ref tf,
   be_typing C [:: BI_ref_null ref; BI_ref_is_null] tf ->
-  reduce_simple (to_e_list [:: BI_ref_null ref; BI_ref_is_null]) [:: $VAN VAL_int32 Wasm_int.Int32.one] ->
+  reduce_simple
+    (to_e_list [:: BI_ref_null ref; BI_ref_is_null])
+    [:: $VAN VAL_int32 Wasm_int.Int32.one] ->
   be_typing C [:: $VBN VAL_int32 Wasm_int.Int32.one] tf.
 Proof.
   move => C ref tf HType HReduce.
@@ -1622,9 +1690,11 @@ Ltac auto_concat_cancel_last:=
 
 (* same proof content for both, aside from intros and H5/H6 *)
 Lemma t_Select_none_preserve: forall C v1 v2 be n tf,
-    be_typing C [:: to_b_single (v_to_e v1); to_b_single (v_to_e v2); $VBN (VAL_int32 n); BI_select None] tf ->
-    reduce_simple [:: v_to_e v1; v_to_e v2; $VAN (VAL_int32 n); AI_basic (BI_select None)] (to_e_list [:: be]) ->
-    be_typing C [:: be] tf.
+  be_typing C [:: to_b_single (v_to_e v1); to_b_single (v_to_e v2); $VBN (VAL_int32 n); BI_select None] tf ->
+  reduce_simple
+    [:: v_to_e v1; v_to_e v2; $VAN (VAL_int32 n); AI_basic (BI_select None)]
+    (to_e_list [:: be]) ->
+  be_typing C [:: be] tf.
 Proof.
   move => C v1 v2 be n tf HType HReduce.
   inversion HReduce; subst;
@@ -1640,9 +1710,11 @@ Proof.
   try constructor; try (rewrite H6; constructor).
 Qed.
 Lemma t_Select_some_preserve_nil: forall C v1 v2 n tf be,
-    be_typing C [:: to_b_single (v_to_e v1); to_b_single (v_to_e v2); $VBN (VAL_int32 n); BI_select (Some [::])] tf ->
-    reduce_simple [:: v_to_e v1; v_to_e v2; $VAN (VAL_int32 n); AI_basic (BI_select (Some [::]))] (to_e_list [:: be]) ->
-    False.
+  be_typing C [:: to_b_single (v_to_e v1); to_b_single (v_to_e v2); $VBN (VAL_int32 n); BI_select (Some [::])] tf ->
+  reduce_simple
+    [:: v_to_e v1; v_to_e v2; $VAN (VAL_int32 n); AI_basic (BI_select (Some [::]))]
+    (to_e_list [:: be]) ->
+  False.
 Proof.
   move => C v1 v2 n tf be HType HReduce.
   inversion HReduce; subst;
@@ -1651,9 +1723,11 @@ Proof.
   destruct tf; invert_be_typing.
 Qed.
 Lemma t_Select_some_preserve: forall C v1 v2 n t ts tf be,
-    be_typing C [:: to_b_single (v_to_e v1); to_b_single (v_to_e v2); $VBN (VAL_int32 n); BI_select (Some (t :: ts))] tf ->
-    reduce_simple [:: v_to_e v1; v_to_e v2; $VAN (VAL_int32 n); AI_basic (BI_select (Some (t :: ts)))] (to_e_list [:: be]) ->
-    be_typing C [::be] tf.
+  be_typing C [:: to_b_single (v_to_e v1); to_b_single (v_to_e v2); $VBN (VAL_int32 n); BI_select (Some (t :: ts))] tf ->
+  reduce_simple
+    [:: v_to_e v1; v_to_e v2; $VAN (VAL_int32 n); AI_basic (BI_select (Some (t :: ts)))]
+    (to_e_list [:: be]) ->
+  be_typing C [::be] tf.
 Proof.
   move => C v1 v2 n t ts tf be HType HReduce.
   inversion HReduce; subst;
@@ -1673,7 +1747,9 @@ Qed.
 
 Lemma t_Br_if_true_preserve: forall C c i tf,
   be_typing C [::BI_const_num (VAL_int32 c); BI_br_if i] tf ->
-  reduce_simple (to_e_list [::BI_const_num (VAL_int32 c); BI_br_if i]) [::AI_basic (BI_br i)] ->
+  reduce_simple
+    (to_e_list [::BI_const_num (VAL_int32 c); BI_br_if i])
+    (to_e_list [:: BI_br i]) ->
   be_typing C [::BI_br i] tf.
 Proof.
   move => C c i tf HType HReduce.
@@ -1689,7 +1765,8 @@ Qed.
 
 Lemma t_Br_if_false_preserve: forall C c i tf,
   be_typing C [::BI_const_num (VAL_int32 c); BI_br_if i] tf ->
-  reduce_simple (to_e_list [::BI_const_num (VAL_int32 c); BI_br_if i]) [::] ->
+  reduce_simple
+    (to_e_list [::BI_const_num (VAL_int32 c); BI_br_if i]) [::] ->
   be_typing C [::] tf.
 Proof.
   move => C c i tf HType HReduce.
@@ -1705,9 +1782,11 @@ Proof.
 Qed.
 
 Lemma t_Br_table_preserve: forall C c ids i0 tf be,
-    be_typing C [::BI_const_num (VAL_int32 c); BI_br_table ids i0] tf ->
-    reduce_simple (to_e_list [::BI_const_num (VAL_int32 c); BI_br_table ids i0]) [::AI_basic be] ->
-    be_typing C [::be] tf.
+  be_typing C [::BI_const_num (VAL_int32 c); BI_br_table ids i0] tf ->
+  reduce_simple
+    (to_e_list [::BI_const_num (VAL_int32 c); BI_br_table ids i0])
+    (to_e_list [::be]) ->
+  be_typing C [::be] tf.
 Proof.
   move => C c ids i0 tf be HType HReduce.
   inversion HReduce; subst.
@@ -1742,8 +1821,8 @@ Proof.
 Qed.
 
 Lemma t_Local_tee_num_preserve: forall C v i tf,
-    be_typing C [::BI_const_num v; BI_local_tee i] tf ->
-    be_typing C [::BI_const_num v; BI_const_num v; BI_local_set i] tf.
+  be_typing C [::BI_const_num v; BI_local_tee i] tf ->
+  be_typing C [::BI_const_num v; BI_const_num v; BI_local_set i] tf.
 Proof.
   move => C v i tf HType.
   dependent induction HType => //.
@@ -1761,8 +1840,8 @@ Proof.
     by eapply IHHType => //=.
 Qed.
 Lemma t_Local_tee_vec_preserve: forall C v i tf,
-    be_typing C [::BI_const_vec v; BI_local_tee i] tf ->
-    be_typing C [::BI_const_vec v; BI_const_vec v; BI_local_set i] tf.
+  be_typing C [::BI_const_vec v; BI_local_tee i] tf ->
+  be_typing C [::BI_const_vec v; BI_const_vec v; BI_local_set i] tf.
 Proof.
   move => C v i tf HType.
   dependent induction HType => //.
@@ -1780,8 +1859,8 @@ Proof.
     by eapply IHHType => //=.
 Qed.
 Lemma t_Local_tee_null_preserve: forall C v i tf,
-    be_typing C [::BI_ref_null v; BI_local_tee i] tf ->
-    be_typing C [::BI_ref_null v; BI_ref_null v; BI_local_set i] tf.
+  be_typing C [::BI_ref_null v; BI_local_tee i] tf ->
+  be_typing C [::BI_ref_null v; BI_ref_null v; BI_local_set i] tf.
 Proof.
   move => C v i tf HType.
   dependent induction HType => //.
@@ -1804,14 +1883,15 @@ Qed.
   Preservation for all be_typeable simple reductions.
 *)
 
-Theorem t_be_simple_preservation: forall bes bes' es es' C tf,
-    be_typing C bes tf ->
-    reduce_simple es es' ->
-    es_is_basic es ->
-    es_is_basic es' ->
-    to_e_list bes = es ->
-    to_e_list bes' = es' ->
-    be_typing C bes' tf.
+Theorem t_be_simple_preservation:
+forall bes bes' es es' C tf,
+  be_typing C bes tf ->
+  reduce_simple es es' ->
+  es_is_basic es ->
+  es_is_basic es' ->
+  to_e_list bes = es ->
+  to_e_list bes' = es' ->
+  be_typing C bes' tf.
 Proof.
   move => bes bes' es es' C tf HType HReduce HAI_basic1 HAI_basic2 HBES1 HBES2.
   destruct tf.
@@ -1956,9 +2036,9 @@ Ltac basic_inversion' :=
   repeat basic_inversion'_step.
 
 Lemma t_const_ignores_context: forall s C C' es tf,
-    const_list es ->
-    e_typing s C es tf ->
-    e_typing s C' es tf.
+  const_list es ->
+  e_typing s C es tf ->
+  e_typing s C' es tf.
 Proof.
   move => s C C' es tf HConst HType.
 
@@ -2051,11 +2131,13 @@ Ltac et_dependent_ind H :=
   end; intros; subst.
 
 Lemma Label_typing: forall s C n es0 es ts1 ts2,
-    e_typing s C [::AI_label n es0 es] (Tf ts1 ts2) ->
-    exists ts ts2', ts2 = ts1 ++ ts2' /\
-                    e_typing s C es0 (Tf ts ts2') /\
-                    e_typing s (upd_label C ([::ts] ++ (tc_label C))) es (Tf [::] ts2') /\
-                    length ts = n.
+  e_typing s C [::AI_label n es0 es] (Tf ts1 ts2) ->
+  exists ts ts2',
+  ts2 = ts1 ++ ts2' /\
+  e_typing s C es0 (Tf ts ts2') /\
+  e_typing s (upd_label C ([::ts] ++ (tc_label C)))
+    es (Tf [::] ts2') /\
+  length ts = n.
 Proof.
   move => s C n es0 es ts1 ts2 HType.
 (*  (* Without the powerful generalize_dependent tactic, we need to manually remember
@@ -2140,13 +2222,14 @@ Lemma Lfilled_break_typing: forall n lh vs LI ts s C t2s,
 *)
 
 Lemma Lfilled_break_typing: forall n m k lh vs LI ts s C t2s tss,
-    e_typing s (upd_label C (tss ++ [::ts] ++ tc_label C)) LI (Tf [::] t2s) ->
-    const_list vs ->
-    length ts = length vs ->
-    @lfilled n lh (vs ++ [::AI_basic (BI_br m)]) LI ->
-    length tss = k ->
-    bin_of_nat (n + k) = m ->
-    e_typing s C vs (Tf [::] ts).
+  e_typing s (upd_label C (tss ++ [::ts] ++ tc_label C))
+    LI (Tf [::] t2s) ->
+  const_list vs ->
+  length ts = length vs ->
+  @lfilled n lh (vs ++ [::AI_basic (BI_br m)]) LI ->
+  length tss = k ->
+  bin_of_nat (n + k) = m ->
+  e_typing s C vs (Tf [::] ts).
 Proof.
   dependent induction n; move => m k; dependent destruction lh;
   move => vs LI ts s C ts2 tss HType HConst Hts HLF Htss HSum;
@@ -2285,10 +2368,11 @@ Proof.
  *)
 
 Lemma Local_typing: forall s C n f es t1s t2s,
-    e_typing s C [::AI_local n f es] (Tf t1s t2s) ->
-    exists ts, t2s = t1s ++ ts /\
-               s_typing s (Some ts) f es ts /\
-               length ts = n.
+  e_typing s C [::AI_local n f es] (Tf t1s t2s) ->
+  exists ts,
+    t2s = t1s ++ ts /\
+    s_typing s (Some ts) f es ts /\
+    length ts = n.
 Proof.
   move => s C n f es t1s t2s HType.
   remember ([::AI_local n f es]) as les.
@@ -2318,12 +2402,12 @@ Proof.
 Qed.
 
 Lemma Lfilled_return_typing: forall n lh vs LI ts s C lab t2s,
-    e_typing s (upd_label C lab) LI (Tf [::] t2s) ->
-    const_list vs ->
-    length ts = length vs ->
-    @lfilled n lh (vs ++ [::AI_basic BI_return]) LI ->
-    Some ts = tc_return C ->
-    e_typing s C vs (Tf [::] ts).
+  e_typing s (upd_label C lab) LI (Tf [::] t2s) ->
+  const_list vs ->
+  length ts = length vs ->
+  @lfilled n lh (vs ++ [::AI_basic BI_return]) LI ->
+  Some ts = tc_return C ->
+  e_typing s C vs (Tf [::] ts).
 Proof.
   induction n; dependent destruction lh;
   move => vs LI ts s C lab ts2 HType HConst HLength HLF HReturn;
@@ -2378,10 +2462,10 @@ Proof.
 Qed.
 
 Lemma Local_return_typing: forall s C vs f LI tf n lh,
-    e_typing s C [:: AI_local (length vs) f LI] tf ->
-    const_list vs ->
-    @lfilled n lh (vs ++ [::AI_basic BI_return]) LI ->
-    e_typing s C vs tf.
+  e_typing s C [:: AI_local (length vs) f LI] tf ->
+  const_list vs ->
+  @lfilled n lh (vs ++ [::AI_basic BI_return]) LI ->
+  e_typing s C vs tf.
 Proof.
   move => s C vs f LI tf n lh HType HConst HLF.
   destruct tf as [t1s t2s].
@@ -2403,11 +2487,14 @@ Proof.
 Qed.
 
 
-Theorem t_simple_preservation: forall s i es es' C loc lab ret tf,
-    inst_typing s i C ->
-    e_typing s (upd_label (upd_local_label_return C loc (tc_label C) ret) lab) es tf ->
-    reduce_simple es es' ->
-    e_typing s (upd_label (upd_local_label_return C loc (tc_label C) ret) lab) es' tf.
+Theorem t_simple_preservation:
+forall s i es es' C loc lab ret tf,
+  inst_typing s i C ->
+  e_typing s (upd_label (upd_local_label_return C
+    loc (tc_label C) ret) lab) es tf ->
+  reduce_simple es es' ->
+  e_typing s (upd_label (upd_local_label_return C
+    loc (tc_label C) ret) lab) es' tf.
 Proof.
   move => s i es es' C loc lab ret tf HInstType HType HReduce.
   inversion HReduce; subst; try (by (
@@ -2630,7 +2717,7 @@ Proof.
 Qed.
 
 Lemma globs_agree_function: forall s,
-    function (globali_agree (s_globals s)).
+  function (globali_agree (s_globals s)).
 Proof.
   move => s. unfold function. move => x y1 y2 [H1 H2].
   unfold globali_agree, option_map, global_typing in H1, H2.
@@ -2638,7 +2725,7 @@ Proof.
 Qed.
 
 Lemma functions_agree_function: forall s,
-    function (@funci_agree host_function (s_funcs s)).
+  function (@funci_agree host_function (s_funcs s)).
 Proof.
   move => s. unfold function. move => x y1 y2 [H1 H2].
   unfold funci_agree in H1, H2.
@@ -2681,12 +2768,15 @@ Proof.
 Qed.
 
 Lemma Invoke_func_native_typing: forall s i C a cl tn tm ts es t1s t2s,
-    e_typing s C [::AI_invoke a] (Tf t1s t2s) ->
-    lookup_N (s_funcs s) a = Some cl ->
-    cl = FC_func_native i (Tf tn tm) ts es ->
-    exists ts' C', t1s = ts' ++ tn /\ t2s = ts' ++ tm /\
-                inst_typing s i C' /\
-                be_typing (upd_local_label_return C' (tc_local C' ++ tn ++ ts) ([::tm] ++ tc_label C') (Some tm)) es (Tf [::] tm).
+  e_typing s C [::AI_invoke a] (Tf t1s t2s) ->
+  lookup_N (s_funcs s) a = Some cl ->
+  cl = FC_func_native i (Tf tn tm) ts es ->
+  exists ts' C',
+    t1s = ts' ++ tn /\ t2s = ts' ++ tm /\
+    inst_typing s i C' /\
+    be_typing (upd_local_label_return C'
+      (tc_local C' ++ tn ++ ts) ([::tm] ++ tc_label C') (Some tm))
+      es (Tf [::] tm).
 Proof.
   move => s i C a cl tn tm ts es t1s t2s HType HNth Hcl.
   et_dependent_ind HType => //.
@@ -2708,11 +2798,14 @@ Proof.
     by exists [::], C.
 Qed.
 
-Lemma Invoke_func_host_typing: forall s C a cl h tn tm t1s t2s,
-    e_typing s C [::AI_invoke a] (Tf t1s t2s) ->
-    lookup_N (s_funcs s) a = Some cl ->
-    cl = FC_func_host (Tf tn tm) h ->
-    exists ts, t1s = ts ++ tn /\ t2s = ts ++ tm.
+Lemma Invoke_func_host_typing:
+forall s C a cl h tn tm t1s t2s,
+  e_typing s C [::AI_invoke a] (Tf t1s t2s) ->
+  lookup_N (s_funcs s) a = Some cl ->
+  cl = FC_func_host (Tf tn tm) h ->
+  exists ts,
+    t1s = ts ++ tn /\
+    t2s = ts ++ tm.
 Proof.
   move => s C a cl h tn tm t1s t2s HType HNth Hcl.
   et_dependent_ind HType => //.
@@ -2733,9 +2826,9 @@ Proof.
 Qed.
 
 Lemma store_typed_cl_typed: forall s n f,
-    lookup_N (s_funcs s) n = Some f ->
-    store_typing s ->
-    cl_typing s f (cl_type f).
+  lookup_N (s_funcs s) n = Some f ->
+  store_typing s ->
+  cl_typing s f (cl_type f).
 Proof.
   move => s n f HN HST.
   unfold store_typing in HST.
@@ -2751,16 +2844,16 @@ Proof.
 Qed.
 
 Lemma inst_t_context_local_empty: forall s i C,
-    inst_typing s i C ->
-    tc_local C = [::].
+  inst_typing s i C ->
+  tc_local C = [::].
 Proof.
   move => s i C HInstType.
   destruct i, C, tc_local => //=.
 Qed.
 
 Lemma inst_t_context_label_empty: forall s i C,
-    inst_typing s i C ->
-    tc_label C = [::].
+  inst_typing s i C ->
+  tc_label C = [::].
 Proof.
   move => s i C HInstType.
   destruct i, C, tc_local, tc_label => //=.
@@ -3131,7 +3224,8 @@ Lemma store_typing_tabv_type: forall s i C x j a tab tabv,
   inst_typing s i C ->
   List.nth_error i.(inst_tables) x = Some a ->
   List.nth_error s.(s_tables) (N.to_nat a) = Some tab ->
-  List.nth_error (tableinst_elem tab) (Z.to_nat (Wasm_int.Int32.unsigned j)) = Some tabv ->
+  List.nth_error (tableinst_elem tab)
+    (Z.to_nat (Wasm_int.Int32.unsigned j)) = Some tabv ->
   tt_elem_type (tableinst_type tab) = typeof_ref tabv.
 Proof.
   move => s i C x j a tab tabv HST HIT HILU HSLU HTLU.
@@ -3158,10 +3252,11 @@ Proof.
 Qed.
 
 Lemma global_type_reference: forall s i j C v t,
-    inst_typing s i C ->
-    sglob_val s i j = Some v ->
-    option_map tg_t (List.nth_error (tc_global C) j) = Some t ->
-    typeof v = t.
+  inst_typing s i C ->
+  sglob_val s i j = Some v ->
+  option_map tg_t
+    (List.nth_error (tc_global C) j) = Some t ->
+  typeof v = t.
 Proof.
   move => s i j C v t HInstType Hvref Htref.
   unfold sglob_val in Hvref.
@@ -3181,31 +3276,32 @@ Proof.
 Qed.
 
 Lemma upd_label_unchanged: forall C lab,
-    tc_label C = lab ->
-    upd_label C lab = C.
+  tc_label C = lab ->
+  upd_label C lab = C.
 Proof.
   move => C lab HLab.
   rewrite -HLab. unfold upd_label. by destruct C.
 Qed.
 
 Lemma upd_label_unchanged_typing: forall s C es tf,
-    e_typing s C es tf ->
-    e_typing s (upd_label C (tc_label C)) es tf.
+  e_typing s C es tf ->
+  e_typing s (upd_label C (tc_label C)) es tf.
 Proof.
   move => s C es tf HType.
   by rewrite upd_label_unchanged.
 Qed.
 
 Lemma upd_label_upd_local_return_combine: forall C loc lab lab' ret,
-    upd_label (upd_local_label_return C loc lab' ret) lab =
-    upd_local_label_return C loc lab ret.
+  upd_label (upd_local_label_return C loc lab' ret) lab =
+  upd_local_label_return C loc lab ret.
 Proof.
   by [].
 Qed.
 
-Lemma set_nth_same_unchanged: forall {X:Type} (l:seq X) e i vd,
-    List.nth_error l i = Some e ->
-    set_nth vd l i e = l.
+Lemma set_nth_same_unchanged:
+forall {X:Type} (l:seq X) e i vd,
+  List.nth_error l i = Some e ->
+  set_nth vd l i e = l.
 Proof.
   move => X l e i.
   generalize dependent l. generalize dependent e.
@@ -3217,9 +3313,11 @@ Proof.
     by simpl in HNth.
 Qed.
 
-Lemma set_nth_map: forall {X Y:Type} (l:seq X) e i vd {f: X -> Y},
-    i < size l ->
-    map f (set_nth vd l i e) = set_nth (f vd) (map f l) i (f e).
+Lemma set_nth_map:
+forall {X Y:Type} (l:seq X) e i vd {f: X -> Y},
+  i < size l ->
+  map f (set_nth vd l i e)
+    = set_nth (f vd) (map f l) i (f e).
 Proof.
   move => X Y l e i.
   generalize dependent l. generalize dependent e.
@@ -3232,7 +3330,7 @@ Proof.
 Qed.
 
 Lemma n_zeros_typing: forall ts,
-    map typeof (n_zeros ts) = ts.
+  map typeof (n_zeros ts) = ts.
 Proof.
   induction ts => //=.
   destruct a; [destruct n | destruct v | destruct r ] => //=;
@@ -3242,7 +3340,8 @@ Qed.
 Lemma funci_agree_extension: forall fs0 fs1 f g,
   size fs0 <= size fs1 ->
   funci_agree fs0 f g ->
-  all2 (@func_extension host_function) fs0 (List.firstn (length (fs0)) fs1) ->
+  all2 (@func_extension host_function)
+    fs0 (List.firstn (length (fs0)) fs1) ->
   funci_agree fs1 f g.
 Proof.
   move => fs0 fs1 f g H0 H1 H2.
@@ -3271,7 +3370,8 @@ Qed.
 Lemma func_extension_C: forall sf sf' f tcf,
   size sf <= size sf' ->
   all2 (funci_agree sf) f tcf ->
-  all2 (@func_extension host_function) sf (List.firstn (length (sf)) sf') ->
+  all2 (@func_extension host_function)
+    sf (List.firstn (length (sf)) sf') ->
   all2 (funci_agree sf') f tcf.
 Proof.
   move => sf sf' f.
@@ -3586,9 +3686,9 @@ Proof.
 Qed.
 
 Lemma inst_typing_extension: forall s s' i C,
-    store_extension s s' ->
-    inst_typing s i C ->
-    inst_typing s' i C.
+  store_extension s s' ->
+  inst_typing s i C ->
+  inst_typing s' i C.
 Proof.
   move => s s' i C HST HIT.
   unfold store_extension in HST. unfold operations.store_extension in HST.
@@ -3618,10 +3718,11 @@ Proof.
     apply Nat.leb_le in Hdl. lias.
 Qed.
 
-Lemma frame_typing_extension: forall s s' f C,
-    store_extension s s' ->
-    frame_typing s f C ->
-    frame_typing s' f C.
+Lemma frame_typing_extension:
+forall s s' f C,
+  store_extension s s' ->
+  frame_typing s f C ->
+  frame_typing s' f C.
 Proof.
   move => s s' f C HST HIT.
   unfold store_extension in HST. unfold operations.store_extension in HST.
@@ -3630,9 +3731,10 @@ Proof.
   by eapply mk_frame_typing; eauto.
 Qed.
 
-Lemma reflexive_all2_same: forall {X:Type} f (l: seq X),
-    reflexive f ->
-    all2 f l l.
+Lemma reflexive_all2_same:
+forall {X:Type} f (l: seq X),
+  reflexive f ->
+  all2 f l l.
 Proof.
   move => X f l.
   induction l; move => H; unfold reflexive in H => //=.
@@ -3641,7 +3743,7 @@ Proof.
 Qed.
 
 Lemma all2_func_extension_same: forall t,
-    all2 (@func_extension host_function) t t.
+  all2 (@func_extension host_function) t t.
 Proof.
   move => t.
   apply reflexive_all2_same. unfold reflexive.
@@ -3649,7 +3751,7 @@ Proof.
 Qed.
 
 Lemma all2_table_extension_same: forall t,
-    all2 table_extension t t.
+  all2 table_extension t t.
 Proof.
   move => t.
   apply reflexive_all2_same. unfold reflexive. move => x. unfold table_extension.
@@ -3658,7 +3760,7 @@ Proof.
 Qed.
 
 Lemma all2_mem_extension_same: forall t,
-    all2 mem_extension t t.
+  all2 mem_extension t t.
 Proof.
   move => t.
   apply reflexive_all2_same. unfold reflexive. move => x. unfold mem_extension.
@@ -3667,7 +3769,7 @@ Proof.
 Qed.
 
 Lemma all2_global_extension_same: forall t,
-    all2 global_extension t t.
+  all2 global_extension t t.
 Proof.
   move => t.
   apply reflexive_all2_same. unfold reflexive. move => x.
@@ -3676,7 +3778,7 @@ Proof.
 Qed.
 
 Lemma all2_elem_extension_same: forall t,
-    all2 elem_extension t t.
+  all2 elem_extension t t.
 Proof.
   move => t.
   apply reflexive_all2_same. unfold reflexive. move => x.
@@ -3684,7 +3786,7 @@ Proof.
 Qed.
 
 Lemma all2_data_extension_same: forall t,
-    all2 data_extension t t.
+  all2 data_extension t t.
 Proof.
   move => t.
   apply reflexive_all2_same. unfold reflexive. move => x.
@@ -3808,9 +3910,10 @@ Ltac invert_e_typing:=
 
 
 Lemma lfilled_es_type_exists: forall k lh es les s C tf,
-    @lfilled k lh es les ->
-    e_typing s C les tf ->
-    exists lab t1s t2s, e_typing s (upd_label C lab) es (Tf t1s t2s).
+  @lfilled k lh es les ->
+  e_typing s C les tf ->
+  exists lab t1s t2s,
+    e_typing s (upd_label C lab) es (Tf t1s t2s).
 Proof.
   move => k lh es les s C tf HLF HType.
   generalize dependent tf.
@@ -3830,7 +3933,7 @@ Proof.
 Qed.
 
 Lemma store_extension_same: forall s,
-    store_extension s s.
+  store_extension s s.
 Proof.
   move => s. unfold store_extension. unfold operations.store_extension.
   repeat (apply/andP; split).
@@ -3867,9 +3970,9 @@ Proof.
  *)
 
 Lemma store_extension_cl_typing: forall s s' cl tf,
-    store_extension s s' ->
-    cl_typing s cl tf ->
-    cl_typing s' cl tf.
+  store_extension s s' ->
+  cl_typing s cl tf ->
+  cl_typing s' cl tf.
 Proof.
   move => s s' cl tf Hext HType.
   inversion HType; subst.
@@ -3884,10 +3987,11 @@ Qed.
  *)
 
 Lemma store_extension_e_typing: forall s s' C es tf,
-    store_typing s ->
-    store_typing s' ->
-    store_extension s s' ->
-    e_typing s C es tf -> e_typing s' C es tf.
+  store_typing s ->
+  store_typing s' ->
+  store_extension s s' ->
+  e_typing s C es tf ->
+  e_typing s' C es tf.
 Proof.
   move=> s s' C es tf HST1 HST2 Hext HType. move: s' HST1 HST2 Hext.
   apply e_typing_ind' with (e := HType)
@@ -3963,11 +4067,11 @@ Proof.
 Qed.
 
 Lemma tc_reference_glob_type: forall s i C n m gt g,
-    inst_typing s i C ->
-    lookup_N (inst_globals i) n = Some m ->
-    lookup_N (s_globals s) m = Some g ->
-    lookup_N (tc_global C) n = Some gt ->
-    gt = g_type g.
+  inst_typing s i C ->
+  lookup_N (inst_globals i) n = Some m ->
+  lookup_N (s_globals s) m = Some g ->
+  lookup_N (tc_global C) n = Some gt ->
+  gt = g_type g.
 Proof.
   move => s i C n m gt g HIT HN1 HN2 HN3.
   unfold inst_typing in HIT. unfold typing.inst_typing in HIT.
@@ -4076,20 +4180,21 @@ Proof.
 Qed.
 
 Lemma bytes_takefill_size: forall c l vs,
-    size (bytes_takefill c l vs) = l.
+  size (bytes_takefill c l vs) = l.
 Proof.
   move => c l. induction l => //=.
   by destruct vs => //=; f_equal.
 Qed.
 
 Lemma bytes_replicate_size: forall n b,
-    size (bytes_replicate n b) = n.
+  size (bytes_replicate n b) = n.
 Proof.
   induction n => //=.
   by move => b; f_equal.
 Qed.
 
-Lemma div_le: forall a b, b > 0 -> a/b <= a.
+Lemma div_le: forall a b,
+  b > 0 -> a/b <= a.
 Proof.
   move => a b H.
   destruct b => //.
@@ -4102,11 +4207,12 @@ Qed.
 
 (* Start of proof to write_bytes preserving memory type *)
 
-Lemma list_fold_left_rev_prop: forall {X Y: Type} P f (l: seq X) (a1 a2: Y),
-    List.fold_left f l a1 = a2 ->
-    P a2 ->
-    (forall a e a', P a' -> f a e = a' -> P a) ->
-    P a1.
+Lemma list_fold_left_rev_prop:
+forall {X Y: Type} P f (l: seq X) (a1 a2: Y),
+  List.fold_left f l a1 = a2 ->
+  P a2 ->
+  (forall a e a', P a' -> f a e = a' -> P a) ->
+  P a1.
 Proof.
   move => X Y P f l.
   elim: l => //=.
@@ -4116,15 +4222,17 @@ Proof.
     by eapply HNec; eauto.
 Qed.
     
-Lemma list_fold_left_restricted_trans: forall {X Y: Type} P R f (l: seq X) (a1 a2: Y),
-    List.fold_left f l a1 = a2 ->
-    P a1 ->
-    P a2 ->
-    (forall a e a', P a -> P a' -> f a e = a' -> R a a') ->
-    (forall a, P a -> R a a) ->
-    (forall a1 a2 a3, P a1 -> P a2 -> P a3 -> R a1 a2 -> R a2 a3 -> R a1 a3) ->
-    (forall a e a', P a' -> f a e = a' -> P a) ->
-    R a1 a2.
+Lemma list_fold_left_restricted_trans:
+forall {X Y: Type} P R f (l: seq X) (a1 a2: Y),
+  List.fold_left f l a1 = a2 ->
+  P a1 ->
+  P a2 ->
+  (forall a e a', P a -> P a' -> f a e = a' -> R a a') ->
+  (forall a, P a -> R a a) ->
+  (forall a1 a2 a3, P a1 -> P a2 -> P a3 ->
+    R a1 a2 -> R a2 a3 -> R a1 a3) ->
+  (forall a e a', P a' -> f a e = a' -> P a) ->
+  R a1 a2.
 Proof.
   move => X Y P R f l.
   elim: l => //=.
@@ -4150,12 +4258,12 @@ Definition mem_type_proj2_preserve (acc1 acc2: nat * option memory_list.memory_l
       memory_list.mem_length m1 = memory_list.mem_length m2).
 
 Lemma mem_type_proj2_preserve_trans: forall a1 a2 a3,
-    proj2_some a1 ->
-    proj2_some a2 ->
-    proj2_some a3 ->
-    mem_type_proj2_preserve a1 a2 ->
-    mem_type_proj2_preserve a2 a3 ->
-    mem_type_proj2_preserve a1 a3.
+  proj2_some a1 ->
+  proj2_some a2 ->
+  proj2_some a3 ->
+  mem_type_proj2_preserve a1 a2 ->
+  mem_type_proj2_preserve a2 a3 ->
+  mem_type_proj2_preserve a1 a3.
 Proof.
   unfold mem_type_proj2_preserve, proj2_some.
   move => a1 a2 a3 HP1 HP2 HP3 HR12 HR23.
@@ -4223,8 +4331,8 @@ Proof.
 Qed.
 
 Lemma mem_extension_store: forall m k off v tlen mem,
-    store m k off (bits v) tlen = Some mem ->
-    mem_extension m mem.
+  store m k off (bits v) tlen = Some mem ->
+  mem_extension m mem.
 Proof.
   move => m k off v tlen mem HStore.
   unfold mem_extension.
@@ -4244,8 +4352,8 @@ Qed.
     The same applies to tab_extension_grow_memory.
 *)
 Lemma mem_extension_grow_memory: forall m c mem,
-    mem_grow m c = (Some mem) ->
-    mem_extension m mem.
+  mem_grow m c = (Some mem) ->
+  mem_extension m mem.
 Proof.
   move => m c mem HMGrow.
   unfold mem_extension.
@@ -4279,8 +4387,8 @@ Proof.
 Qed.
 
 Lemma table_extension_grow_memory: forall tab c tabinit tab',
-    growtable tab c tabinit = Some tab' ->
-    table_extension tab tab'.
+  growtable tab c tabinit = Some tab' ->
+  table_extension tab tab'.
 Proof.
   move => tab c tabinit tab' HGrow.
   unfold table_extension.
@@ -4305,12 +4413,12 @@ Proof.
 Admitted.
   
 Lemma store_invariant_extension_store_typed: forall s s',
-    store_typing s ->
-    store_extension s s' ->
-    (s_funcs s = s_funcs s') ->
-    (s_tables s = s_tables s') ->
-    (s_mems s = s_mems s') ->
-    store_typing s'.
+  store_typing s ->
+  store_extension s s' ->
+  (s_funcs s = s_funcs s') ->
+  (s_tables s = s_tables s') ->
+  (s_mems s = s_mems s') ->
+  store_typing s'.
 Proof.
   move => s s' HST Hext HF HT.
   remember HST as HST'. clear HeqHST'.
@@ -4345,12 +4453,12 @@ Proof.
 Qed.
 
 Lemma store_memory_extension_store_typed: forall s s',
-    store_typing s ->
-    store_extension s s' ->
-    (s_funcs s = s_funcs s') ->
-    (s_tables s = s_tables s') ->
-    List.Forall mem_agree (s_mems s') ->
-    store_typing s'.
+  store_typing s ->
+  store_extension s s' ->
+  (s_funcs s = s_funcs s') ->
+  (s_tables s = s_tables s') ->
+  List.Forall mem_agree (s_mems s') ->
+  store_typing s'.
 Proof.
   move => s s' HST Hext HF HT HMem.
   remember HST as HST'. clear HeqHST'.
@@ -4377,12 +4485,12 @@ Proof.
 Qed.
 
 Lemma store_table_extension_store_typed: forall s s',
-    store_typing s ->
-    store_extension s s' ->
-    (s_funcs s = s_funcs s') ->
-    (s_mems s = s_mems s') ->
-    List.Forall (tab_agree s) (s_tables s') ->
-    store_typing s'.
+  store_typing s ->
+  store_extension s s' ->
+  (s_funcs s = s_funcs s') ->
+  (s_mems s = s_mems s') ->
+  List.Forall (tab_agree s) (s_tables s') ->
+  store_typing s'.
 Proof.
   move => s s' HST Hext HF HM HTab.
   remember HST as HST'. clear HeqHST'.
@@ -4404,11 +4512,12 @@ Proof.
     destruct HST' as [HF' [HT' HM']] => //=.
 Qed.
 
-Lemma nth_error_map: forall {X Y:Type} l n (f: X -> Y) fv,
-    List.nth_error (map f l) n = Some fv ->
-    exists v,
-      List.nth_error l n = Some v /\
-      f v = fv.
+Lemma nth_error_map:
+forall {X Y:Type} l n (f: X -> Y) fv,
+  List.nth_error (map f l) n = Some fv ->
+  exists v,
+    List.nth_error l n = Some v /\
+    f v = fv.
 Proof.
   move => X Y l n.
   generalize dependent l.
@@ -4423,8 +4532,8 @@ Proof.
 Qed.
 
 Lemma nth_error_update_list_hit: forall {X:Type} l n {x:X},
-    n < length l ->
-    lookup_N (set_nth x l n x) (N.of_nat n) = Some x.
+  n < length l ->
+  lookup_N (set_nth x l n x) (N.of_nat n) = Some x.
 Proof.
   move => X l n.
   unfold lookup_N. rewrite Nat2N.id.
@@ -4435,10 +4544,12 @@ Proof.
   simpl in HLength. apply IHn => //=.
 Qed.
 
-Lemma nth_error_update_list_others: forall {X:Type} l n m {x:X},
-    n <> m ->
-    n < length l ->
-    lookup_N (set_nth x l n x) (N.of_nat m) = lookup_N l (N.of_nat m).
+Lemma nth_error_update_list_others:
+forall {X:Type} l n m {x:X},
+  n <> m ->
+  n < length l ->
+  lookup_N (set_nth x l n x) (N.of_nat m)
+    = lookup_N l (N.of_nat m).
 Proof.
   move => X l n.
 
@@ -4454,10 +4565,10 @@ Proof.
 Qed.
 
 Lemma Forall_update: forall {X:Type} f l n {x:X},
-    List.Forall f l ->
-    f x ->
-    n < length l ->
-    List.Forall f (set_nth x l n x).
+  List.Forall f l ->
+  f x ->
+  n < length l ->
+  List.Forall f (set_nth x l n x).
 Proof.
   move => X f l n x HA Hf HLength.
   rewrite -> List.Forall_forall in HA.
@@ -4483,9 +4594,9 @@ Proof.
 Qed.
 
 Lemma store_typed_mem_agree: forall s n m,
-    store_typing s ->
-    List.nth_error (s_mems s) n = Some m ->
-    mem_agree m.
+  store_typing s ->
+  List.nth_error (s_mems s) n = Some m ->
+  mem_agree m.
 Proof.
   move => s n m HST HN.
   unfold store_typing in HST.
@@ -4497,9 +4608,9 @@ Proof.
 Qed.
 
 Lemma store_typed_tab_agree: forall (s : store_record) n tab,
-    store_typing s ->
-    List.nth_error (s_tables s) n = Some tab ->
-    tab_agree s tab.
+  store_typing s ->
+  List.nth_error (s_tables s) n = Some tab ->
+  tab_agree s tab.
 Proof.
   move => s n tab HST HN.
   unfold store_typing in HST.
@@ -4510,12 +4621,13 @@ Proof.
   apply H. by eapply List.nth_error_In; eauto.
 Qed.
 
-Lemma store_mem_agree: forall s n m k off vs tl mem,
-    store_typing s ->
-    List.nth_error (s_mems s) n = Some m ->
-    store m k off vs tl = Some mem ->
-    tl > 0 ->
-    mem_agree mem.
+Lemma store_mem_agree:
+forall s n m k off vs tl mem,
+  store_typing s ->
+  List.nth_error (s_mems s) n = Some m ->
+  store m k off vs tl = Some mem ->
+  tl > 0 ->
+  mem_agree mem.
 Proof.
   move => s n m k off vs tl mem HST HN HStore HTL.
   unfold store in HStore.
@@ -4530,11 +4642,12 @@ Proof.
 Qed.
 
 (* Need something similar to write_bytes_preserve_type to link tabs *)
-Lemma set_tab_agree: forall (s : store_record) i n tab tabv tab',
-    store_typing s ->
-    List.nth_error (s_tables s) n = Some tab ->
-    tab_update tab i tabv = tab' ->
-    tab_agree s tab'.
+Lemma set_tab_agree:
+forall (s : store_record) i n tab tabv tab',
+  store_typing s ->
+  List.nth_error (s_tables s) n = Some tab ->
+  tab_update tab i tabv = tab' ->
+  tab_agree s tab'.
 Proof.
   (* move => s i n tab tabv tab' HST HN HUpdate.
   unfold tab_update in HUpdate.
@@ -4557,29 +4670,11 @@ Proof.
   rewrite HLimMax in H0. *)
 Admitted.
 
-Lemma inj_compare a a' :
- (a ?= a')%N = (N.to_nat a ?= N.to_nat a').
-Proof.
- destruct a as [|p], a' as [|p']; simpl; trivial.
- - now destruct (Pos2Nat.is_succ p') as (n,->).
- - now destruct (Pos2Nat.is_succ p) as (n,->).
- - apply Pos2Nat.inj_compare.
-Qed.
-Lemma inj_div n m :
-  N.to_nat (n / m) = N.to_nat n / N.to_nat m.
-Proof.
-  destruct m as [|m]; [now destruct n|].
-  apply Nat.div_unique with (N.to_nat (n mod (N.pos m))).
-  - apply Nat.compare_lt_iff. rewrite <- inj_compare.
-    now apply N.mod_lt.
-  - now rewrite <- N2Nat.inj_mul, <- N2Nat.inj_add, <- N.div_mod.
-Qed.
-
 Lemma mem_grow_mem_agree: forall s n m c mem,
-    store_typing s ->
-    List.nth_error (s_mems s) n = Some m ->
-    mem_grow m c = Some mem ->
-    mem_agree mem.
+  store_typing s ->
+  List.nth_error (s_mems s) n = Some m ->
+  mem_grow m c = Some mem ->
+  mem_agree mem.
 Proof.
   move => s n m c mem HST HN HGrow.
   assert (mem_agree m); first by eapply store_typed_mem_agree; eauto.
@@ -4600,11 +4695,12 @@ Proof.
   apply shift_scope_le_N => //=.
 Qed.
 
-Lemma table_grow_tab_agree: forall (s : store_record) n tab c tabinit tab',
-    store_typing s ->
-    List.nth_error (s_tables s) n = Some tab ->
-    growtable tab c tabinit = Some tab' ->
-    tab_agree s tab'.
+Lemma table_grow_tab_agree:
+forall (s : store_record) n tab c tabinit tab',
+  store_typing s ->
+  List.nth_error (s_tables s) n = Some tab ->
+  growtable tab c tabinit = Some tab' ->
+  tab_agree s tab'.
 Proof.
   move => s n tab c tabinit tab' HST HN HGrow.
   assert (tab_agree s tab); first by eapply store_typed_tab_agree; eauto.
@@ -4638,20 +4734,24 @@ Proof.
     admit.
 Admitted.
 
-Lemma reduce_inst_unchanged: forall hs s f es hs' s' f' es',
-    reduce hs s f es hs' s' f' es' ->
-    f.(f_inst) = f'.(f_inst).
+Lemma reduce_inst_unchanged:
+forall hs s f es hs' s' f' es',
+  reduce hs s f es hs' s' f' es' ->
+  f.(f_inst) = f'.(f_inst).
 Proof.
   move => hs s f es hs' s' f' es' HReduce.
   by induction HReduce.
 Qed.
 
-Lemma store_extension_reduce: forall s f es s' f' es' C tf loc lab ret hs hs',
-    reduce hs s f es hs' s' f' es' ->
-    inst_typing s f.(f_inst) C ->
-    e_typing s (upd_label (upd_local_label_return C loc (tc_label C) ret) lab) es tf ->
-    store_typing s ->
-    store_extension s s' /\ store_typing s'.
+Lemma store_extension_reduce:
+forall s f es s' f' es' C tf loc lab ret hs hs',
+  reduce hs s f es hs' s' f' es' ->
+  inst_typing s f.(f_inst) C ->
+  e_typing s (upd_label (upd_local_label_return C
+    loc (tc_label C) ret) lab) es tf ->
+  store_typing s ->
+  store_extension s s' /\
+  store_typing s'.
 Proof.
   move => s f es s' f' es' C tf loc lab ret hs hs' HReduce.
   generalize dependent C. generalize dependent tf.
@@ -5145,8 +5245,8 @@ Proof.
 Qed.
 
 Lemma result_e_type: forall r ts s C,
-    result_types_agree ts r ->
-    e_typing s C (result_to_stack r) (Tf [::] ts).
+  result_types_agree ts r ->
+  e_typing s C (result_to_stack r) (Tf [::] ts).
 Proof.
   move => r ts s C HResType.
   destruct r => //=; last by apply ety_trap.
@@ -5169,14 +5269,17 @@ Proof.
       apply et_weakening_empty_1. apply IHl => //.
 (* Qed. *) Admitted.
 
-Lemma t_preservation_vs_type: forall s f es s' f' es' C C' lab ret t1s t2s hs hs',
-    reduce hs s f es hs' s' f' es' ->
-    store_typing s ->
-    store_typing s' ->
-    inst_typing s f.(f_inst) C ->
-    inst_typing s' f.(f_inst) C' ->
-    e_typing s (upd_label (upd_local_label_return C (tc_local C ++ map typeof f.(f_locs)) (tc_label C) ret) lab) es (Tf t1s t2s) ->
-    map typeof f.(f_locs) = map typeof f'.(f_locs).
+Lemma t_preservation_vs_type:
+forall s f es s' f' es' C C' lab ret t1s t2s hs hs',
+  reduce hs s f es hs' s' f' es' ->
+  store_typing s ->
+  store_typing s' ->
+  inst_typing s f.(f_inst) C ->
+  inst_typing s' f.(f_inst) C' ->
+  e_typing s (upd_label (upd_local_label_return C
+    (tc_local C ++ map typeof f.(f_locs)) (tc_label C) ret)
+    lab) es (Tf t1s t2s) ->
+  map typeof f.(f_locs) = map typeof f'.(f_locs).
 Proof.
   move => s f es s' f' es' C C' lab ret t1s t2s hs hs' HReduce HST1 HST2 HIT1 HIT2 HType.
   generalize dependent t2s. generalize dependent t1s.
@@ -5223,14 +5326,19 @@ Lemma func_in_elem_valid: forall s f C i j et elem v,
   (forall f', (func_type_exists (VAL_ref v) s f')).
 Admitted.
 
-Lemma t_preservation_e: forall s f es s' f' es' C t1s t2s lab ret hs hs',
-    reduce hs s f es hs' s' f' es' ->
-    store_typing s ->
-    store_typing s' ->
-    inst_typing s f.(f_inst) C ->
-    inst_typing s' f.(f_inst) C ->
-    e_typing s (upd_label (upd_local_label_return C (tc_local C ++ map typeof f.(f_locs)) (tc_label C) ret) lab) es (Tf t1s t2s) ->
-    e_typing s' (upd_label (upd_local_label_return C (tc_local C ++ map typeof f'.(f_locs)) (tc_label C) ret) lab) es' (Tf t1s t2s).
+Lemma t_preservation_e:
+forall s f es s' f' es' C t1s t2s lab ret hs hs',
+  reduce hs s f es hs' s' f' es' ->
+  store_typing s ->
+  store_typing s' ->
+  inst_typing s f.(f_inst) C ->
+  inst_typing s' f.(f_inst) C ->
+  e_typing s (upd_label (upd_local_label_return C
+    (tc_local C ++ map typeof f.(f_locs)) (tc_label C) ret)
+    lab) es (Tf t1s t2s) ->
+  e_typing s' (upd_label (upd_local_label_return C
+    (tc_local C ++ map typeof f'.(f_locs)) (tc_label C) ret)
+    lab) es' (Tf t1s t2s).
 Proof.
   move => s f es s' f' es' C t1s t2s lab ret hs hs' HReduce HST1 HST2.
   move: C ret lab t1s t2s.
@@ -6163,10 +6271,11 @@ Proof.
       eapply store_extension_reduce; eauto.
 Qed.
   
-Theorem t_preservation: forall s f es s' f' es' ts hs hs',
-    reduce hs s f es hs' s' f' es' ->
-    config_typing s f es ts ->
-    config_typing s' f' es' ts.
+Theorem t_preservation:
+forall s f es s' f' es' ts hs hs',
+  reduce hs s f es hs' s' f' es' ->
+  config_typing s f es ts ->
+  config_typing s' f' es' ts.
 Proof.
   move => s f es s' f' es' ts hs hs' HReduce HType.
   inversion HType. inversion H0. inversion H5. subst.

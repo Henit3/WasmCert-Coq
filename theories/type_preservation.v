@@ -3248,36 +3248,26 @@ Proof.
   eapply List.nth_error_In; eauto.
 Qed.
 
-Lemma store_typing_tabv_type: forall s i C x j a tab tabv,
+Lemma store_typing_tabv_type: forall s i C j a tab tabv,
   store_typing s ->
   inst_typing s i C ->
-  List.nth_error i.(inst_tables) x = Some a ->
   List.nth_error s.(s_tables) (N.to_nat a) = Some tab ->
-  List.nth_error (tableinst_elem tab)
-    (Z.to_nat (Wasm_int.Int32.unsigned j)) = Some tabv ->
+  List.nth_error (tableinst_elem tab) j = Some tabv ->
   tt_elem_type (tableinst_type tab) = typeof_ref tabv.
 Proof.
-  move => s i C x j a tab tabv HST HIT HILU HSLU HTLU.
+  move => s i C j a tab tabv HST HIT HSLU HTLU.
   destruct s, i, C, tc_local, tc_label, tc_return, tc_ref => //=;
   unfold inst_typing, typing.inst_typing in * => //=;
   remove_bools_options; simpl in * => //=.
-  destruct HST as [HSTf [HSTt HSTm]].
+  destruct HST as [_ [HSTt _]].
   move/List.Forall_forall in HSTt.
   destruct (HSTt tab); first by eapply List.nth_error_In; eauto.
   move/List.Forall_forall in H6.
-  assert (tabcl_agree
-          {|
-            s_funcs := s_funcs;
-            s_tables := s_tables;
-            datatypes.s_mems := s_mems0;
-            datatypes.s_globals := s_globals0;
-            s_elems := s_elems;
-            s_datas := s_datas
-          |} (tt_elem_type (tableinst_type tab)) tabv);
-  first by apply H6; eapply List.nth_error_In; eauto.
-  unfold tabcl_agree in H8.
+  apply List.nth_error_In in HTLU.
+  apply H6 in HTLU.
+  unfold tabcl_agree in HTLU.
   destruct tabv => //=.
-  destruct H8 => //=.
+  destruct HTLU => //=.
 Qed.
 
 Lemma global_type_reference: forall s i j C v t,
@@ -3822,145 +3812,6 @@ Proof.
   unfold data_extension. apply/orP; by left.
 Qed.
 
-Ltac convert_et_to_bet:=
-  lazymatch goal with
-  | H: e_typing _ _ _ _ |- _ =>
-    apply et_to_bet in H; try auto_basic; simpl in H
-  end.
-
-(* TODO: find better fixes than the current duplication. *)
-Ltac split_et_composition:=
-  lazymatch goal with
-  (* e_composition_typing_all_not_basic exists but not sure how to match *)
-  | H: e_typing _ _ (_ ++ _) _ |- _ =>
-    let ts := fresh "ts" in
-    let t1s := fresh "t1s" in
-    let t2s := fresh "t2s" in
-    let t3s := fresh "t3s" in
-    let H1 := fresh "H1" in
-    let H2 := fresh "H2" in
-    let H3 := fresh "H3" in
-    let H4 := fresh "H4" in
-    apply e_composition_typing in H;
-    destruct H as [ts [t1s [t2s [t3s [H1 [H2 [H3 H4]]]]]]]; subst
-  | H: e_typing _ _ ((v_to_e_list _) ++ _) _ |- _ =>
-    let t3s := fresh "t3s" in
-    let H1 := fresh "H1" in
-    let H2 := fresh "H2" in
-    apply e_composition_typing_const_list in H;
-    destruct H as [t3s [H1 H2]]; subst
-  | H: typing.e_typing _ _ (_ ++ _) _ |- _ =>
-    let ts := fresh "ts" in
-    let t1s := fresh "t1s" in
-    let t2s := fresh "t2s" in
-    let t3s := fresh "t3s" in
-    let H1 := fresh "H1" in
-    let H2 := fresh "H2" in
-    let H3 := fresh "H3" in
-    let H4 := fresh "H4" in
-    apply e_composition_typing in H;
-    destruct H as [ts [t1s [t2s [t3s [H1 [H2 [H3 H4]]]]]]]; subst
-  | H: typing.e_typing _ _ ((v_to_e_list _) ++ _) _ |- _ =>
-    let t3s := fresh "t3s" in
-    let H1 := fresh "H1" in
-    let H2 := fresh "H2" in
-    apply e_composition_typing_const_list in H;
-    destruct H as [t3s [H1 H2]]; subst
-  end.
-
-Ltac invert_e_typing_step:=
-  lazymatch goal with
-  | H: typing.e_typing _ _ _ _ |- _ =>
-    fold e_typing in H
-  | H: e_typing _ _ [::] _ |- _ =>
-    apply e_empty_typing in H; subst
-  | H: e_typing _ _ [::$VAN _] _ |- _ =>
-    apply AI_const_num_typing in H; subst
-  | H: e_typing _ _ [::AI_basic (BI_const_vec _)] _ |- _ =>
-    apply AI_const_vec_typing in H; subst
-  | H: e_typing _ _ [::AI_basic (BI_ref_null _)] _ |- _ =>
-    apply AI_ref_null_typing in H; subst
-  | H: e_typing _ _ [::AI_ref _] _ |- _ =>
-    let tf := fresh "tf" in
-    let H1 := fresh "H1" in
-    let H2 := fresh "H2" in
-    apply AI_ref_func_typing in H; destruct H as [tf [H1 H2]]; subst
-  | H: e_typing _ _ [::AI_ref_extern _] _ |- _ =>
-    apply AI_ref_extern_typing in H; subst
-  (* Unsure how to check for multiple related hypotheses *)
-  (* This pattern will stop checking other matches on failure
-  | H: e_typing _ _ xxxx _ |- _ =>
-    lazymatch goal with
-    | H': supporting hyp |- _ =>
-      apply xxxx_typing in H; subst
-    end
-  *)
-  (*
-  | H: e_typing _ _ [::AI_invoke _] _ |- be_typing _ _ _ =>
-    let ts' := fresh "ts'" in
-    let C' := fresh "C" in
-    let H1 := fresh "H1" in
-    let H2 := fresh "H2" in
-    let H3 := fresh "H3" in
-    let H4 := fresh "H4" in
-    eapply Invoke_func_native_typing in H; eauto;
-    destruct H as [ts' [C' [H1 [H2 [H3 H4]]]]]; subst
-  *)
-  | H: e_typing _ _ [:: v_to_e ?v] _ |- _ =>
-    let Hf := fresh "Hf" in
-    apply const_typing in H; last (by apply v_to_e_is_const);
-    destruct H as [Hf H]; subst
-  | H: e_typing _ _ (v_to_e_list ?vs) _ |- _ =>
-    let Hf := fresh "Hf" in
-    apply const_list_typing in H; last (by apply v_to_e_is_const_list);
-    destruct H as [Hf H]; subst
-  | H: e_typing _ _ (_ ++ _) _ |- _ =>
-    split_et_composition
-  | H: e_typing _ _ [::AI_label _ _ _] _ |- _ =>
-    let ts := fresh "ts" in
-    let t1s := fresh "t1s" in
-    let H1 := fresh "H1" in
-    let H2 := fresh "H2" in
-    let H3 := fresh "H3" in
-    let H4 := fresh "H4" in
-    apply Label_typing in H;
-    destruct H as [ts [t1s [H1 [H2 [H3 H4]]]]]; subst
-  | H: e_typing _ _ [::_;_] _ |- _ =>
-    rewrite -cat1s in H
-  | H: e_typing _ _ [::_;_;_] _ |- _ =>
-    rewrite -cat1s in H
-  | H: e_typing _ _ [::_;_;_;_] _ |- _ =>
-    rewrite -cat1s in H
-  | H: _ ++ [::_] = _ ++ [::_] |- _ =>
-    apply concat_cancel_last in H; destruct H; subst
-  end.
-Ltac invert_e_typing:=
-  repeat invert_e_typing_step.
-
-
-Lemma lfilled_es_type_exists: forall k lh es les s C tf,
-  @lfilled k lh es les ->
-  e_typing s C les tf ->
-  exists lab t1s t2s,
-    e_typing s (upd_label C lab) es (Tf t1s t2s).
-Proof.
-  move => k lh es les s C tf HLF HType.
-  generalize dependent tf.
-  generalize dependent C.
-  generalize dependent s.
-  dependent induction lh; move => s C tf HType;
-  unfold lfilled in HLF; simpl in HLF; destruct tf;
-  move/eqP in HLF; rewrite <- HLF in HType.
-  - invert_e_typing.
-    exists (tc_label C), t1s0, t3s => //=.
-    by rewrite upd_label_unchanged.
-  - unfold lfilled.
-    rewrite -cat1s catA in HType.
-    invert_e_typing.
-    unfold lfilled in IHlh.
-    edestruct IHlh; eauto.
-Qed.
-
 Lemma store_extension_same: forall s,
   store_extension s s.
 Proof.
@@ -4030,10 +3881,10 @@ Proof.
             store_extension s s' ->
             e_typing s' C es tf)
     (P0 := fun s rs f es ts (_ : s_typing s rs f es ts) => forall s',
-             store_typing s ->
-             store_typing s' ->
-             store_extension s s' ->
-             s_typing s' rs f es ts); clear HType s C es tf.
+            store_typing s ->
+            store_typing s' ->
+            store_extension s s' ->
+            s_typing s' rs f es ts); clear HType s C es tf.
   - move=> s C bes tf HType s' HST1 HST2 Hext.
     apply ety_a'; first by apply to_e_list_basic.
     replace (operations.to_b_list (operations.to_e_list bes)) with bes => //.
@@ -4772,6 +4623,147 @@ Proof.
   by induction HReduce.
 Qed.
 
+
+Ltac convert_et_to_bet:=
+  lazymatch goal with
+  | H: e_typing _ _ _ _ |- _ =>
+    apply et_to_bet in H; try auto_basic; simpl in H
+  end.
+
+(* TODO: find better fixes than the current duplication. *)
+Ltac split_et_composition:=
+  lazymatch goal with
+  (* e_composition_typing_all_not_basic exists but not sure how to match *)
+  | H: e_typing _ _ (_ ++ _) _ |- _ =>
+    let ts := fresh "ts" in
+    let t1s := fresh "t1s" in
+    let t2s := fresh "t2s" in
+    let t3s := fresh "t3s" in
+    let H1 := fresh "H1" in
+    let H2 := fresh "H2" in
+    let H3 := fresh "H3" in
+    let H4 := fresh "H4" in
+    apply e_composition_typing in H;
+    destruct H as [ts [t1s [t2s [t3s [H1 [H2 [H3 H4]]]]]]]; subst
+  | H: e_typing _ _ ((v_to_e_list _) ++ _) _ |- _ =>
+    let t3s := fresh "t3s" in
+    let H1 := fresh "H1" in
+    let H2 := fresh "H2" in
+    apply e_composition_typing_const_list in H;
+    destruct H as [t3s [H1 H2]]; subst
+  | H: typing.e_typing _ _ (_ ++ _) _ |- _ =>
+    let ts := fresh "ts" in
+    let t1s := fresh "t1s" in
+    let t2s := fresh "t2s" in
+    let t3s := fresh "t3s" in
+    let H1 := fresh "H1" in
+    let H2 := fresh "H2" in
+    let H3 := fresh "H3" in
+    let H4 := fresh "H4" in
+    apply e_composition_typing in H;
+    destruct H as [ts [t1s [t2s [t3s [H1 [H2 [H3 H4]]]]]]]; subst
+  | H: typing.e_typing _ _ ((v_to_e_list _) ++ _) _ |- _ =>
+    let t3s := fresh "t3s" in
+    let H1 := fresh "H1" in
+    let H2 := fresh "H2" in
+    apply e_composition_typing_const_list in H;
+    destruct H as [t3s [H1 H2]]; subst
+  end.
+
+Ltac invert_e_typing_step:=
+  lazymatch goal with
+  | H: typing.e_typing _ _ _ _ |- _ =>
+    fold e_typing in H
+  | H: e_typing _ _ [::] _ |- _ =>
+    apply e_empty_typing in H; subst
+  | H: e_typing _ _ [::$VAN _] _ |- _ =>
+    apply AI_const_num_typing in H; subst
+  | H: e_typing _ _ [::AI_basic (BI_const_vec _)] _ |- _ =>
+    apply AI_const_vec_typing in H; subst
+  | H: e_typing _ _ [::AI_basic (BI_ref_null _)] _ |- _ =>
+    apply AI_ref_null_typing in H; subst
+  | H: e_typing _ _ [::AI_ref _] _ |- _ =>
+    let tf := fresh "tf" in
+    let H1 := fresh "H1" in
+    let H2 := fresh "H2" in
+    apply AI_ref_func_typing in H; destruct H as [tf [H1 H2]]; subst
+  | H: e_typing _ _ [::AI_ref_extern _] _ |- _ =>
+    apply AI_ref_extern_typing in H; subst
+  (* Unsure how to check for multiple related hypotheses *)
+  (* This pattern will stop checking other matches on failure
+  | H: e_typing _ _ xxxx _ |- _ =>
+    lazymatch goal with
+    | H': supporting hyp |- _ =>
+      apply xxxx_typing in H; subst
+    end
+  *)
+  (*
+  | H: e_typing _ _ [::AI_invoke _] _ |- be_typing _ _ _ =>
+    let ts' := fresh "ts'" in
+    let C' := fresh "C" in
+    let H1 := fresh "H1" in
+    let H2 := fresh "H2" in
+    let H3 := fresh "H3" in
+    let H4 := fresh "H4" in
+    eapply Invoke_func_native_typing in H; eauto;
+    destruct H as [ts' [C' [H1 [H2 [H3 H4]]]]]; subst
+  *)
+  | H: e_typing _ _ [:: v_to_e ?v] _ |- _ =>
+    let Hf := fresh "Hf" in
+    apply const_typing in H; last (by apply v_to_e_is_const);
+    destruct H as [Hf H]; subst
+  | H: e_typing _ _ (v_to_e_list ?vs) _ |- _ =>
+    let Hf := fresh "Hf" in
+    apply const_list_typing in H; last (by apply v_to_e_is_const_list);
+    destruct H as [Hf H]; subst
+  | H: e_typing _ _ (_ ++ _) _ |- _ =>
+    split_et_composition
+  | H: e_typing _ _ [::AI_label _ _ _] _ |- _ =>
+    let ts := fresh "ts" in
+    let t1s := fresh "t1s" in
+    let H1 := fresh "H1" in
+    let H2 := fresh "H2" in
+    let H3 := fresh "H3" in
+    let H4 := fresh "H4" in
+    apply Label_typing in H;
+    destruct H as [ts [t1s [H1 [H2 [H3 H4]]]]]; subst
+  | H: e_typing _ _ [::_;_] _ |- _ =>
+    rewrite -cat1s in H
+  | H: e_typing _ _ [::_;_;_] _ |- _ =>
+    rewrite -cat1s in H
+  | H: e_typing _ _ [::_;_;_;_] _ |- _ =>
+    rewrite -cat1s in H
+  | H: _ ++ [::_] = _ ++ [::_] |- _ =>
+    apply concat_cancel_last in H; destruct H; subst
+  end.
+Ltac invert_e_typing:=
+  repeat invert_e_typing_step.
+
+
+Lemma lfilled_es_type_exists: forall k lh es les s C tf,
+  @lfilled k lh es les ->
+  e_typing s C les tf ->
+  exists lab t1s t2s,
+    e_typing s (upd_label C lab) es (Tf t1s t2s).
+Proof.
+  move => k lh es les s C tf HLF HType.
+  generalize dependent tf.
+  generalize dependent C.
+  generalize dependent s.
+  dependent induction lh; move => s C tf HType;
+  unfold lfilled in HLF; simpl in HLF; destruct tf;
+  move/eqP in HLF; rewrite <- HLF in HType.
+  - invert_e_typing.
+    exists (tc_label C), t1s0, t3s => //=.
+    by rewrite upd_label_unchanged.
+  - unfold lfilled.
+    rewrite -cat1s catA in HType.
+    invert_e_typing.
+    unfold lfilled in IHlh.
+    edestruct IHlh; eauto.
+Qed.
+
+
 Lemma store_extension_reduce:
 forall s f es s' f' es' C tf loc lab ret hs hs',
   reduce hs s f es hs' s' f' es' ->
@@ -5315,16 +5307,12 @@ Proof.
   generalize dependent lab.
   induction HReduce => //; move => lab t1s t2s HType.
   - invert_e_typing. convert_et_to_bet. invert_be_typing. simpl in *.
-    replace (tc_local C) with ([::]: list value_type) in *;
-        try (by symmetry; eapply inst_t_context_local_empty; eauto).
+    apply inst_t_context_local_empty in HIT1. rewrite HIT1 in H2.
     rewrite H1. rewrite set_nth_map => //.
     rewrite set_nth_same_unchanged => //=.
-  - assert (exists lab' t1s' t2s', e_typing s 
-            (upd_label (upd_local_label_return C
-              (tc_local C ++ map typeof f.(f_locs)) lab ret) lab')
-            es (Tf t1s' t2s')).
-    eapply lfilled_es_type_exists; eauto.
-    destruct H1 as [lab' [t1s' [t2s' Het]]].
+  - eapply lfilled_es_type_exists in HType; eauto.
+    destruct HType as [lab' [t1s' [t2s' Het]]]. 
+    rewrite -> upd_label_overwrite in Het.
     by eapply IHHReduce; eauto.
 Qed.
 
@@ -5390,9 +5378,7 @@ Proof.
 
   - (* block *)
     apply const_list_get in H0. destruct H0. subst.
-    split_et_composition.
-    invert_e_typing.
-    convert_et_to_bet.
+    split_et_composition. invert_e_typing. convert_et_to_bet.
 
     apply inst_typing_expand with (tb := tb) in HIT2.
     rewrite HIT2 in H.
@@ -5417,9 +5403,7 @@ Proof.
     
   - (* loop *)
     apply const_list_get in H0. destruct H0. subst.
-    split_et_composition.
-    invert_e_typing.
-    convert_et_to_bet.
+    split_et_composition. invert_e_typing. convert_et_to_bet.
 
     apply inst_typing_expand with (tb := tb) in HIT2.
     rewrite HIT2 in H.
@@ -5444,9 +5428,7 @@ Proof.
     
   - (* if false *)
     apply const_list_get in H1. destruct H1. subst.
-    split_et_composition.
-    invert_e_typing.
-    convert_et_to_bet.
+    split_et_composition. invert_e_typing. convert_et_to_bet.
 
     apply inst_typing_expand with (tb := tb) in HIT2.
     rewrite HIT2 in H.
@@ -5476,9 +5458,7 @@ Proof.
 
   - (* if true *)
     apply const_list_get in H1. destruct H1. subst.
-    split_et_composition.
-    invert_e_typing.
-    convert_et_to_bet.
+    split_et_composition. invert_e_typing. convert_et_to_bet.
 
     apply inst_typing_expand with (tb := tb) in HIT2.
     rewrite HIT2 in H.
@@ -5517,6 +5497,7 @@ Proof.
     assert ((Tf t1s' t2s') = cl_type cl) as HFType; first by eapply tc_func_reference1; eauto.
     rewrite HFType.
     by eapply store_typed_cl_typed; eauto.
+
   - (* Call_indirect *)
     convert_et_to_bet.
     replace [::$VBN (VAL_int32 i); BI_call_indirect x y]
@@ -5535,6 +5516,7 @@ Proof.
     assert ((Tf tn tm) = cl_type cl) as HFType; first by eapply tc_func_reference2; eauto.
     rewrite HFType.
     by eapply store_typed_cl_typed; eauto.
+
   - (* Invoke native *)
     invert_e_typing.
     eapply Invoke_func_native_typing in H0; eauto.
@@ -5565,6 +5547,7 @@ Proof.
         last by apply b_e_elim; by rewrite Heqbes.
       fold_upd_context. fold (vs_to_vts vcs).
       rewrite HC2Empty. apply H12.
+
   - (* Invoke host *)
     apply e_composition_typing in HType.
     destruct HType as [ts' [t1s' [t2s' [t3s' [H5' [H6 [H7 H8]]]]]]].
@@ -5586,6 +5569,7 @@ Proof.
       by apply/andP => //=.
     }
     rewrite catA. apply et_weakening_empty_1.
+    unfold inst_typing, typing.inst_typing in HIT2.
     by apply result_e_type.
 
   - (* Get_local *)
@@ -6131,69 +6115,69 @@ Proof.
     simpl in *. apply bet_memory_copy => //=.
 
   - (* Memory Init Return *)
-  invert_e_typing. convert_et_to_bet. invert_be_typing.
-  replace ([:: T_num T_i32; T_num T_i32; T_num T_i32])
-    with ([:: T_num T_i32; T_num T_i32] ++ [:: T_num T_i32]) in H7 => //=.
-  rewrite catA in H7.
-  apply concat_cancel_last in H7. destruct H7. subst.
-  rewrite -(cat1s (T_num T_i32)) in H4. repeat rewrite catA in H4.
-  apply concat_cancel_last in H4. destruct H4. subst.
-  rewrite catA in H3.
-  apply concat_cancel_last in H3. destruct H3. subst.
-  apply ety_a' => //. apply bet_weakening_empty_both. apply bet_empty.
+    invert_e_typing. convert_et_to_bet. invert_be_typing.
+    replace ([:: T_num T_i32; T_num T_i32; T_num T_i32])
+      with ([:: T_num T_i32; T_num T_i32] ++ [:: T_num T_i32]) in H7 => //=.
+    rewrite catA in H7.
+    apply concat_cancel_last in H7. destruct H7. subst.
+    rewrite -(cat1s (T_num T_i32)) in H4. repeat rewrite catA in H4.
+    apply concat_cancel_last in H4. destruct H4. subst.
+    rewrite catA in H3.
+    apply concat_cancel_last in H3. destruct H3. subst.
+    apply ety_a' => //. apply bet_weakening_empty_both. apply bet_empty.
 
   - (* Memory Init Step *)
-  invert_e_typing. convert_et_to_bet. invert_be_typing.
-  replace ([:: T_num T_i32; T_num T_i32; T_num T_i32])
-    with ([:: T_num T_i32; T_num T_i32] ++ [:: T_num T_i32]) in H12 => //=.
-  rewrite catA in H12.
-  apply concat_cancel_last in H12. destruct H12. subst.
-  rewrite -(cat1s (T_num T_i32)) in H9. repeat rewrite catA in H9.
-  apply concat_cancel_last in H9. destruct H9. subst.
-  rewrite catA in H8.
-  apply concat_cancel_last in H8. destruct H8. subst.
+    invert_e_typing. convert_et_to_bet. invert_be_typing.
+    replace ([:: T_num T_i32; T_num T_i32; T_num T_i32])
+      with ([:: T_num T_i32; T_num T_i32] ++ [:: T_num T_i32]) in H12 => //=.
+    rewrite catA in H12.
+    apply concat_cancel_last in H12. destruct H12. subst.
+    rewrite -(cat1s (T_num T_i32)) in H9. repeat rewrite catA in H9.
+    apply concat_cancel_last in H9. destruct H9. subst.
+    rewrite catA in H8.
+    apply concat_cancel_last in H8. destruct H8. subst.
 
-  simpl in *. rewrite -cat1s.
-  repeat apply ety_weakening.
+    simpl in *. rewrite -cat1s.
+    repeat apply ety_weakening.
 
-  eapply et_composition'
-    with (t2s := (t2s ++ [:: T_num T_i32])) => //=;
-    first by apply ety_a'; auto_basic; repeat apply bet_weakening;
-    apply bet_weakening_empty_1; apply bet_const_num.
-  rewrite -cat1s.
-  eapply et_composition'
-    with (t2s := (t2s ++ [:: T_num T_i32] ++ [:: T_num T_i32])) => //=;
-    first by apply ety_a'; auto_basic; repeat apply bet_weakening;
-    rewrite -(cat1s (T_num T_i32) [:: T_num T_i32]);
-    apply bet_weakening_empty_1; apply bet_const_num.
-  rewrite -cat1s.
-  eapply et_composition'
-    with (t2s := t2s) => //=.
-    apply ety_a'; auto_basic; repeat apply bet_weakening;
-    apply bet_weakening_empty_2. simpl.
-    eapply bet_store => //=.
-  
-  rewrite -cat1s.
-  eapply et_composition'
-    with (t2s := (t2s ++ [:: T_num T_i32])) => //=;
-    first by apply ety_a'; auto_basic; repeat apply bet_weakening;
-    apply bet_weakening_empty_1; apply bet_const_num.
-  rewrite -cat1s.
-  eapply et_composition'
-    with (t2s := (t2s ++ [:: T_num T_i32] ++ [:: T_num T_i32])) => //=;
-    first by apply ety_a'; auto_basic; repeat apply bet_weakening;
-    rewrite -(cat1s (T_num T_i32) [:: T_num T_i32]);
-    apply bet_weakening_empty_1; apply bet_const_num.
-  rewrite -cat1s.
-  eapply et_composition'
-    with (t2s := (t2s ++ [:: T_num T_i32] ++ [:: T_num T_i32]++ [:: T_num T_i32])) => //=;
-    first by apply ety_a'; auto_basic; repeat apply bet_weakening;
-    repeat rewrite -(cat1s (T_num T_i32) [:: T_num T_i32; T_num T_i32]);
-    repeat rewrite -(cat1s (T_num T_i32) [:: T_num T_i32]);
-    repeat apply bet_weakening;
-    apply bet_weakening_empty_1; apply bet_const_num.
-  apply ety_a'; auto_basic; simpl. apply bet_weakening_empty_2.
-  eapply bet_memory_init => //=.
+    eapply et_composition'
+      with (t2s := (t2s ++ [:: T_num T_i32])) => //=;
+      first by apply ety_a'; auto_basic; repeat apply bet_weakening;
+      apply bet_weakening_empty_1; apply bet_const_num.
+    rewrite -cat1s.
+    eapply et_composition'
+      with (t2s := (t2s ++ [:: T_num T_i32] ++ [:: T_num T_i32])) => //=;
+      first by apply ety_a'; auto_basic; repeat apply bet_weakening;
+      rewrite -(cat1s (T_num T_i32) [:: T_num T_i32]);
+      apply bet_weakening_empty_1; apply bet_const_num.
+    rewrite -cat1s.
+    eapply et_composition'
+      with (t2s := t2s) => //=.
+      apply ety_a'; auto_basic; repeat apply bet_weakening;
+      apply bet_weakening_empty_2. simpl.
+      eapply bet_store => //=.
+    
+    rewrite -cat1s.
+    eapply et_composition'
+      with (t2s := (t2s ++ [:: T_num T_i32])) => //=;
+      first by apply ety_a'; auto_basic; repeat apply bet_weakening;
+      apply bet_weakening_empty_1; apply bet_const_num.
+    rewrite -cat1s.
+    eapply et_composition'
+      with (t2s := (t2s ++ [:: T_num T_i32] ++ [:: T_num T_i32])) => //=;
+      first by apply ety_a'; auto_basic; repeat apply bet_weakening;
+      rewrite -(cat1s (T_num T_i32) [:: T_num T_i32]);
+      apply bet_weakening_empty_1; apply bet_const_num.
+    rewrite -cat1s.
+    eapply et_composition'
+      with (t2s := (t2s ++ [:: T_num T_i32] ++ [:: T_num T_i32]++ [:: T_num T_i32])) => //=;
+      first by apply ety_a'; auto_basic; repeat apply bet_weakening;
+      repeat rewrite -(cat1s (T_num T_i32) [:: T_num T_i32; T_num T_i32]);
+      repeat rewrite -(cat1s (T_num T_i32) [:: T_num T_i32]);
+      repeat apply bet_weakening;
+      apply bet_weakening_empty_1; apply bet_const_num.
+    apply ety_a'; auto_basic; simpl. apply bet_weakening_empty_2.
+    eapply bet_memory_init => //=.
 
   - (* Data Drop *)
     invert_e_typing. convert_et_to_bet. invert_be_typing.
@@ -6308,17 +6292,16 @@ forall s f es s' f' es' ts hs hs',
 Proof.
   move => s f es s' f' es' ts hs hs' HReduce HType.
   inversion HType. inversion H0. inversion H5. subst.
-  assert (store_extension s s' /\ store_typing s').
-  { apply upd_label_unchanged_typing in H7.
-    by eapply store_extension_reduce; eauto. }
+  assert (store_extension s s' /\ store_typing s');
+    first by apply upd_label_unchanged_typing in H7;
+      eapply store_extension_reduce; eauto.
   destruct H1.
   assert (inst_typing s' (f_inst f) C1);
     first by eapply inst_typing_extension; eauto.
   apply mk_config_typing; eauto.
-  eapply mk_s_typing; eauto.
-  eapply mk_frame_typing; eauto.
-  replace (f_inst f') with (f_inst f); eauto;
-    first by eapply reduce_inst_unchanged; eauto.
+  eapply mk_s_typing; eauto;
+    first by eapply mk_frame_typing; eauto;
+      apply reduce_inst_unchanged in HReduce.
   fold_upd_context.
   by eapply t_preservation_e; eauto.
 Qed.

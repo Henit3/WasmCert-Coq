@@ -1611,6 +1611,13 @@ Proof.
     by simpl in R.
 Qed.
 
+(* "@lfilled (nat_of_bin (bin_of_nat n))" intentional to allow application
+    since the calling context otherwise fails to match
+    the resulting lh' with lh though both have type "lholed n";
+    having the typing be "lholed (nat_of_bin (bin_of_nat n))" resolves this *)
+(* I suspect this is because we have HBI_brDepth making a statment about
+    the existence of br which would force the corresponding lh to have
+    a typing to match that of the expected br parameter, "bin_of_nat ..." *)
 Lemma br_reduce_extract_vs: forall n k lh es s C ts ts2,
   @lfilled n lh [::AI_basic (BI_br (bin_of_nat (n + k)))] es ->
   e_typing s C es (Tf [::] ts2) ->
@@ -1681,6 +1688,8 @@ Proof.
     by rewrite HLF2.
 Qed.
 
+(* "@lfilled (nat_of_bin (bin_of_nat n))" intentional
+    for the same reason as described above *)
 Lemma return_reduce_extract_vs: forall n lh es s C ts ts2,
   @lfilled n lh [::AI_basic BI_return] es ->
   e_typing s C es (Tf [::] ts2) ->
@@ -1775,7 +1784,8 @@ Proof.
   clear H3.
   eapply br_reduce_label_length in H1; eauto.
   simpl in H1.
-  assert (E : tc_label C1 = [::]); first by eapply inst_t_context_label_empty; eauto.
+  assert (E : tc_label C1 = [::]);
+    first by eapply inst_t_context_label_empty; eauto.
   by rewrite E in H1.
 Qed.
 
@@ -2196,13 +2206,15 @@ Theorem t_progress: forall s f es ts hs,
 Proof.
   move => s f es ts hs HType.
   inversion HType. inversion H0. inversion H5. subst.
-  eapply t_progress_e with (vcs := [::]) (ret := None) (lab := [::]) in H7; eauto.
-  - assert (E : tc_local C1 = [::]).
-    { by eapply inst_t_context_local_empty; eauto. }
+  eapply t_progress_e with
+    (vcs := [::]) (ret := None) (lab := [::]) in H7; eauto.
+  - assert (E : tc_local C1 = [::]);
+      first by eapply inst_t_context_local_empty; eauto.
     rewrite E. simpl.
     fold_upd_context.
-    assert (E' : tc_label (upd_local_label_return C1 (map typeof f.(f_locs)) (tc_label C1) None) = [::]).
-    { simpl. by eapply inst_t_context_label_empty; eauto. }
+    assert (E' : tc_label (upd_local_label_return
+                  C1 (map typeof f.(f_locs)) (tc_label C1) None) = [::]);
+      first by simpl; eapply inst_t_context_label_empty; eauto.
     rewrite -E'.
     by destruct C1.
   - by eapply s_typing_lf_br; eauto.

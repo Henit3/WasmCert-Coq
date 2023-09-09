@@ -678,15 +678,23 @@ Definition those_const_list (es : list administrative_instruction) : option (lis
 
 (** Store extensions **)
 
+Definition limits_extension (l1 l2: limits) :=
+  (l1.(lim_min) <= l2.(lim_min)) &&
+  (l1.(lim_max) == l2.(lim_max)).
+
 Definition func_extension (f1 f2: function_closure) : bool :=
   f1 == f2.
 
 Definition table_extension (t1 t2 : tableinst) :=
-  (tableinst_type t1 == tableinst_type t2) &&
+  (limits_extension
+    (tableinst_type t1).(tt_limits)
+    (tableinst_type t2).(tt_limits)) &&
+  ((tableinst_type t1).(tt_elem_type) == 
+    (tableinst_type t2).(tt_elem_type)) &&
   (Nat.leb (tab_size t1) (tab_size t2)).
 
 Definition mem_extension (m1 m2 : meminst) :=
-  (meminst_type m1 == meminst_type m2) &&
+  (limits_extension (meminst_type m1) (meminst_type m2)) &&
   (N.leb (mem_length m1) (mem_length m2)).
 
 Definition global_extension (g1 g2: globalinst) : bool :=

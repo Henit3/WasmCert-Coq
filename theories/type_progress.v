@@ -314,7 +314,7 @@ Proof.
   exists m. split => //.
   destruct tc_memory => //.
   simpl in H'.
-  unfold memi_agree in H'.
+  unfold memi_typing in H'.
   unfold option_map in H'.
   unfold lookup_N in H'.
   by remove_bools_options.
@@ -331,7 +331,7 @@ Lemma store_typing_stabaddr: forall s f C c a i,
 Proof.
   move => s f C c a i HStab HIT HST.
   unfold inst_typing, typing.inst_typing in HIT.
-  unfold store_typing, tab_agree, tabcl_agree in HST.
+  unfold store_typing, tab_agree, refcl_agree in HST.
   unfold stab_elem in HStab.
   destruct s, f => //=.
   destruct f_inst. destruct f_inst.
@@ -374,7 +374,7 @@ Proof.
   unfold inst_typing, typing.inst_typing in HIT.
   destruct C, (f_inst f), tc_local, tc_label, tc_return, tc_ref => //.
   remove_bools_options.
-  simpl in H. unfold tabi_agree in H3.
+  simpl in H. unfold tabi_typing in H3.
   eapply all2_projection in H3; eauto.
   simpl in *. unfold lookup_N.
   remove_bools_options. rewrite Ha; eauto.
@@ -393,7 +393,7 @@ Proof.
   unfold inst_typing, typing.inst_typing in HIT.
   destruct C, (f_inst f), tc_local, tc_label, tc_return, tc_ref => //.
   remove_bools_options.
-  simpl in H. unfold elemi_agree in H1.
+  simpl in H. unfold elemi_typing in H1.
   eapply all2_projection in H1; eauto.
   simpl in *. unfold lookup_N.
   remove_bools_options.
@@ -441,7 +441,7 @@ Proof.
   unfold inst_typing, typing.inst_typing in HIT.
   destruct C, (f_inst f), tc_local, tc_label, tc_return, tc_ref => //.
   remove_bools_options.
-  simpl in H. unfold datai_agree in H0.
+  simpl in H. unfold datai_typing in H0.
   eapply all2_projection in H0; eauto.
   simpl in *. unfold sdata, lookup_N.
   remove_bools_options. rewrite Ha; eauto.

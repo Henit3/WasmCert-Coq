@@ -271,8 +271,7 @@ Definition funci_agree (fs : seq function_closure) (n : funcaddr) (f : function_
   option_map cl_type (lookup_N fs n) == Some f.
 
 Definition global_typing (g : globalinst) (tg : global_type) : bool :=
-  (g.(g_type) == tg) &&
-  (typeof (g.(g_val)) == tg_t tg).
+  (g.(g_type) == tg).
 
 Definition globali_agree (gs : list globalinst) (n : globaladdr) (tg : global_type) : bool :=
   option_map (fun g => global_typing g tg) (lookup_N gs n) == Some true.
@@ -282,37 +281,28 @@ Definition globali_agree (gs : list globalinst) (n : globaladdr) (tg : global_ty
 
 Definition tab_typing (t : tableinst) (tt : table_type) : bool :=
   (tt.(tt_limits).(lim_min) <= tab_size t) &&
-  (t.(tableinst_type) == tt) &&
-  (List.forallb
-    (fun te => (typeof_ref te) == tt.(tt_elem_type))
-    t.(tableinst_elem)).
+  (t.(tableinst_type) == tt).
 
-Definition tabi_agree (ts: list tableinst) (n : tableaddr) (tab_t : table_type) : bool :=
+Definition tabi_typing (ts: list tableinst) (n : tableaddr) (tab_t : table_type) : bool :=
   option_map (fun tab => tab_typing tab tab_t) (lookup_N ts n) == Some true.
 
 Definition mem_typing (m : meminst) (m_t : memory_type) : bool :=
   (N.leb m_t.(lim_min) (mem_size m)) &&
   (m.(meminst_type) == m_t).
 
-Definition memi_agree (ms : list meminst) (n : memaddr) (mem_t : memory_type) : bool :=
+Definition memi_typing (ms : list meminst) (n : memaddr) (mem_t : memory_type) : bool :=
   option_map (fun mem => mem_typing mem mem_t) (lookup_N ms n) == Some true.
 
 Definition elem_typing (e : eleminst) (et : reference_type) : bool :=
-  (* (typeof (e.(eleminst_val)) == et) && *)
-  (e.(eleminst_type) == et) &&
-  (List.forallb
-    (fun ee => (typeof_ref ee) == et)
-    e.(eleminst_elem)).
+  (e.(eleminst_type) == et).
 
-Definition elemi_agree (es : list eleminst) (n : elemaddr) (et : reference_type) : bool :=
+Definition elemi_typing (es : list eleminst) (n : elemaddr) (et : reference_type) : bool :=
   option_map (fun e => elem_typing e et) (lookup_N es n) == Some true.
 
-(* Definition elemi_agree (es : list eleminst) (n : elemaddr) (et : reference_type) : bool :=
-  option_map eleminst_type (lookup_N es n) == Some et. *)
-
-(* Definition datai_agree (ds : list datainst) (n : dataaddr) (dt : unit) : bool :=
+(* Definition datai_typing (ds : list datainst) (n : dataaddr) (dt : unit) : bool :=
   true. *)
-Definition datai_agree (ds : list datainst) (n : dataaddr) (dt : unit) : bool :=
+
+Definition datai_typing (ds : list datainst) (n : dataaddr) (dt : unit) : bool :=
   option_map (fun d => true) (lookup_N ds n) == Some true.
 
 (* TODO: figure out what's missing for elem/data/ref *)
@@ -329,10 +319,10 @@ Definition inst_typing (s : store_record) (inst : instance) (C : t_context) : bo
     (ts == ts') &&
     (all2 (funci_agree s.(s_funcs)) fs tfs) &&
     (all2 (globali_agree s.(s_globals)) gs tgs) &&
-    (all2 (tabi_agree s.(s_tables)) tbs tabs_t) &&
-    (all2 (memi_agree s.(s_mems)) ms mems_t) &&
-    (all2 (elemi_agree s.(s_elems)) es tes) &&
-    (all2 (datai_agree s.(s_datas)) ds tds)
+    (all2 (tabi_typing s.(s_tables)) tbs tabs_t) &&
+    (all2 (memi_typing s.(s_mems)) ms mems_t) &&
+    (all2 (elemi_typing s.(s_elems)) es tes) &&
+    (all2 (datai_typing s.(s_datas)) ds tds)
   | _ => false
   end.
 
@@ -447,7 +437,7 @@ Qed.
 Definition cl_type_check_single (s:store_record) (f:function_closure):=
   exists tf, cl_typing s f tf.
 
-Definition tabcl_agree (s : store_record) (tref: reference_type) (v : value_ref) : Prop :=
+Definition refcl_agree (s : store_record) (tref: reference_type) (v : value_ref) : Prop :=
   match v with
   | VAL_ref_null tref' => tref = tref'
   | VAL_ref_func a => ((N.to_nat a) < length s.(s_funcs)) /\ (tref = T_funcref)
@@ -460,8 +450,9 @@ Definition tabsize_agree (t: tableinst) : Prop :=
   | Some n => tab_size t <= n
   end.
 
-Definition tab_agree (s: store_record) (t: tableinst): Prop :=
-  List.Forall (tabcl_agree s t.(tableinst_type).(tt_elem_type)) (t.(tableinst_elem)) /\
+Definition tab_agree (s: store_record) (t: tableinst) : Prop :=
+  List.Forall (refcl_agree s t.(tableinst_type).(tt_elem_type))
+    (t.(tableinst_elem)) /\
   tabsize_agree t.
 
 Definition mem_agree (m : meminst) : Prop :=
@@ -470,12 +461,24 @@ Definition mem_agree (m : meminst) : Prop :=
   | Some n => mem_size m <= n
   end.
 
+Definition global_agree (g : globalinst) : Prop :=
+  typeof (g.(g_val)) == tg_t (g.(g_type)).
+
+Definition elem_agree (s: store_record) (e : eleminst) : Prop :=
+  List.Forall (refcl_agree s e.(eleminst_type)) (e.(eleminst_elem)).
+
+Definition data_agree (d : datainst) : Prop :=
+  True.
+
 Definition store_typing (s : store_record) : Prop :=
   match s with
   | Build_store_record fs tclss mss gs es ds =>
     List.Forall (cl_type_check_single s) fs /\
     List.Forall (tab_agree s) tclss /\
-    List.Forall mem_agree mss
+    List.Forall mem_agree mss /\
+    List.Forall global_agree gs /\
+    List.Forall (elem_agree s) es /\
+    List.Forall data_agree ds
   end.
 
 

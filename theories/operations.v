@@ -116,20 +116,11 @@ Definition mem_grow (m : meminst) (len_delta : N) : option meminst :=
   let new_size := N.add (mem_size m) len_delta in
   let new_mem_data := mem_grow (N.mul len_delta page_size) m.(meminst_data) in
   if N.leb new_size page_limit then
-  match m.(meminst_type).(lim_max) with
-  | Some maxlim =>
-    if N.leb new_size maxlim then
-        Some {|
-          meminst_data := new_mem_data;
-          meminst_type := m.(meminst_type);
-          |}
-    else None
-  | None =>
+    let lim' := {| lim_min := new_size; lim_max := m.(meminst_type).(lim_max) |} in
     Some {|
       meminst_data := new_mem_data;
-      meminst_type := m.(meminst_type);
+      meminst_type := lim';
       |}
-  end
   else None.
 
 (* TODO: We crucially need documentation here. *)

@@ -198,6 +198,40 @@ Definition func_type_exists v s f :=
   exists tf, v = VAL_ref (VAL_ref_func f) ->
     @funci_agree host_function (s_funcs s) f tf.
 
+
+(* not tc_local since inst_typing fails so separate using upd_local *)
+Lemma func_in_local_valid: forall s f j t v,
+  lookup_N [seq typeof i | i <- f_locs f] j = Some t ->
+  t = typeof v ->
+  (forall f', (func_type_exists v s f')).
+Admitted.
+Lemma func_in_global_valid: forall s C i g v,
+  lookup_N (tc_global C) i = Some g ->
+  tg_t g = typeof v ->
+  (forall f', (func_type_exists v s f')).
+Admitted.
+Lemma func_in_table_valid: forall s f C i a j ttype t tabv,
+  lookup_N (tc_table C) i = Some ttype ->
+  lookup_N (inst_tables (f_inst f)) i = Some a ->
+  lookup_N (s_tables s) a = Some t ->
+  lookup_N (tableinst_elem t) j = Some tabv ->
+  tt_elem_type ttype = typeof_ref tabv ->
+  (forall f', (func_type_exists (VAL_ref tabv) s f')).
+Admitted.
+Lemma func_in_elem_valid: forall s f C i j et elem v,
+  lookup_N (tc_elem C) i = Some et ->
+  selem s (f_inst f) i = Some elem ->
+  lookup_N (eleminst_elem elem) j = Some v ->
+  et = typeof_ref v ->
+  (forall f', (func_type_exists (VAL_ref v) s f')).
+Admitted.
+
+(* if tableinit specified as funcref, ensure it refers something in store *)
+Lemma func_tableinit_valid: forall tab i f tab' s,
+  growtable tab i (VAL_ref_func f) = Some tab' ->
+  N.to_nat f < length (@s_funcs host_function s).
+Admitted.
+
 Lemma const_typing: forall s C v t1s t2s,
   is_const (v_to_e v) ->
   e_typing s C [:: v_to_e v] (Tf t1s t2s) ->
@@ -301,6 +335,30 @@ Proof.
       apply/orP. by right.
 Qed.
 
+Lemma result_e_type: forall r ts s C,
+  result_types_agree ts r ->
+  e_typing s C (result_to_stack r) (Tf [::] ts).
+Proof.
+  move => r ts s C HResType.
+  destruct r => //=; last by apply ety_trap.
+  generalize dependent ts.
+  induction l => //=; move => ts HResType; simpl in HResType.
+  - destruct ts => //=.
+    apply ety_a' => //=.
+    by apply bet_empty.
+  - destruct ts => //=.
+    simpl in HResType.
+    remove_bools_options.
+    unfold types_agree in H.
+    rewrite -cat1s.
+    eapply et_composition' with (t2s := [:: v]); eauto => //=.
+    + move/eqP in H. rewrite -H.
+      apply const_typing' => //=; first by apply v_to_e_is_const.
+      admit. (* prove or assert funci_agree if it's a funcref from result *)
+    + remove_bools_options. subst.
+      rewrite -cat1s -(cat1s _ ts).
+      apply et_weakening_empty_1. apply IHl => //.
+(* Qed. *) Admitted.
 
 Lemma Unop_typing: forall C t op t1s t2s,
   be_typing C [::BI_unop t op] (Tf t1s t2s) ->
@@ -3648,22 +3706,10 @@ Proof.
   last eapply nth_error_firstn'; eauto.
 
   apply/eqP. f_equal. f_equal.
-  (*
-  remember H1 as H'. clear HeqH'.
-  rewrite HSize in H1. apply lookup_N_Some in H1.
-  unfold lookup_N in H1.
-  *)
 
   subst.
   remove_bools_options => //=.
-  (* only eleminst_elem used in elem_extension *)
-  (* only eleminst_type used in elemi_typing *)
-
-  (* since eleminst_elem is the same, their types should also be the same *)
-  admit. 
-  (* how do we compare/obtain eleminst_type of nil? *)
-  admit.
-Admitted.
+Qed.
 
 Lemma elem_extension_C: forall se se' ie tce,
   size se <= size se' ->
@@ -3860,7 +3906,8 @@ Lemma all2_elem_extension_same: forall t,
 Proof.
   move => t.
   apply reflexive_all2_same. unfold reflexive. move => x.
-  unfold elem_extension. apply/orP; by left.
+  unfold elem_extension. apply/andP.
+  split => //. apply/orP; by left.
 Qed.
 
 Lemma all2_data_extension_same: forall t,
@@ -4098,7 +4145,8 @@ Proof.
   - assert ((n.+1 < length (e :: selems))%coq_nat);
       first by rewrite -List.nth_error_Some; rewrite HN.
     simpl. apply/andP. split.
-    + unfold elem_extension. apply/orP; left => //.
+    + unfold elem_extension. apply/andP.
+      split => //. apply/orP; left => //.
     + by eapply IHn; eauto.
 Qed.
 
@@ -4324,6 +4372,11 @@ Proof.
   unfold growtable in HGrow.
   destruct (u32_bound <=? N.of_nat (tab_size tab) + c)%N eqn:HLP => //.
   destruct (tableinst_type tab) eqn:Ett => //=.
+  destruct (datatypes.tt_elem_type
+            {|
+              tt_limits := tt_limits;
+              tt_elem_type := tt_elem_type
+            |} == typeof_ref tabinit) eqn:HInit => //=.
   destruct (limit_valid
             {|
               lim_min := (N.of_nat (tab_size tab) + c)%N;
@@ -4807,38 +4860,50 @@ forall (s : store_record) n tab c tabinit tab',
 Proof.
   move => s n tab c tabinit tab' HST HN HGrow.
   assert (tab_agree s tab); first by eapply store_typed_tab_agree; eauto.
+  remember HGrow as HGrow'. clear HeqHGrow'.
   unfold growtable in HGrow.
   unfold tab_agree. simpl.
   unfold tab_agree in H.
   
   destruct (u32_bound <=? N.of_nat (tab_size tab) + c)%N eqn:HLP => //.
   destruct (tableinst_type tab) eqn:Ett => //=.
+  destruct (datatypes.tt_elem_type
+            {|
+              tt_limits := tt_limits;
+              tt_elem_type := tt_elem_type
+            |} == typeof_ref tabinit) eqn:HInit => //=.
   destruct (limit_valid
              {|
               lim_min := (N.of_nat (tab_size tab) + c)%N;
               lim_max := lim_max tt_limits
             |}) eqn:HLimMax => //=.
-  inversion HGrow. simpl in *.
-
+  inversion HGrow. simpl in *. clear HGrow.
+  
   destruct H.
   split => //=.
   - apply List.Forall_app. split => //=. (* H used here *)
     unfold refcl_agree. apply List.Forall_forall.
     intros x HIN. apply List.repeat_spec in HIN.
-    (* destruct x => //. *)
-    (* repeated tabinit value is validly typed *)
-    (* no relation between tabinit and tt_elem_type *)
-    admit.
-  - unfold tabsize_agree, tab_size.
-    unfold tabsize_agree, tab_size in H0.
-    rewrite Ett in H0.
-    simpl in *.
+    move/eqP in HInit. subst.
+    destruct tabinit => //. simpl in *. split => //.
+    eapply func_tableinit_valid; eauto.
+  
+  - unfold tabsize_agree, tab_size. simpl in *. 
     destruct (lim_max tt_limits) => //=.
+    
     rewrite length_is_size. rewrite size_cat.
     repeat rewrite - length_is_size. rewrite List.repeat_length.
-    (* x <= y -> x + c <= z *)
-    admit.
-Admitted.
+    repeat rewrite length_is_size.
+
+    unfold limit_valid in HLimMax.
+    remove_bools_options.
+    inversion Hoption. subst. simpl in *.
+
+    apply N.leb_le in HLimMax. unfold tab_size in HLimMax.
+    rewrite length_is_size in HLimMax.
+    rewrite Nat2N.inj_add N2Nat.id.
+    by apply shift_scope_le_N.
+Qed.
 
 Lemma reduce_inst_unchanged:
 forall hs s f es hs' s' f' es',
@@ -5015,7 +5080,7 @@ Proof.
     apply et_to_bet in H4; auto_basic. simpl in H4.
     invert_be_typing. simpl in H1.
     unfold supdate_glob, supdate_glob_s, option_bind, option_map in H.
-
+    unfold sglob_ind in H.
     remove_bools_options.
     remember {|
       s_funcs := s_funcs s;
@@ -5036,7 +5101,28 @@ Proof.
     2: {
       (* global_agree of new globals
         (ensure their values match their types) *)
-      unfold global_agree. admit.
+      simpl in Hoption0.
+      assert (lookup_N s_globals0 g0 <> None);
+        first by rewrite Hoption0.
+      apply lookup_N_Some in H.
+
+      simpl in Heqs'. inversion Heqs'. subst.
+      clear Heqs'. simpl in *.
+      destruct HST as [_ [_ [_ [HST _]]]].
+      eapply Forall_update; eauto.
+
+      assert (global_agree g1).
+      {
+        rewrite -> List.Forall_forall in HST.
+        unfold lookup_N in Hoption0.
+        apply List.nth_error_In in Hoption0.
+        apply (HST g1) => //.
+      }
+      unfold global_agree in *. simpl.
+
+      move/eqP in H0. apply/eqP.
+      rewrite H2. f_equal.
+      eapply tc_reference_glob_type in HIT; eauto.
     }
 
     (* Working out left here for future reference *)
@@ -5294,8 +5380,19 @@ Proof.
     2: {
       (* elem_agree of new elements
         (ensure their values match their types) *)
+      simpl in Hoption0.
+      assert (lookup_N s_elems e <> None);
+        first by rewrite Hoption0.
+      apply lookup_N_Some in H.
+
+      simpl in Heqs'. inversion Heqs'. subst.
+      clear Heqs'. simpl in *.
+      destruct HST as [_ [_ [_ [_ [HST _]]]]].
+      eapply Forall_update; eauto.
+
+      unfold elem_agree. simpl.
       apply List.Forall_forall. intros x' HIN.
-      unfold elem_agree. admit.
+      destruct HIN.
     }
     
     subst.
@@ -5327,7 +5424,8 @@ Proof.
         - apply/leP. by rewrite length_is_size in H.
       }
       eapply elem_extension_update_nth with (e := e0) => //=.
-      unfold elem_extension. apply/orP. right. by rewrite Heqelem.
+      unfold elem_extension. rewrite Heqelem. apply/andP. split => //.
+      apply/orP. by right.
     + apply all2_data_extension_same.
 
   - (* update memory : store none *) 
@@ -5537,32 +5635,7 @@ Proof.
     inversion H2. inversion H. subst.
     apply upd_label_unchanged_typing in H1.
     eapply IHHReduce => //=; eauto.
-(* Qed. *) Admitted.
-
-Lemma result_e_type: forall r ts s C,
-  result_types_agree ts r ->
-  e_typing s C (result_to_stack r) (Tf [::] ts).
-Proof.
-  move => r ts s C HResType.
-  destruct r => //=; last by apply ety_trap.
-  generalize dependent ts.
-  induction l => //=; move => ts HResType; simpl in HResType.
-  - destruct ts => //=.
-    apply ety_a' => //=.
-    by apply bet_empty.
-  - destruct ts => //=.
-    simpl in HResType.
-    remove_bools_options.
-    unfold types_agree in H.
-    rewrite -cat1s.
-    eapply et_composition' with (t2s := [:: v]); eauto => //=.
-    + move/eqP in H. rewrite -H.
-      apply const_typing' => //=; first by apply v_to_e_is_const.
-      admit. (* prove or assert funci_agree if it's a funcref from result *)
-    + remove_bools_options. subst.
-      rewrite -cat1s -(cat1s _ ts).
-      apply et_weakening_empty_1. apply IHl => //.
-(* Qed. *) Admitted.
+Qed.
 
 Lemma t_preservation_vs_type:
 forall s f es s' f' es' C C' lab ret t1s t2s hs hs',
@@ -5589,33 +5662,6 @@ Proof.
     rewrite -> upd_label_overwrite in Het.
     by eapply IHHReduce; eauto.
 Qed.
-
-(* not tc_local since inst_typing fails so separate using upd_local *)
-Lemma func_in_local_valid: forall s f j t v,
-  lookup_N [seq typeof i | i <- f_locs f] j = Some t ->
-  t = typeof v ->
-  (forall f', (func_type_exists v s f')).
-Admitted.
-Lemma func_in_global_valid: forall s C i g v,
-  lookup_N (tc_global C) i = Some g ->
-  tg_t g = typeof v ->
-  (forall f', (func_type_exists v s f')).
-Admitted.
-Lemma func_in_table_valid: forall s f C i a j ttype t tabv,
-  lookup_N (tc_table C) i = Some ttype ->
-  lookup_N (inst_tables (f_inst f)) i = Some a ->
-  lookup_N (s_tables s) a = Some t ->
-  lookup_N (tableinst_elem t) j = Some tabv ->
-  tt_elem_type ttype = typeof_ref tabv ->
-  (forall f', (func_type_exists (VAL_ref tabv) s f')).
-Admitted.
-Lemma func_in_elem_valid: forall s f C i j et elem v,
-  lookup_N (tc_elem C) i = Some et ->
-  selem s (f_inst f) i = Some elem ->
-  lookup_N (eleminst_elem elem) j = Some v ->
-  et = typeof_ref v ->
-  (forall f', (func_type_exists (VAL_ref v) s f')).
-Admitted.
 
 Lemma t_preservation_e:
 forall s f es s' f' es' C t1s t2s lab ret hs hs',

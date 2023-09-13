@@ -540,14 +540,15 @@ Definition growtable (tab: tableinst) (n: N) (tabinit: value_ref) : option table
   let len := (N.of_nat (tab_size tab) + n)%N in
   if N.leb u32_bound len then None
   else
-    let: {| tt_limits := lim; tt_elem_type := tabtype |} := tab.(tableinst_type) in
-    let lim' := {| lim_min := len; lim_max := lim.(lim_max) |} in
-    if limit_valid lim' then
-      let elem' := tab.(tableinst_elem) ++ (List.repeat tabinit (N.to_nat n)) in
-      let tab' := {| tableinst_type := {| tt_limits := lim'; tt_elem_type := tabtype |}; tableinst_elem := elem' |} in
-      Some tab'
-    else
-      None.
+    if tab.(tableinst_type).(tt_elem_type) == typeof_ref tabinit then
+      let: {| tt_limits := lim; tt_elem_type := tabtype |} := tab.(tableinst_type) in
+      let lim' := {| lim_min := len; lim_max := lim.(lim_max) |} in
+      if limit_valid lim' then
+        let elem' := tab.(tableinst_elem) ++ (List.repeat tabinit (N.to_nat n)) in
+        let tab' := {| tableinst_type := {| tt_limits := lim'; tt_elem_type := tabtype |}; tableinst_elem := elem' |} in
+        Some tab'
+      else None
+    else None.
 
 Definition stab_grow (s: store_record) (inst: instance) (x: N) (n: N) (tabinit: value_ref) : option store_record :=
   match lookup_N inst.(inst_tables) x with
@@ -694,7 +695,8 @@ Definition global_extension (g1 g2: globalinst) : bool :=
     ((mut == MUT_var) || (g_val g1 == g_val g2)).
 
 Definition elem_extension (e1 e2: eleminst) : bool :=
-  (eleminst_elem e1 == eleminst_elem e2) || (eleminst_elem e2 == [::]).
+  (eleminst_type e1 == eleminst_type e2) &&
+  ((eleminst_elem e1 == eleminst_elem e2) || (eleminst_elem e2 == [::])).
 
 Definition data_extension (d1 d2: datainst) : bool :=
   (datainst_data d1 == datainst_data d2) || (datainst_data d2 == [::]).

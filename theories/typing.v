@@ -455,7 +455,7 @@ Definition refcl_agree (s : store_record) (tref: reference_type) (v : value_ref)
 Definition tabsize_agree (t: tableinst) : Prop :=
   match t.(tableinst_type).(tt_limits).(lim_max) with
   | None => True
-  | Some n => tab_size t <= n
+  | Some n => N.of_nat (tab_size t) <= n
   end.
 
 Definition tab_agree (s: store_record) (t: tableinst) : Prop :=

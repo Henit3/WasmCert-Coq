@@ -116,6 +116,36 @@ Proof.
   *)
 Admitted.
 
+
+Definition br_reduce (es: seq administrative_instruction) :=
+  exists n lh, @lfilled n lh [::AI_basic (BI_br (bin_of_nat n))] es.
+
+Definition return_reduce (es: seq administrative_instruction) :=
+  exists n lh, @lfilled n lh [::AI_basic BI_return] es.
+
+(* pickable2_weaken no longer applicable
+ *  since existential (lh: lholed x) depends on function input (x: nat)
+ * Does this mean these aren't true since they have dependent types?
+ *)
+
+(** [br_reduce] is decidable, proved for independent typed version **)
+Lemma br_reduce_decidable :
+  forall es, decidable (br_reduce es).
+Proof. admit.
+  (* move=> es. apply: pickable_decidable. apply: pickable2_weaken.
+  apply lfilled_pickable_rec_gen => // es' lh lh' n.
+  by apply: lfilled_decidable_base. *)
+(* Defined. *) Admitted.
+
+(** [return_reduce] is decidable, proved for independent typed version **)
+Lemma return_reduce_decidable :
+  forall es, decidable (return_reduce es).
+Proof. admit.
+  (* move=> es. apply: pickable_decidable. apply: pickable2_weaken.
+  apply lfilled_pickable_rec => // es'.
+  by apply: lfilled_decidable_base. *)
+(* Defined. *) Admitted.
+
 Lemma reduce_trap_left: forall vs,
   const_list vs ->
   vs <> [::] ->
@@ -1514,35 +1544,6 @@ Traceback:
     only if there's already a Local outside the Return instruction. So we don't have to deal
     with Return in be_typing either.
  *)
-
-Definition br_reduce (es: seq administrative_instruction) :=
-  exists n lh, @lfilled n lh [::AI_basic (BI_br (bin_of_nat n))] es.
-
-Definition return_reduce (es: seq administrative_instruction) :=
-  exists n lh, @lfilled n lh [::AI_basic BI_return] es.
-
-(* pickable2_weaken no longer applicable
- *  since existential (lh: lholed x) depends on function input (x: nat)
- * Does this mean these aren't true since they have dependent types?
- *)
-
-(** [br_reduce] is decidable. **)
-Lemma br_reduce_decidable :
-  forall es, decidable (br_reduce es).
-Proof. admit.
-  (* move=> es. apply: pickable_decidable. apply: pickable2_weaken.
-  apply lfilled_pickable_rec_gen => // es' lh lh' n.
-  by apply: lfilled_decidable_base. *)
-(* Defined. *) Admitted.
-
-(** [return_reduce] is decidable. **)
-Lemma return_reduce_decidable :
-  forall es, decidable (return_reduce es).
-Proof. admit.
-  (* move=> es. apply: pickable_decidable. apply: pickable2_weaken.
-  apply lfilled_pickable_rec => // es'.
-  by apply: lfilled_decidable_base. *)
-(* Defined. *) Admitted.
 
 
 Local Lemma cat_abcd_a_bc_d:

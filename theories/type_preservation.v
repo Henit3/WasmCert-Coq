@@ -57,17 +57,24 @@ Proof.
   by [].
 Qed.
 
+(* numeric *)
 Lemma N_div_le_mono': forall a b c,
   (c <> 0)%N ->
   (a / c <= b / c)%N ->
   (a <= b)%N.
 Proof.
 Admitted.
-
 Lemma shift_scope_le_N: forall (a b : N),
   (a <= b)%N ->
   (a)%N <= b.
 Proof.
+Admitted.
+
+(* a valid memory will not violate the condition checked when growing *)
+Lemma valid_lim_max: forall m l_max,
+  mem_agree m ->
+  lim_max (meminst_type m) = Some l_max ->
+  (page_limit <= l_max)%N.
 Admitted.
 
 (*
@@ -198,7 +205,7 @@ Definition func_type_exists v s f :=
   exists tf, v = VAL_ref (VAL_ref_func f) ->
     @funci_agree host_function (s_funcs s) f tf.
 
-
+(* the results using these cannot show the function is in s_funcs' bounds *)
 (* not tc_local since inst_typing fails so separate using upd_local *)
 Lemma func_in_local_valid: forall s f j t v,
   lookup_N [seq typeof i | i <- f_locs f] j = Some t ->
@@ -224,12 +231,6 @@ Lemma func_in_elem_valid: forall s f C i j et elem v,
   lookup_N (eleminst_elem elem) j = Some v ->
   et = typeof_ref v ->
   (forall f', (func_type_exists (VAL_ref v) s f')).
-Admitted.
-
-(* if tableinit specified as funcref, ensure it refers something in store *)
-Lemma func_tableinit_valid: forall tab i f tab' s,
-  growtable tab i (VAL_ref_func f) = Some tab' ->
-  N.to_nat f < length (@s_funcs host_function s).
 Admitted.
 
 Lemma const_typing: forall s C v t1s t2s,
@@ -335,6 +336,8 @@ Proof.
       apply/orP. by right.
 Qed.
 
+(* cannot show that results from a host function,
+    if they contain a function references, these are valid (assumption) *)
 Lemma result_e_type: forall r ts s C,
   result_types_agree ts r ->
   e_typing s C (result_to_stack r) (Tf [::] ts).
@@ -4318,11 +4321,24 @@ Proof.
     unfold mem_size, mem_length => /=.
     by rewrite HLen.
 Qed.
-(* 
-Lemma set_nth_table_preserve_type: forall m pos str m',
-  write_bytes m pos str = Some m' ->
-  (mem_size m = mem_size m') /\ (meminst_type m = meminst_type m').
-Proof. *)
+
+Lemma set_nth_table_preserve_size: forall tab tab' i tabv,
+  i < length (tableinst_elem tab) ->
+  set_nth tabv (tableinst_elem tab) i tabv = (tableinst_elem tab') ->
+  (tab_size tab = tab_size tab').
+Proof.
+  intros tab tab' i tabv Hi HUpdate.
+  destruct tab, tab' => //=.
+  unfold tab_size. simpl in *.
+  repeat rewrite length_is_size.
+  rewrite -HUpdate size_set_nth.
+  unfold maxn.
+  destruct (i.+1 < size tableinst_elem) eqn:HSi => //=.
+  remember Hi as Hi'. clear HeqHi'.
+  apply ltn_predK in Hi'.
+  repeat rewrite length_is_size in Hi'.
+  rewrite length_is_size in Hi. lias.
+Qed.
 
 Lemma mem_extension_store: forall m k off v tlen mem,
   store m k off (bits v) tlen = Some mem ->
@@ -4785,39 +4801,48 @@ Lemma set_tab_agree:
 forall (s : store_record) i n tab tabv tab',
   store_typing s ->
   List.nth_error (s_tables s) n = Some tab ->
-  tab_update tab i tabv = tab' ->
+  tab_update tab i tabv = Some tab' ->
+  (forall f : funcaddr, func_type_exists (VAL_ref tabv) s f) ->
   tab_agree s tab'.
 Proof.
-  move => s i n tab tabv tab' HST HN HUpdate.
-  unfold tab_update in HUpdate.
-  destruct tab' => //=. inversion HUpdate. subst.
-
-  (* destruct ((k+off+N.of_nat tl <=? mem_length m)%N) eqn:H => //=. *)
-  (* apply write_bytes_preserve_type in HStore. *)
-  (* destruct HStore as [HMemSize HMemLim]. *)
+  move => s i n tab tabv tab' HST HN HUpdate HF.
+  unfold tab_update in HUpdate. destruct tab' eqn:Htab' => //=.
+  destruct (i <? tab_size tab) eqn: Hi => //=.
+  destruct (tt_elem_type (datatypes.tableinst_type tab) ==
+            typeof_ref tabv) eqn: Htabv => //=.
+  apply Nat.ltb_lt in Hi. move/ltP in Hi. move/eqP in Htabv.
+  unfold tab_size in Hi. inversion HUpdate.
 
   assert (tab_agree s tab); first by eapply store_typed_tab_agree; eauto.
   unfold tab_agree in H. destruct H.
   unfold tab_agree => //=. split => //=.
   - (* check only for changed element of table
         whether the value matches its typing since all others unchanged *)
-    admit.
+    eapply Forall_update; eauto.
+    unfold refcl_agree. destruct tabv => //.
+    split => //.
 
-  - remember {|
-      tableinst_type := tableinst_type tab;
-      tableinst_elem := set_nth tabv (tableinst_elem tab) i tabv
-    |} as tab'.
+    unfold func_type_exists, funci_agree, option_map in HF.
+    destruct (HF f).
+    assert (VAL_ref (VAL_ref_func f) = VAL_ref (VAL_ref_func f)) => //.
+    apply H3 in H4.
+    destruct (lookup_N (s_funcs s) f) eqn:Hsf => //.
+    assert (lookup_N (s_funcs s) f <> None); first by rewrite Hsf.
+    by apply lookup_N_Some in H5.
+
+  - rewrite H1 H0 -Htab'.
+
+    assert (tab_size tab = tab_size tab');
+      first by eapply set_nth_table_preserve_size with (tabv := tabv);
+        eauto; rewrite Htab'.
+    
     unfold tabsize_agree in *.
-    destruct (lim_max (tt_limits (tableinst_type tab'))) eqn:HLimMax => //=.
-    admit.
-    (* rewrite HLimMax in H0. *)
-Admitted.
+    rewrite H3 in H2.
 
-Lemma valid_lim_max: forall m l_max,
-  mem_agree m ->
-  lim_max (meminst_type m) = Some l_max ->
-  (page_limit <= l_max)%N.
-Admitted.
+    destruct (datatypes.tableinst_type tab) => //=.
+    destruct (tableinst_type) => //=. simpl in *.
+    inversion H0. by subst.
+Qed.
 
 Lemma mem_grow_mem_agree: forall s n m c mem,
   store_typing s ->
@@ -4856,9 +4881,10 @@ forall (s : store_record) n tab c tabinit tab',
   store_typing s ->
   List.nth_error (s_tables s) n = Some tab ->
   growtable tab c tabinit = Some tab' ->
+  (forall f : funcaddr, func_type_exists (VAL_ref tabinit) s f) ->
   tab_agree s tab'.
 Proof.
-  move => s n tab c tabinit tab' HST HN HGrow.
+  move => s n tab c tabinit tab' HST HN HGrow HF.
   assert (tab_agree s tab); first by eapply store_typed_tab_agree; eauto.
   remember HGrow as HGrow'. clear HeqHGrow'.
   unfold growtable in HGrow.
@@ -4886,7 +4912,14 @@ Proof.
     intros x HIN. apply List.repeat_spec in HIN.
     move/eqP in HInit. subst.
     destruct tabinit => //. simpl in *. split => //.
-    eapply func_tableinit_valid; eauto.
+    
+    unfold func_type_exists, funci_agree, option_map in HF.
+    destruct (HF f).
+    assert (VAL_ref (VAL_ref_func f) = VAL_ref (VAL_ref_func f)) => //.
+    apply H1 in H2.
+    destruct (lookup_N (s_funcs s) f) eqn:Hsf => //.
+    assert (lookup_N (s_funcs s) f <> None); first by rewrite Hsf.
+    by apply lookup_N_Some in H3.
   
   - unfold tabsize_agree, tab_size. simpl in *. 
     destruct (lim_max tt_limits) => //=.
@@ -5211,8 +5244,6 @@ Proof.
     assert (store_extension s s') as Hext.
     {
       remove_bools_options.
-      destruct (Z.to_nat (Wasm_int.Int32.unsigned i) <? tab_size t0) eqn:Etsize => //=.
-      remove_bools_options.
       repeat (apply/andP; split) => //=;
       try apply Nat.leb_refl; try (rewrite List.firstn_all).
       + apply all2_func_extension_same.
@@ -5227,11 +5258,10 @@ Proof.
         assert (lookup_N (s_tables s) t <> None);
           first by rewrite Hoption0.
         apply lookup_N_Some in H.
-  
-        replace (List.firstn (length (s_tables s)) (set_nth t' (s_tables s) (N.to_nat t) t'))
-           with (set_nth t' (s_tables s) (N.to_nat t) t').
+
+        rewrite -> List.firstn_all2.
         2: {
-          symmetry. apply List.firstn_all2. repeat rewrite length_is_size.
+          repeat rewrite length_is_size.
           rewrite size_set_nth. unfold maxn.
           destruct ((N.to_nat t).+1 < size (s_tables s)) eqn:Emax.
           - apply Nat.le_refl.
@@ -5239,7 +5269,14 @@ Proof.
         }
         eapply table_extension_update_nth with (m := t0) => //=.
         unfold table_extension, limits_extension.
-        apply/andP. split; rewrite Heqt' => //=.
+
+        unfold tab_update in Heqt'.
+        rewrite Hoption1 in Heqt'.
+        destruct (Z.to_nat (Wasm_int.Int32.unsigned i) <? tab_size t0) eqn:Etsize => //=.
+        destruct (tt_elem_type (tableinst_type t0) == typeof_ref tabv) eqn:Ettype => //=.
+        inversion Heqt'. simpl in *.
+
+        apply/andP. split => //.
         apply/andP; split => //.
         unfold tab_size. repeat rewrite length_is_size. simpl.
         rewrite size_set_nth. unfold maxn.
@@ -5255,8 +5292,6 @@ Proof.
 
     split => //.
     remove_bools_options.
-    destruct (Z.to_nat (Wasm_int.Int32.unsigned i) <? tab_size t0) eqn:Etsize => //=.
-    remove_bools_options.
     eapply store_table_extension_store_typed; eauto => //=.
     remember HST as HST2. clear HeqHST2.
     unfold store_typing in HST.
@@ -5271,6 +5306,8 @@ Proof.
     remember (tab_update t0 (Z.to_nat (Wasm_int.Int32.unsigned i))
               tabv) as tab'.
     unfold lookup_N in Hoption0.
+    rewrite Hoption1 in Heqtab'.
+    simpl in *.
     eapply set_tab_agree; eauto.
   }
   
@@ -5919,6 +5956,11 @@ Proof.
     }
     rewrite H2. apply const_typing' => //=;
     first apply v_to_e_is_const.
+
+    (* f_locs not considered in inst_typing; technically f_inst next to it
+    unfold inst_typing, typing.inst_typing in HIT1.
+    destruct (f_inst f), C, tc_local, tc_label, tc_return, tc_ref => //.
+    remove_bools_options. *)
     eapply func_in_local_valid; eauto.
     
   - (* Set_local *)
@@ -5933,14 +5975,18 @@ Proof.
     rewrite H0. apply const_typing';
     first apply v_to_e_is_const.
     unfold option_map in H1. remove_bools_options.
-    eapply func_in_global_valid; eauto.
 
-    (* unfold option_map in H1.
-    unfold sglob_val, option_map, sglob, sglob_ind in H.
-    remove_bools_options. unfold func_type_exists.
-    destruct (g_val g0) as [| |[]] => //=;
-      try by (intro; exists (Tf [::] [::])). *)
-    (* intro f1. unfold inst_typing, typing.inst_typing in HIT1. *)
+    (* globals in inst_typing but problem is that
+        f' is not defined as in bounds for s_funcs
+    unfold inst_typing, typing.inst_typing in HIT1.
+    destruct (f_inst f), C, tc_local, tc_label, tc_return, tc_ref => //.
+    remove_bools_options.
+
+    unfold func_type_exists, funci_agree, option_map. intro f'.
+    destruct v as [| |[]] => //; try by exists (Tf [::] [::]) => //.
+    (* obtain function type *) simpl in *.
+    intro HF. inversion HF. subst. *)
+    eapply func_in_global_valid; eauto.
 
   - (* Set_Global *)
     invert_e_typing. convert_et_to_bet. invert_be_typing.
@@ -5965,6 +6011,17 @@ Proof.
        with (lookup_N (tableinst_elem t)
             (N.of_nat (Z.to_nat (Wasm_int.Int32.unsigned i)))) in H => //;
         last by unfold lookup_N; rewrite -> Nat2N.id.
+
+    (* tables in inst_typing but problem is that
+        f' is not defined as in bounds for s_funcs
+    unfold inst_typing, typing.inst_typing in HIT1.
+    destruct (f_inst f), C, tc_local, tc_label, tc_return, tc_ref => //.
+    remove_bools_options.
+
+    unfold func_type_exists, funci_agree, option_map. intro f'.
+    destruct tabv as [| |[]] => //; try by exists (Tf [::] [::]) => //.
+    (* obtain function type *) simpl in *.
+    intro HF. inversion HF. subst. *)
     eapply func_in_table_valid; eauto.
     
   - (* Table Set *)
@@ -6196,6 +6253,16 @@ Proof.
       fold (typeof (VAL_ref v)). fold (v_to_e (VAL_ref v)).
       eapply const_ref_typing' => //=. destruct v => //.
 
+    (* elems in inst_typing but problem is that
+        f' is not defined as in bounds for s_funcs
+    unfold inst_typing, typing.inst_typing in HIT1.
+    destruct (f_inst f), C, tc_local, tc_label, tc_return, tc_ref => //.
+    remove_bools_options.
+
+    unfold func_type_exists, funci_agree, option_map. intro f'.
+    destruct v as [| |[]] => //; try by exists (Tf [::] [::]) => //.
+    (* obtain function type *) simpl in *.
+    intro HF. inversion HF. subst. *)
     eapply func_in_elem_valid; eauto.
     unfold selem in H0. remove_bools_options.
 

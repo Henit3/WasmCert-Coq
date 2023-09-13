@@ -267,6 +267,13 @@ https://www.w3.org/TR/wasm-core-2/appendix/properties.html#store-validity
 **)
 Section Store_validity.
 
+(* exactly limits_extension;
+  though this corresponds to Wasm 1.0 typing on limits,
+  so does the extension definition so this should be intentional *)
+Definition limits_typing (l1 l2 : limits) : bool :=
+  (l1.(lim_min) <= l2.(lim_min)) &&
+  (l1.(lim_max) == l2.(lim_max)).
+
 Definition funci_agree (fs : seq function_closure) (n : funcaddr) (f : function_type) : bool :=
   option_map cl_type (lookup_N fs n) == Some f.
 
@@ -281,14 +288,15 @@ Definition globali_agree (gs : list globalinst) (n : globaladdr) (tg : global_ty
 
 Definition tab_typing (t : tableinst) (tt : table_type) : bool :=
   (tt.(tt_limits).(lim_min) <= tab_size t) &&
-  (t.(tableinst_type) == tt).
+  (limits_typing (tableinst_type t).(tt_limits) (tt.(tt_limits))) &&
+  ((tableinst_type t).(tt_elem_type) == tt.(tt_elem_type)).
 
 Definition tabi_typing (ts: list tableinst) (n : tableaddr) (tab_t : table_type) : bool :=
   option_map (fun tab => tab_typing tab tab_t) (lookup_N ts n) == Some true.
 
 Definition mem_typing (m : meminst) (m_t : memory_type) : bool :=
   (N.leb m_t.(lim_min) (mem_size m)) &&
-  (m.(meminst_type) == m_t).
+  (limits_typing m.(meminst_type) m_t).
 
 Definition memi_typing (ms : list meminst) (n : memaddr) (mem_t : memory_type) : bool :=
   option_map (fun mem => mem_typing mem mem_t) (lookup_N ms n) == Some true.

@@ -677,16 +677,16 @@ Definition func_extension (f1 f2: function_closure) : bool :=
   f1 == f2.
 
 Definition table_extension (t1 t2 : tableinst) :=
+  (Nat.leb (tab_size t1) (tab_size t2)) &&
   (limits_extension
     (tableinst_type t1).(tt_limits)
     (tableinst_type t2).(tt_limits)) &&
   ((tableinst_type t1).(tt_elem_type) == 
-    (tableinst_type t2).(tt_elem_type)) &&
-  (Nat.leb (tab_size t1) (tab_size t2)).
+    (tableinst_type t2).(tt_elem_type)).
 
 Definition mem_extension (m1 m2 : meminst) :=
-  (limits_extension (meminst_type m1) (meminst_type m2)) &&
-  (N.leb (mem_length m1) (mem_length m2)).
+  (N.leb (mem_length m1) (mem_length m2)) &&
+  (limits_extension (meminst_type m1) (meminst_type m2)).
 
 Definition global_extension (g1 g2: globalinst) : bool :=
   (g_type g1 == g_type g2) &&

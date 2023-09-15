@@ -3580,8 +3580,8 @@ Proof.
   assert (List.nth_error m1 (N.to_nat n) = Some m3);
     first by eapply nth_error_firstn; eauto.
   apply N.leb_le in H, H0.
-  rewrite H3. apply/eqP => //=. f_equal. apply/andP. split => //=.
-  - unfold limits_typing in H2. remove_bools_options.
+  rewrite H4. apply/eqP => //=. f_equal. apply/andP. split => //=.
+  - unfold limits_typing in H3. remove_bools_options.
     unfold mem_size in *. apply N.leb_le.
     assert ((mem_length m2 / page_size <= mem_length m3 / page_size)%N);
       first by apply N.div_le_mono => //=.
@@ -3883,7 +3883,7 @@ Proof.
   apply reflexive_all2_same. unfold reflexive. move => x. unfold table_extension.
   apply/andP. split => //=.
   apply/andP. split => //=; first by apply Nat.leb_refl.
-  destruct x. by unfold tab_size, limits_extension.
+  apply/andP. split => //=.
 Qed.
 
 Lemma all2_mem_extension_same: forall t,
@@ -3893,6 +3893,7 @@ Proof.
   apply reflexive_all2_same. unfold reflexive. move => x.
   unfold mem_extension, limits_extension.
   apply/andP; split => //; first by apply N.leb_refl.
+  apply/andP; split => //.
 Qed.
 
 Lemma all2_global_extension_same: forall t,
@@ -4109,8 +4110,8 @@ Proof.
     simpl.
     apply/andP. split.
     + unfold mem_extension, limits_extension.
+      apply/andP; split => //; first by apply N.leb_refl.
       apply/andP; split => //.
-      apply N.leb_le; by lias.
     + by eapply IHn; eauto.
 Qed.
 
@@ -4129,8 +4130,9 @@ Proof.
     simpl.
     apply/andP. split.
     + unfold table_extension, limits_extension.
-      apply/andP; split => //. apply/andP; split => //.
-      apply Nat.leb_le; by lias.
+      apply/andP; split => //.
+      apply/andP; split => //; first by apply Nat.leb_refl.
+      apply/andP; split => //.
     + by eapply IHn; eauto.
 Qed.
 
@@ -4350,40 +4352,65 @@ Proof.
   destruct ((k + off + N.of_nat tlen <=? mem_length m)%N) eqn:HMemSize => //.
   remove_bools_options.
   apply write_bytes_preserve_type in HStore; destruct HStore as [H1 H2].
-  unfold limits_extension. apply/andP; split => //=; last by rewrite H2.
-  apply N.leb_le. unfold mem_size in *.
-  eapply N_div_le_mono' with (c := page_size);
-    first by unfold page_size.
-  rewrite H1. apply N.le_refl.
+  unfold limits_extension. apply/andP; split => //=.
+  - apply N.leb_le. unfold mem_size in *.
+    eapply N_div_le_mono' with (c := page_size);
+      first by unfold page_size.
+    rewrite H1. apply N.le_refl.
+  - apply/andP; split => //=; last by rewrite H2.
+    destruct (meminst_type m), (meminst_type mem) => //=.
+    by inversion H2.
 Qed.
 
 (* Note this is flawed due to mem_grow not changing the min limits
     This won't be possible until the extension is relaxed on min limit
     The same applies to tab_extension_grow_memory.
 *)
-Lemma mem_extension_grow_memory: forall m c mem,
+Lemma mem_extension_grow_memory: forall s f C i m c mem,
+  inst_typing s (f_inst f) C ->
+  lookup_N (s_mems s) i = Some m ->
   mem_grow m c = (Some mem) ->
   mem_extension m mem.
 Proof.
-  move => m c mem HMGrow.
+  move => s f C i m c mem HIT HM HMGrow.
   unfold mem_extension.
   unfold mem_grow in HMGrow.
   destruct (mem_size m + c <=? page_limit)%N eqn:HLP => //.
-  - move : HMGrow.
-    case: mem => mem_data_ mem_max_opt_ H.
-    inversion H. subst. clear H.
-    simpl in *. apply/andP. 
-    unfold limits_extension. split => //.
-    unfold mem_size, mem_length, memory_list.mem_length in *.
+  move : HMGrow.
+  case: mem => mem_data_ mem_max_opt_ H.
+  inversion H. subst. clear H.
+  simpl in *. apply/andP. 
+  unfold limits_extension. split => //.
+  - unfold mem_size, mem_length, memory_list.mem_length in *.
     simpl. repeat rewrite length_is_size.
     rewrite size_cat. apply N.leb_le. by lias.
-Qed.
+  - apply/andP. split => //. simpl.
+    apply N.leb_le in HLP.
 
-Lemma table_extension_grow_memory: forall tab c tabinit tab',
+    unfold inst_typing, typing.inst_typing in HIT.
+    destruct (f_inst f), C, tc_local, tc_label, tc_return, tc_ref => //.
+    remove_bools_options.
+
+    (* Rough proof since typing not exactly meminst_type m but
+        it is equal for our purposes *)
+    (* Requires knowledge of the instance contents *)
+
+    unfold lookup_N in HM.
+    eapply all2_projection with (x1 := i) (x2 := meminst_type m) in H2; eauto.
+    unfold memi_typing, option_map, mem_typing in H2.
+    remove_bools_options.
+    unfold lookup_N in Hoption. rewrite Hoption in HM.
+    inversion HM. subst. apply N.leb_le in H. admit.
+    (* min m <= size m + c, given min m <= size m trivial *)
+(* Qed. *) Admitted.
+
+Lemma table_extension_grow_memory: forall s f C i tab c tabinit tab',
+  inst_typing s (f_inst f) C ->
+  lookup_N (s_tables s) i = Some tab ->
   growtable tab c tabinit = Some tab' ->
   table_extension tab tab'.
 Proof.
-  move => tab c tabinit tab' HGrow.
+  move => s f C i tab c tabinit tab' HIT HT HGrow.
   unfold table_extension.
   unfold growtable in HGrow.
   destruct (u32_bound <=? N.of_nat (tab_size tab) + c)%N eqn:HLP => //.
@@ -4402,10 +4429,28 @@ Proof.
   apply/andP. split => //.
   apply/eqP. f_equal. inversion HGrow.
   unfold limits_extension. apply/eqP. apply/andP. split => //.
-  unfold tab_size. simpl in *.
-  repeat rewrite length_is_size. rewrite size_cat.
-  apply Nat.leb_le. lias.
-Qed.
+  - unfold tab_size. simpl in *.
+    repeat rewrite length_is_size. rewrite size_cat.
+    apply Nat.leb_le. lias.
+  - apply/andP. split => //. simpl.
+
+    unfold inst_typing, typing.inst_typing in HIT.
+    destruct (f_inst f), C, tc_local, tc_label, tc_return, tc_ref => //.
+    remove_bools_options.
+
+    (* Rough proof since typing not exactly tableinst_type tab but
+        it is equal for our purposes *)
+    (* Requires knowledge of the instance contents *)
+
+    unfold lookup_N in HT.
+    eapply all2_projection with (x1 := i) (x2 := tableinst_type tab) in H5; eauto.
+    unfold tabi_typing, option_map, tab_typing in H5.
+    remove_bools_options.
+    unfold lookup_N in Hoption. rewrite Hoption in HT.
+    inversion HT. subst. rewrite Ett in H. simpl in H.
+    admit.
+    (* min tab <= size tab + c, given min tab <= size tab trivial *)
+(* Qed. *) Admitted.
   
 Lemma store_invariant_extension_store_typed: forall s s',
   store_typing s ->
@@ -5277,7 +5322,7 @@ Proof.
         inversion Heqt'. simpl in *.
 
         apply/andP. split => //.
-        apply/andP; split => //.
+        apply/andP; split => //; last by apply/andP; split => //.
         unfold tab_size. repeat rewrite length_is_size. simpl.
         rewrite size_set_nth. unfold maxn.
         destruct ((Z.to_nat (Wasm_int.Int32.unsigned i)).+1 < size (tableinst_elem t0)) eqn:Emax;

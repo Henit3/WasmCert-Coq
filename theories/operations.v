@@ -676,7 +676,7 @@ Definition those_const_list (es : list administrative_instruction) : option (lis
 (** Store extensions **)
 
 Definition limits_extension (l1 l2: limits) :=
-  (* (l1.(lim_min) <= l2.(lim_min)) && *)
+  (l1.(lim_min) <= l2.(lim_min)) &&
   (l1.(lim_max) == l2.(lim_max)).
 
 Definition func_extension (f1 f2: function_closure) : bool :=

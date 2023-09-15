@@ -70,13 +70,6 @@ Lemma shift_scope_le_N: forall (a b : N),
 Proof.
 Admitted.
 
-(* a valid memory will not violate the condition checked when growing *)
-Lemma valid_lim_max: forall m l_max,
-  mem_agree m ->
-  lim_max (meminst_type m) = Some l_max ->
-  (page_limit <= l_max)%N.
-Admitted.
-
 (*
   These proofs are largely similar.
   A sensible thing to do is to make tactics for all of them.
@@ -4406,6 +4399,10 @@ Proof.
   unfold mem_extension.
   unfold mem_grow in HMGrow.
   destruct (mem_size m + c <=? page_limit)%N eqn:HLP => //.
+  destruct (limit_valid {|
+              lim_min := (mem_size m + c)%N;
+              lim_max := lim_max (meminst_type m)
+            |}) eqn:HLimValidMax => //.
   move : HMGrow.
   case: mem => mem_data_ mem_max_opt_ H.
   inversion H. subst. clear H.
@@ -4936,21 +4933,28 @@ Proof.
   destruct (mem_size m + c <=? page_limit)%N eqn:HLP => //.
   destruct (lim_max (meminst_type m)) eqn:HLimMax => //=;
     last by inversion HGrow; destruct lim_max => //=.
+  destruct (limit_valid {|
+              lim_min := (mem_size m + c)%N;
+              lim_max := Some u
+            |}) eqn: HLimValid => //.
+  unfold limit_valid in HLimValid.
+  destruct (lim_max {|
+              lim_min := (mem_size m + c)%N; lim_max := Some u
+            |}) eqn:HLimValidMax => //.
+  inversion HLimValidMax. subst. clear HLimValidMax.
   apply N.leb_le in HLP.
-  (* new size is less than old size?? *)
+  
   destruct (lim_max (meminst_type mem)) eqn:H1; last by inversion HGrow.
   inversion HGrow. unfold mem_size, mem_length, memory_list.mem_length in *.
   simpl in *. subst. clear HGrow.
   rewrite length_is_size. rewrite size_cat.
   repeat rewrite - length_is_size. rewrite List.repeat_length.
   rewrite - N.div_add in H1 => //.
-  inversion H1. subst. simpl in *.
-  rewrite - N.div_add in HLP => //.
+  inversion H1. subst. simpl in *. clear H1.
+  rewrite - N.div_add in HLimValid => //.
   rewrite Nat2N.inj_add N2Nat.id.
-
-  apply valid_lim_max in HLimMax; last by apply H'.
-  apply shift_scope_le_N.
-  eapply N.le_trans; eauto.
+  apply N.leb_le in HLimValid.
+  by apply shift_scope_le_N.
 Qed.
 
 Lemma table_grow_tab_agree:

@@ -41,18 +41,18 @@ https://www.w3.org/TR/wasm-core-2/valid/types.html#limits
 **)
 Definition limit_valid_range (lim: limits) (k: N) : bool :=
   (N.leb lim.(lim_min) k) &&
-    match lim.(lim_max) with
-    | Some lmax => (N.leb lim.(lim_min) lmax) && (N.leb lmax k)
-    | None => true
-    end.
+  match lim.(lim_max) with
+  | Some lmax => (N.leb lim.(lim_min) lmax) && (N.leb lmax k)
+  | None => true
+  end.
 
 (* This is no longer a part of 2.0 spec. However, some instructions
    still refer to a limit simply being 'valid' without specifying a range. *)
 Definition limit_valid (lim: limits) : bool :=
   match lim.(lim_max) with
-  | Some lmax => N.leb lim.(lim_min) lmax
-  | None => true
-end.
+    | Some lmax => N.leb lim.(lim_min) lmax
+    | None => true
+  end.
 
 
 
@@ -117,10 +117,12 @@ Definition mem_grow (m : meminst) (len_delta : N) : option meminst :=
   let new_mem_data := mem_grow (N.mul len_delta page_size) m.(meminst_data) in
   if N.leb new_size page_limit then
     let lim' := {| lim_min := new_size; lim_max := m.(meminst_type).(lim_max) |} in
-    Some {|
-      meminst_data := new_mem_data;
-      meminst_type := lim';
-      |}
+    if limit_valid lim' then
+      Some {|
+          meminst_data := new_mem_data;
+          meminst_type := lim';
+          |}
+    else None
   else None.
 
 (* TODO: We crucially need documentation here. *)

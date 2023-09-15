@@ -271,7 +271,7 @@ Section Store_validity.
   though this corresponds to Wasm 1.0 typing on limits,
   so does the extension definition so this should be intentional *)
 Definition limits_typing (l1 l2 : limits) : bool :=
-  (* (l1.(lim_min) <= l2.(lim_min)) && *)
+  (l1.(lim_min) <= l2.(lim_min)) &&
   (l1.(lim_max) == l2.(lim_max)).
 
 Definition funci_agree (fs : seq function_closure) (n : funcaddr) (f : function_type) : bool :=

@@ -3587,8 +3587,25 @@ Proof.
       first by apply N.div_le_mono => //=.
     eapply N.le_trans; eauto.
   - unfold limits_typing in *. remove_bools_options. 
-    rewrite -H2. by apply/eqP.
-Qed.
+    rewrite -H2. apply/andP. split => //; last by apply/eqP.
+    admit.
+    (* min m3 <= min m, given:
+          min m2 <= min m
+          min m2 <= min m3
+       
+      on growth of a component (m2 -> m3), we want to prove it is valid
+        with respect to the typing in the instance (m)
+      reformulating as m2 + i = m, m2 + j = m3,
+        m3 <= m implies j <= i; we don't have enough information for this
+      
+      simplest solution would be to set some to 0
+        i = 0 (exact instance) wouldn't allow any growth to be valid
+        j = 0 (no extension growth) explicitly states no growth
+      
+      though modified definition allows arbitrary m3, it still holds that
+        m2 <= m3, with no relation defined between m and m3?
+    *)
+(* Qed. *) Admitted.
 
 Lemma mem_extension_C: forall sm sm' im tcm,
   size sm <= size sm' ->
@@ -3648,7 +3665,14 @@ Proof.
     unfold limits_typing, limits_extension in *. remove_bools_options.
     simpl in *. split => //; last by apply/eqP.
     apply/andP. split => //; first by apply Nat.leb_le in H; lias.
-    apply/eqP. by rewrite -H5.
+    rewrite -H11. apply/andP. split => //; last by apply/eqP.
+    admit.
+    (* min t1 <= min tt, given:
+          min t <= min tt
+          min t <= min t1
+      Same argument as for memory above
+    *)
+
   - assert (List.nth_error t0 n0 <> None) as Ht0len;
       first by rewrite Hoption.
     apply List.nth_error_Some in Ht0len; move/ltP in Ht0len.
@@ -3656,16 +3680,22 @@ Proof.
       last (by eapply nth_error_firstn'; eauto).
     unfold limits_typing, limits_extension in *. remove_bools_options.
     rewrite H4 H1. simpl in *. f_equal.
-    + rewrite H5. apply/andP.
+    + rewrite H5 H11. apply/andP. simpl.
       assert (lim_max tt_limits == lim_max tt_limits) as Htriv;
         first by apply/eqP. rewrite Htriv. clear Htriv.
       split => //; first by apply Nat.leb_le in H0; lias.
-      apply/eqP. by rewrite -H5.
+      apply/andP. split => //; last by rewrite -H10; apply/eqP.
+      admit.
+      (* min t4 <= min tt, given:
+            min t3 <= min tt
+            min t3 <= min t4
+        Same argument as for memory above
+      *)
     + simpl.
       assert (tt_elem_type == tt_elem_type) as Htriv;
         first by apply/eqP. rewrite Htriv. clear Htriv.
       apply/eqP. by rewrite -H4.
-Qed.
+(* Qed. *) Admitted.
 
 Lemma tab_extension_C: forall st st' it tct,
   size st <= size st' ->
@@ -4393,7 +4423,8 @@ Proof.
 
     (* Rough proof since typing not exactly meminst_type m but
         it is equal for our purposes *)
-    (* Requires knowledge of the instance contents *)
+    
+    (*!! Requires knowledge of the instance contents !!*)
 
     unfold lookup_N in HM.
     eapply all2_projection with (x1 := i) (x2 := meminst_type m) in H2; eauto.
@@ -4440,7 +4471,8 @@ Proof.
 
     (* Rough proof since typing not exactly tableinst_type tab but
         it is equal for our purposes *)
-    (* Requires knowledge of the instance contents *)
+    
+    (*!! Requires knowledge of the instance contents !!*)
 
     unfold lookup_N in HT.
     eapply all2_projection with (x1 := i) (x2 := tableinst_type tab) in H5; eauto.

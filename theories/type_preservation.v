@@ -4373,14 +4373,38 @@ Proof.
   unfold mem_extension.
   unfold mem_grow in HMGrow.
   destruct (mem_size m + c <=? page_limit)%N eqn:HLP => //.
-  - move : HMGrow.
-    case: mem => mem_data_ mem_max_opt_ H.
-    inversion H. subst. clear H.
-    simpl in *. apply/andP. 
-    unfold limits_extension. split => //.
-    unfold mem_size, mem_length, memory_list.mem_length in *.
+  destruct (limit_valid {|
+              lim_min := (mem_size m + c)%N;
+              lim_max := lim_max (meminst_type m)
+            |}) eqn:HLimValidMax => //.
+  move : HMGrow.
+  case: mem => mem_data_ mem_max_opt_ H'.
+  inversion H'. subst. clear H'.
+  simpl in *. apply/andP. 
+  unfold limits_extension. split => //.
+  - unfold mem_size, mem_length, memory_list.mem_length in *.
     simpl. repeat rewrite length_is_size.
     rewrite size_cat. apply N.leb_le. by lias.
+  - apply/andP. split => //. simpl.
+    apply N.leb_le in HLP.
+
+    unfold inst_typing, typing.inst_typing in HIT.
+    destruct (f_inst f), C, tc_local, tc_label, tc_return, tc_ref => //.
+    remove_bools_options. simpl in *.
+
+    unfold lookup_N in HM.
+    eapply all2_projection in H4; eauto.
+    unfold memi_typing, option_map, mem_typing in H2.
+    remove_bools_options.
+
+    unfold store_typing in HST. destruct s => //. simpl in *.
+    destruct HST as [_ [_ [HST _]]].
+    move/List.Forall_forall in HST.
+    apply List.nth_error_In in HM.
+    assert (mem_agree m); first by apply HST.
+    unfold mem_agree in H8. destruct H8.
+    move/eqP in H9. rewrite H9.
+    apply shift_scope_le_N. lias.
 Qed.
 
 Lemma table_extension_grow_memory: forall s f C x i ttype tab c tabinit tab',
@@ -4896,23 +4920,31 @@ Proof.
   unfold mem_agree.
   unfold mem_agree in H.
   destruct (mem_size m + c <=? page_limit)%N eqn:HLP => //.
-  destruct (lim_max (meminst_type m)) eqn:HLimMax => //=;
-    last by inversion HGrow; destruct lim_max => //=.
-  apply N.leb_le in HLP.
-  (* new size is less than old size?? *)
-  destruct (lim_max (meminst_type mem)) eqn:H1; last by inversion HGrow.
-  inversion HGrow. unfold mem_size, mem_length, memory_list.mem_length in *.
-  simpl in *. subst. clear HGrow.
-  rewrite length_is_size. rewrite size_cat.
-  repeat rewrite - length_is_size. rewrite List.repeat_length.
-  rewrite - N.div_add in H1 => //.
-  inversion H1. subst. simpl in *.
-  rewrite - N.div_add in HLP => //.
-  rewrite Nat2N.inj_add N2Nat.id.
-
-  apply valid_lim_max in HLimMax; last by apply H'.
-  apply shift_scope_le_N.
-  eapply N.le_trans; eauto.
+  destruct H.
+  destruct (limit_valid {|
+              lim_min := (mem_size m + c)%N;
+              lim_max := lim_max (meminst_type m)
+            |}) eqn: HLimValid => //.
+  unfold limit_valid in HLimValid.
+  inversion HGrow. simpl in *.
+  split => //.
+  - destruct (lim_max (meminst_type m)) eqn:HLimMax => //=.
+    rewrite H2. apply N.leb_le in HLP.
+    destruct (lim_max (meminst_type mem)) eqn:H1 => //;
+      inversion HGrow; unfold mem_size, mem_length, memory_list.mem_length in *;
+      simpl in *; subst; clear HGrow;
+      rewrite length_is_size; rewrite size_cat;
+      repeat rewrite - length_is_size; rewrite List.repeat_length;
+      rewrite - N.div_add in H1 => //.
+    inversion H1. subst. simpl in *. clear H1.
+    rewrite - N.div_add in HLimValid => //.
+    rewrite Nat2N.inj_add N2Nat.id.
+    apply N.leb_le in HLimValid.
+    by apply shift_scope_le_N.
+  - inversion HGrow.
+    unfold mem_size, mem_length, memory_list.mem_length in *.
+    simpl in *. rewrite -> List.app_length.
+    rewrite List.repeat_length Nat2N.inj_add N2Nat.id N.div_add => //.
 Qed.
 
 Lemma table_grow_tab_agree:

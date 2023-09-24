@@ -267,12 +267,12 @@ https://www.w3.org/TR/wasm-core-2/appendix/properties.html#store-validity
 **)
 Section Store_validity.
 
-(* limits_extension without lim_min condition (like Wasm 1.0);
-  though this corresponds to Wasm 1.0 typing on limits,
-  so does the extension definition so this should be intentional *)
+(* Min limit in the instance (l2) corresponds to the minimum size
+    of the current component (the current lim_min of l1) &
+   Max limit remains invariant. *)
 Definition limits_typing (l1 l2 : limits) : bool :=
-  (l1.(lim_min) <= l2.(lim_min)) &&
-  (l1.(lim_max) == l2.(lim_max)).
+  (l2.(lim_min) <= l1.(lim_min)) &&
+  (l2.(lim_max) == l1.(lim_max)).
 
 Definition funci_agree (fs : seq function_closure) (n : funcaddr) (f : function_type) : bool :=
   option_map cl_type (lookup_N fs n) == Some f.
@@ -287,7 +287,6 @@ Definition globali_agree (gs : list globalinst) (n : globaladdr) (tg : global_ty
   option_map g_type (lookup_N gs n) == Some tg. *)
 
 Definition tab_typing (t : tableinst) (tt : table_type) : bool :=
-  (tt.(tt_limits).(lim_min) <= tab_size t) &&
   (limits_typing (tableinst_type t).(tt_limits) (tt.(tt_limits))) &&
   ((tableinst_type t).(tt_elem_type) == tt.(tt_elem_type)).
 
@@ -295,7 +294,6 @@ Definition tabi_typing (ts: list tableinst) (n : tableaddr) (tab_t : table_type)
   option_map (fun tab => tab_typing tab tab_t) (lookup_N ts n) == Some true.
 
 Definition mem_typing (m : meminst) (m_t : memory_type) : bool :=
-  (N.leb m_t.(lim_min) (mem_size m)) &&
   (limits_typing m.(meminst_type) m_t).
 
 Definition memi_typing (ms : list meminst) (n : memaddr) (mem_t : memory_type) : bool :=
@@ -313,7 +311,6 @@ Definition elemi_typing (es : list eleminst) (n : elemaddr) (et : reference_type
 Definition datai_typing (ds : list datainst) (n : dataaddr) (dt : unit) : bool :=
   option_map (fun d => true) (lookup_N ds n) == Some true.
 
-(* TODO: figure out what's missing for elem/data/ref *)
 (** std-doc:
 https://www.w3.org/TR/wasm-core-2/appendix/properties.html#module-instances-xref-exec-runtime-syntax-moduleinst-mathit-moduleinst
 **)
@@ -461,13 +458,15 @@ Definition tabsize_agree (t: tableinst) : Prop :=
 Definition tab_agree (s: store_record) (t: tableinst) : Prop :=
   List.Forall (refcl_agree s t.(tableinst_type).(tt_elem_type))
     (t.(tableinst_elem)) /\
-  tabsize_agree t.
+  tabsize_agree t /\
+  (tableinst_type t).(tt_limits).(lim_min) == N.of_nat (tab_size t).
 
 Definition mem_agree (m : meminst) : Prop :=
   match m.(meminst_type).(lim_max) with
   | None => True
   | Some n => mem_size m <= n
-  end.
+  end /\
+  m.(meminst_type).(lim_min) == (mem_size m).
 
 Definition global_agree (g : globalinst) : Prop :=
   typeof (g.(g_val)) == tg_t (g.(g_type)).

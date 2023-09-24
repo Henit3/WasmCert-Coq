@@ -3572,33 +3572,13 @@ Proof.
   remove_bools_options. unfold mem_typing => //=.
   assert (List.nth_error m1 (N.to_nat n) = Some m3);
     first by eapply nth_error_firstn; eauto.
-  apply N.leb_le in H, H0.
-  rewrite H4. apply/eqP => //=. f_equal. apply/andP. split => //=.
-  - unfold limits_typing in H3. remove_bools_options.
-    unfold mem_size in *. apply N.leb_le.
-    assert ((mem_length m2 / page_size <= mem_length m3 / page_size)%N);
-      first by apply N.div_le_mono => //=.
-    eapply N.le_trans; eauto.
+  apply N.leb_le in H.
+  rewrite H3. apply/eqP => //=. f_equal. apply/andP. split => //=.
+  - unfold limits_typing in H0. remove_bools_options.
+    unfold mem_size in *. lias.
   - unfold limits_typing in *. remove_bools_options. 
-    rewrite -H2. apply/andP. split => //; last by apply/eqP.
-    admit.
-    (* min m3 <= min m, given:
-          min m2 <= min m
-          min m2 <= min m3
-       
-      on growth of a component (m2 -> m3), we want to prove it is valid
-        with respect to the typing in the instance (m)
-      reformulating as m2 + i = m, m2 + j = m3,
-        m3 <= m implies j <= i; we don't have enough information for this
-      
-      simplest solution would be to set some to 0
-        i = 0 (exact instance) wouldn't allow any growth to be valid
-        j = 0 (no extension growth) explicitly states no growth
-      
-      though modified definition allows arbitrary m3, it still holds that
-        m2 <= m3, with no relation defined between m and m3?
-    *)
-(* Qed. *) Admitted.
+    rewrite -H2. by apply/eqP.
+Qed.
 
 Lemma mem_extension_C: forall sm sm' im tcm,
   size sm <= size sm' ->
@@ -3651,20 +3631,12 @@ Proof.
   - inversion HN; inversion Hoption; subst t3 t4.
     rewrite H1 H4. simpl in *.
     apply/andP. simpl.
-    assert (limits_typing (datatypes.tt_limits (tableinst_type t)) tt_limits
-            && (tt_elem_type == tt_elem_type));
-      first by apply/andP; split => //.
-    rewrite H8. move/andP in H8. destruct H8 as [H8 _].
+    assert (tt_elem_type == tt_elem_type) => //.
+    rewrite H7. clear H7.
     unfold limits_typing, limits_extension in *. remove_bools_options.
     simpl in *. split => //; last by apply/eqP.
     apply/andP. split => //; first by apply Nat.leb_le in H; lias.
-    rewrite -H11. apply/andP. split => //; last by apply/eqP.
-    admit.
-    (* min t1 <= min tt, given:
-          min t <= min tt
-          min t <= min t1
-      Same argument as for memory above
-    *)
+    rewrite -H8. by apply/eqP.
 
   - assert (List.nth_error t0 n0 <> None) as Ht0len;
       first by rewrite Hoption.
@@ -3673,22 +3645,16 @@ Proof.
       last (by eapply nth_error_firstn'; eauto).
     unfold limits_typing, limits_extension in *. remove_bools_options.
     rewrite H4 H1. simpl in *. f_equal.
-    + rewrite H5 H11. apply/andP. simpl.
-      assert (lim_max tt_limits == lim_max tt_limits) as Htriv;
+    + rewrite H10 H9. apply/andP. simpl.
+      assert (lim_max (datatypes.tt_limits (tableinst_type t4)) ==
+        lim_max (datatypes.tt_limits (tableinst_type t4))) as Htriv;
         first by apply/eqP. rewrite Htriv. clear Htriv.
       split => //; first by apply Nat.leb_le in H0; lias.
-      apply/andP. split => //; last by rewrite -H10; apply/eqP.
-      admit.
-      (* min t4 <= min tt, given:
-            min t3 <= min tt
-            min t3 <= min t4
-        Same argument as for memory above
-      *)
-    + simpl.
+    + apply/eqP.
       assert (tt_elem_type == tt_elem_type) as Htriv;
         first by apply/eqP. rewrite Htriv. clear Htriv.
-      apply/eqP. by rewrite -H4.
-(* Qed. *) Admitted.
+      by rewrite -H4.
+Qed.
 
 Lemma tab_extension_C: forall st st' it tct,
   size st <= size st' ->
@@ -4385,17 +4351,25 @@ Proof.
     by inversion H2.
 Qed.
 
-(* Note this is flawed due to mem_grow not changing the min limits
-    This won't be possible until the extension is relaxed on min limit
-    The same applies to tab_extension_grow_memory.
-*)
 Lemma mem_extension_grow_memory: forall s f C i m c mem,
   inst_typing s (f_inst f) C ->
+  store_typing s ->
+  smem_ind s (f_inst f) = Some i ->
   lookup_N (s_mems s) i = Some m ->
   mem_grow m c = (Some mem) ->
   mem_extension m mem.
 Proof.
-  move => s f C i m c mem HIT HM HMGrow.
+  move => s f C i m c mem HIT HST HSMI HM HMGrow.
+
+  unfold smem_ind in HSMI. simpl in HSMI.
+  destruct inst_mems eqn:HIM => //.
+  inversion HSMI. subst m0. clear HSMI.
+  assert (lookup_N (inst_mems (f_inst f)) 0 = Some i);
+    first by rewrite HIM; unfold lookup_N.
+  assert (exists x, lookup_N (tc_memory C) 0 = Some x);
+    first by eapply inst_index_get_contextval_mem in HIT; eauto.
+  destruct H0.
+
   unfold mem_extension.
   unfold mem_grow in HMGrow.
   destruct (mem_size m + c <=? page_limit)%N eqn:HLP => //.
@@ -4404,8 +4378,8 @@ Proof.
               lim_max := lim_max (meminst_type m)
             |}) eqn:HLimValidMax => //.
   move : HMGrow.
-  case: mem => mem_data_ mem_max_opt_ H.
-  inversion H. subst. clear H.
+  case: mem => mem_data_ mem_max_opt_ H'.
+  inversion H'. subst. clear H'.
   simpl in *. apply/andP. 
   unfold limits_extension. split => //.
   - unfold mem_size, mem_length, memory_list.mem_length in *.
@@ -4416,29 +4390,33 @@ Proof.
 
     unfold inst_typing, typing.inst_typing in HIT.
     destruct (f_inst f), C, tc_local, tc_label, tc_return, tc_ref => //.
-    remove_bools_options.
-
-    (* Rough proof since typing not exactly meminst_type m but
-        it is equal for our purposes *)
-    
-    (*!! Requires knowledge of the instance contents !!*)
+    remove_bools_options. simpl in *.
 
     unfold lookup_N in HM.
-    eapply all2_projection with (x1 := i) (x2 := meminst_type m) in H2; eauto.
+    eapply all2_projection in H4; eauto.
     unfold memi_typing, option_map, mem_typing in H2.
     remove_bools_options.
-    unfold lookup_N in Hoption. rewrite Hoption in HM.
-    inversion HM. subst. apply N.leb_le in H. admit.
-    (* min m <= size m + c, given min m <= size m trivial *)
-(* Qed. *) Admitted.
 
-Lemma table_extension_grow_memory: forall s f C i tab c tabinit tab',
+    unfold store_typing in HST. destruct s => //. simpl in *.
+    destruct HST as [_ [_ [HST _]]].
+    move/List.Forall_forall in HST.
+    apply List.nth_error_In in HM.
+    assert (mem_agree m); first by apply HST.
+    unfold mem_agree in H8. destruct H8.
+    move/eqP in H9. rewrite H9.
+    apply shift_scope_le_N. lias.
+Qed.
+
+Lemma table_extension_grow_memory: forall s f C x i ttype tab c tabinit tab',
   inst_typing s (f_inst f) C ->
+  store_typing s ->
+  lookup_N (inst_tables (f_inst f)) x = Some i ->
+  lookup_N (tc_table C) x = Some ttype ->
   lookup_N (s_tables s) i = Some tab ->
   growtable tab c tabinit = Some tab' ->
   table_extension tab tab'.
 Proof.
-  move => s f C i tab c tabinit tab' HIT HT HGrow.
+  move => s f C x i ttype tab c tabinit tab' HIT HST HTI HTC HT HGrow.
   unfold table_extension.
   unfold growtable in HGrow.
   destruct (u32_bound <=? N.of_nat (tab_size tab) + c)%N eqn:HLP => //.
@@ -4466,20 +4444,31 @@ Proof.
     destruct (f_inst f), C, tc_local, tc_label, tc_return, tc_ref => //.
     remove_bools_options.
 
-    (* Rough proof since typing not exactly tableinst_type tab but
-        it is equal for our purposes *)
-    
-    (*!! Requires knowledge of the instance contents !!*)
-
     unfold lookup_N in HT.
-    eapply all2_projection with (x1 := i) (x2 := tableinst_type tab) in H5; eauto.
+    eapply all2_projection in H5; eauto.
     unfold tabi_typing, option_map, tab_typing in H5.
     remove_bools_options.
     unfold lookup_N in Hoption. rewrite Hoption in HT.
-    inversion HT. subst. rewrite Ett in H. simpl in H.
-    admit.
-    (* min tab <= size tab + c, given min tab <= size tab trivial *)
-(* Qed. *) Admitted.
+    inversion HT. subst. rewrite Ett in H.
+    simpl in *. clear H H0 HT.
+
+    unfold store_typing in HST. destruct s => //. simpl in *.
+    destruct HST as [_ [HST _]].
+    remember {|
+      s_funcs := s_funcs;
+      s_tables := s_tables;
+      datatypes.s_mems := s_mems0;
+      datatypes.s_globals := s_globals0;
+      s_elems := s_elems;
+      s_datas := s_datas
+    |} as s.
+    move/List.Forall_forall in HST.
+    apply List.nth_error_In in Hoption.
+    assert (tab_agree s tab); first by apply HST.
+    unfold tab_agree in H. destruct H as [_ [_ H]].
+    move/eqP in H. rewrite Ett in H. simpl in H. rewrite H.
+    apply shift_scope_le_N. lias.
+Qed.
   
 Lemma store_invariant_extension_store_typed: forall s s',
   store_typing s ->
@@ -4864,7 +4853,7 @@ Proof.
   assert (mem_agree m); first by eapply store_typed_mem_agree; eauto.
   unfold mem_agree in H0. rewrite HMemLim in H0.
   unfold mem_agree => //=.
-  destruct (lim_max (meminst_type mem)) eqn:HLimMax => //=.
+  destruct (lim_max (meminst_type mem)) eqn:HLimMax => //=;
   by rewrite HMemSize in H0.
 Qed.
 
@@ -4928,33 +4917,34 @@ Proof.
   assert (mem_agree m); first by eapply store_typed_mem_agree; eauto.
   remember H as H'. clear HeqH'.
   unfold mem_grow in HGrow.
-  unfold mem_agree. simpl.
+  unfold mem_agree.
   unfold mem_agree in H.
   destruct (mem_size m + c <=? page_limit)%N eqn:HLP => //.
-  destruct (lim_max (meminst_type m)) eqn:HLimMax => //=;
-    last by inversion HGrow; destruct lim_max => //=.
+  destruct H.
   destruct (limit_valid {|
               lim_min := (mem_size m + c)%N;
-              lim_max := Some u
+              lim_max := lim_max (meminst_type m)
             |}) eqn: HLimValid => //.
   unfold limit_valid in HLimValid.
-  destruct (lim_max {|
-              lim_min := (mem_size m + c)%N; lim_max := Some u
-            |}) eqn:HLimValidMax => //.
-  inversion HLimValidMax. subst. clear HLimValidMax.
-  apply N.leb_le in HLP.
-  
-  destruct (lim_max (meminst_type mem)) eqn:H1; last by inversion HGrow.
-  inversion HGrow. unfold mem_size, mem_length, memory_list.mem_length in *.
-  simpl in *. subst. clear HGrow.
-  rewrite length_is_size. rewrite size_cat.
-  repeat rewrite - length_is_size. rewrite List.repeat_length.
-  rewrite - N.div_add in H1 => //.
-  inversion H1. subst. simpl in *. clear H1.
-  rewrite - N.div_add in HLimValid => //.
-  rewrite Nat2N.inj_add N2Nat.id.
-  apply N.leb_le in HLimValid.
-  by apply shift_scope_le_N.
+  inversion HGrow. simpl in *.
+  split => //.
+  - destruct (lim_max (meminst_type m)) eqn:HLimMax => //=.
+    rewrite H2. apply N.leb_le in HLP.
+    destruct (lim_max (meminst_type mem)) eqn:H1 => //;
+      inversion HGrow; unfold mem_size, mem_length, memory_list.mem_length in *;
+      simpl in *; subst; clear HGrow;
+      rewrite length_is_size; rewrite size_cat;
+      repeat rewrite - length_is_size; rewrite List.repeat_length;
+      rewrite - N.div_add in H1 => //.
+    inversion H1. subst. simpl in *. clear H1.
+    rewrite - N.div_add in HLimValid => //.
+    rewrite Nat2N.inj_add N2Nat.id.
+    apply N.leb_le in HLimValid.
+    by apply shift_scope_le_N.
+  - inversion HGrow.
+    unfold mem_size, mem_length, memory_list.mem_length in *.
+    simpl in *. rewrite -> List.app_length.
+    rewrite List.repeat_length Nat2N.inj_add N2Nat.id N.div_add => //.
 Qed.
 
 Lemma table_grow_tab_agree:
@@ -4985,9 +4975,8 @@ Proof.
               lim_max := lim_max tt_limits
             |}) eqn:HLimMax => //=.
   inversion HGrow. simpl in *. clear HGrow.
-  
   destruct H.
-  split => //=.
+  split => //; last split => //.
   - apply List.Forall_app. split => //=. (* H used here *)
     unfold refcl_agree. apply List.Forall_forall.
     intros x HIN. apply List.repeat_spec in HIN.
@@ -5017,6 +5006,10 @@ Proof.
     rewrite length_is_size in HLimMax.
     rewrite Nat2N.inj_add N2Nat.id.
     by apply shift_scope_le_N.
+  
+  - unfold tabsize_agree, tab_size. simpl in *.
+    rewrite -> List.app_length.
+    rewrite List.repeat_length Nat2N.inj_add N2Nat.id => //.
 Qed.
 
 Lemma reduce_inst_unchanged:
@@ -5413,7 +5406,7 @@ Proof.
            Z.to_N (Wasm_int.Int32.unsigned n))%N;
         lim_max := lim_max tt_limits
       |} as limits.
-
+      
       repeat (apply/andP; split) => //=;
       try apply Nat.leb_refl; try (rewrite List.firstn_all).
       + apply all2_func_extension_same.
@@ -5686,6 +5679,7 @@ Proof.
         }
         eapply mem_extension_update_nth with (m := m).
         unfold lookup_N in H3 => //=.
+
         by eapply mem_extension_grow_memory; eauto.
       * by apply all2_global_extension_same.
       * by apply all2_elem_extension_same.

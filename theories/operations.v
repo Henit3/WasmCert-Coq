@@ -677,6 +677,20 @@ Definition those_const_list (es : list administrative_instruction) : option (lis
 
 (** Store extensions **)
 
+(** std-doc:
+Programs can mutate the store and its contained instances. Any such modification must respect
+certain invariants, such as not removing allocated instances or changing immutable definitions.
+While these invariants are inherent to the execution semantics of WebAssembly instructions and
+modules, host functions do not automatically adhere to them. Consequently, the required
+invariants must be stated as explicit constraints on the invocation of host functions.
+Soundness only holds when the embedder ensures these constraints.
+
+The necessary constraints are codified by the notion of store extension: a store state
+extends state, when the following rules hold.
+
+https://www.w3.org/TR/wasm-core-2/appendix/properties.html#store-extension
+**)
+
 (* Min limit can only grow (component can only grow) &
    Max limit remains invariant *)
 Definition limits_extension (l1 l2: limits) :=
@@ -710,6 +724,10 @@ Definition elem_extension (e1 e2: eleminst) : bool :=
 Definition data_extension (d1 d2: datainst) : bool :=
   (datainst_data d1 == datainst_data d2) || (datainst_data d2 == [::]).
 
+(* The length of the store's component lists must not shrink
+
+https://www.w3.org/TR/wasm-core-2/appendix/properties.html#extend-store
+*)
 Definition component_extension {T: Type} (ext_rel: T -> T -> bool) (l1 l2: list T): bool :=
   (Nat.leb (length l1) (length l2)) &&
   all2 ext_rel l1 (List.firstn (length l1) l2).
@@ -743,12 +761,6 @@ Definition e_is_basic (e: administrative_instruction) :=
 
 Definition e_not_basic (e: administrative_instruction) :=
   e_is_basic e -> False.
-
-(* Definition e_is_basic_bool (e: administrative_instruction) :=
-  match e with
-  | AI_basic be => true
-  | _ => false
-  end. *)
 
 Definition es_is_basic (es: list administrative_instruction) :=
   List.Forall e_is_basic es.
@@ -957,7 +969,7 @@ Definition cvt_i64 (s : option sx) (v : value_num) : option i64 :=
     | Some SX_S => Some (wasm_extend_s c)
     | None => None
     end
-  | VAL_int64 c => None
+  | VAL_int64 _ => None
   | VAL_float32 c =>
     match s with
     | Some SX_U => Wasm_float.float_ui64_trunc f32m c
@@ -986,7 +998,7 @@ Definition cvt_f32 (s : option sx) (v : value_num) : option f32 :=
     | Some SX_S => Some (Wasm_float.float_convert_si64 f32m c)
     | None => None
     end
-  | VAL_float32 c => None
+  | VAL_float32 _ => None
   | VAL_float64 c => Some (wasm_demote c)
   end.
 
@@ -1005,7 +1017,7 @@ Definition cvt_f64 (s : option sx) (v : value_num) : option f64 :=
     | None => None
     end
   | VAL_float32 c => Some (wasm_promote c)
-  | VAL_float64 c => None
+  | VAL_float64 _ => None
   end.
 
 

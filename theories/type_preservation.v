@@ -58,6 +58,10 @@ Proof.
 Qed.
 
 (* numeric *)
+(* this is not true in general (3,2,2),
+    but usage site is valid since a and b and multiples of c.
+    (mem_grow has page_size increments)
+*)
 Lemma N_div_le_mono': forall a b c,
   (c <> 0)%N ->
   (a / c <= b / c)%N ->

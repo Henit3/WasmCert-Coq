@@ -17,24 +17,30 @@ Unset Printing Implicit Defensive.
 
 (** * Basic Datatypes **)
 
+(** std-doc:
+Different classes of integers with different value ranges are distinguished by their bit width
+and by whether they are unsigned or signed.
+
+[https://www.w3.org/TR/wasm-core-2/syntax/values.html#syntax-int]
+*)
+
 Definition u32 : Type := N.
 
+(** std-doc:
+Definitions are referenced with zero-based indices. Each class of definition has its own index
+space, as distinguished by the following classes.
+
+[https://www.w3.org/TR/wasm-core-2/syntax/modules.html#indices]
+*)
+
 Definition typeidx : Type := u32.
-  
 Definition funcidx : Type := u32.
-
 Definition tableidx : Type := u32.
-
 Definition memidx : Type := u32.
-
 Definition globalidx : Type := u32.
-
 Definition elemidx : Type := u32.
-
 Definition dataidx : Type := u32.
-
 Definition localidx : Type := u32.
-
 Definition labelidx : Type := u32.
 
 
@@ -220,6 +226,8 @@ Inductive extern_type : Type :=
 
 (** std-doc:
 A structured instruction can consume input and produce output on the operand stack according to its annotated block type. 
+
+[https://www.w3.org/TR/wasm-core-2/syntax/instructions.html#syntax-blocktype]
 *)
 Inductive block_type : Type :=
 | BT_id: typeidx -> block_type
@@ -488,16 +496,26 @@ Inductive basic_instruction : Type := (* be *)
 
 
 (** std-doc:
-Function bodies, initialization values for globals, and offsets of element or data segments are given as expressions, which are sequences of instructions terminated by an 𝖾𝗇𝖽 marker.
+Function bodies, initialization values for globals, and offsets of element or data segments
+are given as expressions, which are sequences of instructions terminated by an 𝖾𝗇𝖽 marker.
 
-In some places, validation restricts expressions to be constant, which limits the set of allowable instructions.
+In some places, validation restricts expressions to be constant, which limits the set of
+allowable instructions.
 
+[https://www.w3.org/TR/wasm-core-2/syntax/instructions.html#expressions]
 *)
 Definition expr := list basic_instruction.
 
 End Instructions.
 
 (* TODO: Unicode support? *)
+(** std-doc:
+Names are sequences of characters, which are scalar values as defined by Unicode (Section 2.4).
+Due to the limitations of the binary format, the length of a name is bounded by the length of
+its UTF-8 encoding.
+
+https://www.w3.org/TR/wasm-core-2/syntax/values.html#syntax-name
+*)
 Definition name := list Byte.byte.
 
 
@@ -511,7 +529,8 @@ Each import is labeled by a two-level name space, consisting of a module name an
  Each import is specified by a descriptor with a respective type that a definition provided during
  instantiation is required to match.
 
-Every import defines an index in the respective index space. In each index space, the indices of imports go before the first index of any definition contained in the module itself.
+Every import defines an index in the respective index space. In each index space, the indices of
+imports go before the first index of any definition contained in the module itself.
 
 [https://www.w3.org/TR/wasm-core-2/syntax/modules.html#imports]
 

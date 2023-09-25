@@ -23,7 +23,7 @@ Let store_record := store_record host_function.
 (** std-doc:
 Helper function to decide if there's a valid conversion operation.
 
-See cvtop under: https://www.w3.org/TR/wasm-core-2/syntax/instructions.html#numeric-instructions
+https://www.w3.org/TR/wasm-core-2/syntax/instructions.html#syntax-cvtop
 **)
 Definition convert_helper (sxo : option sx) t1 t2 : bool :=
   (sxo == None) ==
@@ -56,6 +56,11 @@ Definition upd_label C lab :=
 Definition upd_return C ret :=
   upd_local_label_return C (tc_local C) (tc_label C) ret.
 
+(** std-doc:
+Results can be classified by result types as follows.
+
+https://www.w3.org/TR/wasm-core-2/appendix/properties.html#results
+**)
 
 Inductive result_typing : result -> result_type -> Prop :=
   | result_typing_values : forall vs, result_typing (result_values vs) (map typeof vs)
@@ -277,15 +282,6 @@ Definition limits_typing (l1 l2 : limits) : bool :=
 Definition funci_agree (fs : seq function_closure) (n : funcaddr) (f : function_type) : bool :=
   option_map cl_type (lookup_N fs n) == Some f.
 
-Definition global_typing (g : globalinst) (tg : global_type) : bool :=
-  (g.(g_type) == tg).
-
-Definition globali_agree (gs : list globalinst) (n : globaladdr) (tg : global_type) : bool :=
-  option_map (fun g => global_typing g tg) (lookup_N gs n) == Some true.
-
-(* Definition globali_agree (gs : list globalinst) (n : globaladdr) (tg : global_type) : bool :=
-  option_map g_type (lookup_N gs n) == Some tg. *)
-
 Definition tab_typing (t : tableinst) (tt : table_type) : bool :=
   (limits_typing (tableinst_type t).(tt_limits) (tt.(tt_limits))) &&
   ((tableinst_type t).(tt_elem_type) == tt.(tt_elem_type)).
@@ -298,6 +294,15 @@ Definition mem_typing (m : meminst) (m_t : memory_type) : bool :=
 
 Definition memi_typing (ms : list meminst) (n : memaddr) (mem_t : memory_type) : bool :=
   option_map (fun mem => mem_typing mem mem_t) (lookup_N ms n) == Some true.
+
+Definition global_typing (g : globalinst) (tg : global_type) : bool :=
+  (g.(g_type) == tg).
+
+Definition globali_agree (gs : list globalinst) (n : globaladdr) (tg : global_type) : bool :=
+  option_map (fun g => global_typing g tg) (lookup_N gs n) == Some true.
+
+(* Definition globali_agree (gs : list globalinst) (n : globaladdr) (tg : global_type) : bool :=
+  option_map g_type (lookup_N gs n) == Some tg. *)
 
 Definition elem_typing (e : eleminst) (et : reference_type) : bool :=
   (e.(eleminst_type) == et).
@@ -343,6 +348,12 @@ Proof.
   by move/eqP in Htype; subst.
 Qed.
 
+(** std-doc:
+Finally, frames are classified with frame contexts, which extend the module contexts of a
+frame’s associated module instance with the locals that the frame contains.
+
+https://www.w3.org/TR/wasm-core-2/appendix/properties.html#frames-xref-exec-runtime-syntax-frame-mathsf-locals-xref-exec-runtime-syntax-val-mathit-val-ast-xref-exec-runtime-syntax-frame-mathsf-module-xref-exec-runtime-syntax-moduleinst-mathit-moduleinst
+**)
 
 Inductive frame_typing: store_record -> frame -> t_context -> Prop :=
 | mk_frame_typing: forall s i tvs C f,
@@ -414,6 +425,15 @@ Inductive e_typing : store_record -> t_context -> seq administrative_instruction
   s_typing s (Some ts) f es ts ->
   length ts = n ->
   e_typing s C [::AI_local n f es] (Tf [::] ts)
+
+(** std-doc:
+Configurations and threads are classified by their result type. In addition to the store,
+threads are typed under a return type, which controls whether and with which type a
+instruction is allowed. This type is absent () except for instruction sequences inside
+an administrative instruction.
+
+https://www.w3.org/TR/wasm-core-2/appendix/properties.html#threads-f-xref-syntax-instructions-syntax-instr-mathit-instr-ast
+**)
 
 with s_typing : store_record -> option (seq value_type) -> frame -> seq administrative_instruction -> seq value_type -> Prop :=
 | mk_s_typing : forall s f es rs ts C C0,
@@ -488,6 +508,15 @@ Definition store_typing (s : store_record) : Prop :=
     List.Forall data_agree ds
   end.
 
+
+(** std-doc:
+Configurations and threads are classified by their result type. In addition to the store,
+threads are typed under a return type, which controls whether and with which type a
+instruction is allowed. This type is absent () except for instruction sequences inside
+an administrative instruction.
+
+https://www.w3.org/TR/wasm-core-2/appendix/properties.html#configurations-s-t
+**)
 
 Inductive config_typing : store_record -> frame -> seq administrative_instruction -> seq value_type -> Prop :=
 | mk_config_typing :
